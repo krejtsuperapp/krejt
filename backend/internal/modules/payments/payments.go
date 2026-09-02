@@ -40,15 +40,28 @@ const (
 	DailyTopUpMinor = 100000 // 1.000,00 €
 )
 
+// Flags — feature flags (§65): `wallet.topup` = çaktivizim emergjent i mbushjes.
+type Flags interface {
+	Enabled(ctx context.Context, key string, userID uuid.UUID) bool
+}
+
+var ErrTopUpDisabled = &httpx.APIError{Code: "TOPUP_DISABLED", MessageKey: "errors.wallet.topup_disabled", HTTPStatus: http.StatusServiceUnavailable, Retryable: true}
+
 type Service struct {
 	pool     *pgxpool.Pool
 	ledger   *ledger.Service
 	provider payment.Provider
+	flags    Flags
 	now      func() time.Time
 }
 
 func New(pool *pgxpool.Pool, led *ledger.Service, p payment.Provider) *Service {
 	return &Service{pool: pool, ledger: led, provider: p, now: time.Now}
+}
+
+func (s *Service) WithFlags(f Flags) *Service {
+	s.flags = f
+	return s
 }
 
 type Intent struct {
@@ -88,6 +101,9 @@ func (s *Service) CreateTopUp(ctx context.Context, a principal.Actor, idemKey st
 	}
 	if in.AmountMinor < MinTopUpMinor || in.AmountMinor > MaxTopUpMinor || in.AmountMinor%50 != 0 {
 		return nil, ErrAmount
+	}
+	if s.flags != nil && !s.flags.Enabled(ctx, "wallet.topup", a.UserID) {
+		return nil, ErrTopUpDisabled
 	}
 	existing, err := scanIntent(s.pool.QueryRow(ctx, `SELECT `+intentCols+` FROM payment_intents WHERE user_id = $1 AND idempotency_key = $2`, a.UserID, idemKey))
 	if err == nil {

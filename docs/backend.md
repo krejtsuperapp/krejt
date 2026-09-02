@@ -179,3 +179,21 @@ Wallet (§5): `GET /wallet` (bilanci nga ledger-i, `closed_loop: true`, limitet)
 ledger-it të përdoruesit: mbushje, udhëtime, tarifa anulimi, rimbursime). Asnjë transfer mes përdoruesve, asnjë tërheqje.
 Tarifa e kartës absorbohet nga KREJT në V1. Ende jo: rakordim automatik me raportet e ofruesit, 3-D Secure si kërkesë e
 detyruar (varet nga ofruesi/karta), Raiffeisen.
+
+## Konfigurimi i platformës (§64, §65) dhe kufizimi i shpejtësisë (§51)
+
+`GET /api/v1/config` (publik, cache 30 s; me token opsional për flag-et e personalizuara): versioni minimal/i
+rekomanduar për `X-App-Id`/`X-App-Platform`/`X-App-Version`, `update_state` (ok | recommended | required |
+maintenance), flag-et publike të vlerësuara për përdoruesin. Porta e versionit (middleware) kthen `UPDATE_REQUIRED`
+(426) nën versionin minimal dhe `MAINTENANCE` (503) kur mirëmbajtja është aktive — për të gjitha rrugët përveç
+shëndetit, `/config` dhe webhook-eve. Admin (OPERATIONS/SUPER_ADMIN): `GET/PATCH /admin/flags/{key}`
+(enabled, rollout_percent, public), `GET /admin/app-versions`, `PUT /admin/app-versions/{app}/{platform}` — çdo ndryshim
+në audit dhe i gjallë brenda 30 s në të gjitha instancat.
+
+Flag-et janë të deklaruara (tabela `feature_flags`), jo të shpërndara në kod: `rides.request` (kërkesa e udhëtimit),
+`wallet.topup` (mbushja), `rides.surge_dynamic` (i mbyllur), `drivers.self_signup`, `notifications.push`. Rollout-i
+për përqindje është determinist për përdorues (hash i çelësit + id-së).
+
+Kufizimi i shpejtësisë: 300 kërkesa/min për IP (para autentikimit) dhe 600/min për përdorues (pas RequireAuth), dritare
+fikse në Redis me `Retry-After`; OTP-ja mban kufijtë e vet më të rreptë. Nëse Redis-i nuk përgjigjet, kërkesa kalon
+(fail-open) dhe logohet — kufizimi nuk rrëzon shërbimin.
