@@ -66,15 +66,19 @@ module "ecs" {
   app_secret_arns          = module.security.secret_arns
   public_base_url          = var.public_base_url
   maps_provider            = var.maps_provider
+  sms_provider             = var.sms_provider
+  payment_provider         = var.payment_provider
+  push_provider            = var.push_provider
+  analytics_provider       = var.analytics_provider
   infobip_base_url         = var.infobip_base_url
   infobip_sender           = var.infobip_sender
   otlp_endpoint            = var.otlp_endpoint
   alb_enabled              = var.alb_enabled
   acm_certificate_arn      = var.acm_certificate_arn
   protect                  = false
-  api_desired_count        = 0 # rritet kur të ekzistojë imazhi i parë në ECR
-  worker_desired_count     = 0
-  centrifugo_desired_count = 0 # rritet kur sekreti krejt-dev/centrifugo të ketë vlerë
+  api_desired_count        = var.api_desired_count
+  worker_desired_count     = var.worker_desired_count
+  centrifugo_desired_count = var.centrifugo_desired_count
   tags                     = local.tags
 }
 

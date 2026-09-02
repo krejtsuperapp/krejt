@@ -8,7 +8,7 @@ paraja gjithmonë numër i plotë në cent; asnjë funksionalitet i simuluar (of
 ```
 backend/     Go — monolit modular: cmd/{api,worker}, internal/{modules,platform,workers}, migrime SQL të embed-uara
 infra/       Terraform (envs/{dev,staging,prod}, modules/{network,security,data,messaging,storage,ecs,cicd})
-docs/        backend.md (arkitektura dhe çdo modul), deploy.md, staging.md, runbook.md
+docs/        backend.md (arkitektura dhe çdo modul), deploy.md, dev-live.md, staging.md, runbook.md
 ```
 
 ## Ç'është ndërtuar (backend)

@@ -99,6 +99,32 @@ variable "public_base_url" {
   type        = string
 }
 
+# Ofruesit e jashtëm zgjidhen për mjedis. Vlerat "dev*" i pranon vetëm APP_ENV=development;
+# në staging dhe prod backend-i i refuzon, ndaj një gabim shtypi nuk kalon në heshtje.
+variable "sms_provider" {
+  description = "infobip | devlog (vetëm development)"
+  type        = string
+  default     = "infobip"
+}
+
+variable "payment_provider" {
+  description = "stripe | devlog (vetëm development)"
+  type        = string
+  default     = "stripe"
+}
+
+variable "push_provider" {
+  description = "fcm | devlog (vetëm development)"
+  type        = string
+  default     = "fcm"
+}
+
+variable "analytics_provider" {
+  description = "posthog | devlog (vetëm development)"
+  type        = string
+  default     = "posthog"
+}
+
 variable "maps_provider" {
   description = "Ofruesi i hartave: google | mapbox. Të dy sekretet janë të lidhur; kjo vendos cili përdoret."
   type        = string

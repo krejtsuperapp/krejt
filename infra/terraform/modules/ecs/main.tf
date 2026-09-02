@@ -369,6 +369,10 @@ locals {
     # Ofruesit zgjidhen këtu e jo nga vlerat e paracaktuara të kodit: një mjedis i vërtetë
     # nuk duhet të varet nga ajo çka ndodh të jetë default.
     { name = "MAPS_PROVIDER", value = var.maps_provider },
+    { name = "SMS_PROVIDER", value = var.sms_provider },
+    { name = "PAYMENT_PROVIDER", value = var.payment_provider },
+    { name = "PUSH_PROVIDER", value = var.push_provider },
+    { name = "ANALYTICS_PROVIDER", value = var.analytics_provider },
     { name = "INFOBIP_BASE_URL", value = var.infobip_base_url },
     { name = "INFOBIP_SENDER", value = var.infobip_sender },
     { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = var.otlp_endpoint },
