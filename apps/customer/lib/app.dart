@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'screens/blocked.dart';
 import 'screens/boot.dart';
-import 'screens/home.dart';
+import 'screens/shell.dart';
 import 'screens/language.dart';
 import 'screens/sign_in.dart';
 import 'state/app_state.dart';
@@ -51,7 +51,7 @@ class _Gate extends StatelessWidget {
       case BootPhase.signedOut:
         return const SignInScreen();
       case BootPhase.ready:
-        return const HomeScreen();
+        return const CustomerShell();
       case BootPhase.failed:
         return const BootScreen(showRetry: true);
     }
