@@ -63,6 +63,11 @@ type Config struct {
 	AssetsBucket    string
 	DevFSDir        string
 	PublicBaseURL   string // URL-ja publike e API-së (për devfs dhe linqe)
+
+	// pagesat (§24): PAYMENT_PROVIDER stripe | devlog (vetëm development); sekretet nga krejt/<env>/payment-provider
+	PaymentProvider     string
+	StripeSecretKey     string
+	StripeWebhookSecret string
 }
 
 func Load() (*Config, error) {
@@ -101,6 +106,9 @@ func Load() (*Config, error) {
 		AssetsBucket:              os.Getenv("S3_ASSETS_BUCKET"),
 		DevFSDir:                  os.Getenv("DEVFS_DIR"),
 		PublicBaseURL:             getenv("PUBLIC_BASE_URL", "http://localhost:8080"),
+		PaymentProvider:           getenv("PAYMENT_PROVIDER", "stripe"),
+		StripeSecretKey:           os.Getenv("STRIPE_SECRET_KEY"),
+		StripeWebhookSecret:       os.Getenv("STRIPE_WEBHOOK_SECRET"),
 	}
 	for _, kv := range os.Environ() {
 		if strings.HasPrefix(kv, "SQS_") && strings.Contains(kv, "_QUEUE_URL=") {

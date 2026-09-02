@@ -71,13 +71,26 @@ func TestMap(t *testing.T) {
 	if got, _ = Map(ev(t, "UserProfileUpdated", map[string]any{"user_id": cust, "changed": []string{"full_name"}})); len(got) != 0 {
 		t.Fatalf("profile name: %+v", got)
 	}
+	// wallet: mbushja njofton pronarin; dokumenti: vetëm refuzimi
+	got, _ = Map(ev(t, "WalletToppedUp", map[string]any{"user_id": cust, "amount_minor": 2000, "currency": "EUR", "intent_id": uuid.New()}))
+	if len(got) != 1 || got[0].Category != "wallet" || got[0].Params["amount_minor"] != "2000" || got[0].DeepLink != "krejt://wallet" {
+		t.Fatalf("WalletToppedUp: %+v", got)
+	}
+	got, _ = Map(ev(t, "DriverDocumentReviewed", map[string]any{"driver_id": drv, "status": "rejected", "type": "insurance", "reason": "e paqartë"}))
+	if len(got) != 1 || got[0].TextKey != "notif.driver.document_rejected" || got[0].Params["doc_type"] != "insurance" {
+		t.Fatalf("document rejected: %+v", got)
+	}
+	if got, _ = Map(ev(t, "DriverDocumentReviewed", map[string]any{"driver_id": drv, "status": "approved", "type": "insurance"})); len(got) != 0 {
+		t.Fatalf("document approved s'ka njoftim: %+v", got)
+	}
 	if got, _ = Map(ev(t, "SomethingElse", map[string]any{})); len(got) != 0 {
 		t.Fatalf("e panjohur: %+v", got)
 	}
 	// çdo çelës i përdorur nga Map ekziston në tekste
 	for _, key := range []string{"notif.ride.offer", "notif.ride.assigned", "notif.ride.arrived", "notif.ride.started", "notif.ride.completed",
 		"notif.ride.completed.driver", "notif.ride.cancelled.customer", "notif.ride.reassigning", "notif.ride.no_driver",
-		"notif.payment.paid", "notif.payment.failed", "notif.driver.approved", "notif.driver.suspended", "notif.security.profile_changed"} {
+		"notif.payment.paid", "notif.payment.failed", "notif.driver.approved", "notif.driver.suspended", "notif.security.profile_changed",
+		"notif.wallet.topup", "notif.driver.document_rejected"} {
 		if _, ok := texts[key]; !ok {
 			t.Errorf("mungon teksti për %s", key)
 		}

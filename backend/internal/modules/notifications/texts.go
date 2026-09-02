@@ -68,6 +68,16 @@ var texts = map[string]map[string][2]string{
 		"en": {"Payment failed", "Your wallet balance was too low. Top up to continue."},
 		"de": {"Zahlung fehlgeschlagen", "Dein Wallet-Guthaben reichte nicht. Lade auf, um fortzufahren."},
 	},
+	"notif.wallet.topup": {
+		"sq": {"Wallet-i u mbush", "{amount} u shtua në KREJT Wallet."},
+		"en": {"Wallet topped up", "{amount} was added to your KREJT Wallet."},
+		"de": {"Wallet aufgeladen", "{amount} wurde deinem KREJT Wallet gutgeschrieben."},
+	},
+	"notif.driver.document_rejected": {
+		"sq": {"Dokument i refuzuar", "{doc_type}: {reason}. Ngarkoje sërish."},
+		"en": {"Document rejected", "{doc_type}: {reason}. Please upload it again."},
+		"de": {"Dokument abgelehnt", "{doc_type}: {reason}. Bitte lade es erneut hoch."},
+	},
 	"notif.driver.approved": {
 		"sq": {"Je miratuar si shofer", "Mund të dalësh online dhe të marrësh udhëtime."},
 		"en": {"You're approved as a driver", "You can go online and start taking rides."},

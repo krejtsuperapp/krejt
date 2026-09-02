@@ -136,6 +136,21 @@ func Map(ev events.Event) ([]Target, error) {
 			return nil, nil
 		}
 		return []Target{{UserID: cid, Category: "payments", TextKey: key, Params: map[string]string{"ride_id": p.str("ride_id")}, DeepLink: rideLink(), Priority: "normal"}}, nil
+	case "WalletToppedUp":
+		uid, ok := p.uuid("user_id")
+		if !ok {
+			return nil, nil
+		}
+		return []Target{{UserID: uid, Category: "wallet", TextKey: "notif.wallet.topup",
+			Params:   map[string]string{"amount_minor": fmt.Sprint(p.int64("amount_minor")), "currency": p.str("currency"), "intent_id": p.str("intent_id")},
+			DeepLink: "krejt://wallet", Priority: "normal"}}, nil
+	case "DriverDocumentReviewed":
+		did, ok := p.uuid("driver_id")
+		if !ok || p.str("status") != "rejected" {
+			return nil, nil
+		}
+		return []Target{{UserID: did, Category: "support", TextKey: "notif.driver.document_rejected",
+			Params: map[string]string{"doc_type": p.str("type"), "reason": p.str("reason")}, DeepLink: "krejt://driver/documents", Priority: "normal"}}, nil
 	case "DriverApproved", "DriverSuspended":
 		did, ok := p.uuid("driver_id")
 		if !ok {
@@ -368,7 +383,7 @@ func localize(params map[string]string, locale string) map[string]string {
 	if cur == "" {
 		cur = "EUR"
 	}
-	for _, pair := range [][2]string{{"price_minor", "price"}, {"earnings_minor", "earnings"}, {"fee_minor", "fee"}} {
+	for _, pair := range [][2]string{{"price_minor", "price"}, {"earnings_minor", "earnings"}, {"fee_minor", "fee"}, {"amount_minor", "amount"}} {
 		var minor int64
 		if _, err := fmt.Sscan(params[pair[0]], &minor); err == nil && params[pair[0]] != "" {
 			out[pair[1]] = FormatMoney(minor, cur, locale)
