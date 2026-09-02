@@ -18,6 +18,7 @@ import (
 	"krejt.app/backend/internal/modules/dispatch"
 	"krejt.app/backend/internal/modules/documents"
 	"krejt.app/backend/internal/modules/drivers"
+	"krejt.app/backend/internal/modules/fraud"
 	"krejt.app/backend/internal/modules/ledger"
 	"krejt.app/backend/internal/modules/location"
 	"krejt.app/backend/internal/modules/notifications"
@@ -104,6 +105,7 @@ func main() {
 	notifSvc := notifications.New(pool, pushProvider)
 	rtSvc := realtime.New(pool, rtPub, nil) // worker-i vetëm publikon; token-at i lëshon API-ja
 	analyticsSvc := analytics.New(analyticsProvider)
+	fraudSvc := fraud.New(pool, rdb)
 
 	// përpunuesit e ngjarjeve (të njëjtët në AWS përmes SQS dhe lokalisht në proces)
 	handle := func(ctx context.Context, ev events.Event) error {
@@ -113,7 +115,10 @@ func main() {
 		if err := notifSvc.Handle(ctx, ev); err != nil {
 			return err
 		}
-		return analyticsSvc.Handle(ctx, ev)
+		if err := analyticsSvc.Handle(ctx, ev); err != nil {
+			return err
+		}
+		return fraudSvc.Handle(ctx, ev)
 	}
 
 	// --- ngjarjet: outbox → SNS (AWS) ose → përpunuesit në proces (development) ------

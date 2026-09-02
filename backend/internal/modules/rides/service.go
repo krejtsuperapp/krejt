@@ -40,13 +40,14 @@ type Flags interface {
 var ErrServiceDisabled = &httpx.APIError{Code: "SERVICE_DISABLED", MessageKey: "errors.rides.service_disabled", HTTPStatus: http.StatusServiceUnavailable, Retryable: true}
 
 type Service struct {
-	pool    *pgxpool.Pool
-	loc     *location.Service
-	ledger  *ledger.Service
-	drivers *drivers.Service
-	pricing *pricing.Service
-	flags   Flags
-	now     func() time.Time
+	pool     *pgxpool.Pool
+	loc      *location.Service
+	ledger   *ledger.Service
+	drivers  *drivers.Service
+	pricing  *pricing.Service
+	flags    Flags
+	velocity Velocity
+	now      func() time.Time
 }
 
 func New(pool *pgxpool.Pool, loc *location.Service, led *ledger.Service, drv *drivers.Service, pr *pricing.Service) *Service {
@@ -56,6 +57,16 @@ func New(pool *pgxpool.Pool, loc *location.Service, led *ledger.Service, drv *dr
 // WithFlags — kur është vendosur, kërkesat e reja kontrollojnë flag-un `rides.request`.
 func (s *Service) WithFlags(f Flags) *Service {
 	s.flags = f
+	return s
+}
+
+// Velocity — kufi shpejtësie për përdorues (fraud §67): p.sh. 10 kërkesa udhëtimi në orë.
+type Velocity interface {
+	Allow(ctx context.Context, userID uuid.UUID, action string, limit int, window time.Duration) error
+}
+
+func (s *Service) WithVelocity(v Velocity) *Service {
+	s.velocity = v
 	return s
 }
 
@@ -155,6 +166,11 @@ func (s *Service) Request(ctx context.Context, a principal.Actor, idemKey string
 	}
 	if s.flags != nil && !s.flags.Enabled(ctx, "rides.request", a.UserID) {
 		return nil, ErrServiceDisabled
+	}
+	if s.velocity != nil {
+		if err := s.velocity.Allow(ctx, a.UserID, "ride_request", 10, time.Hour); err != nil {
+			return nil, err
+		}
 	}
 
 	// idempotencë: e njëjta kërkesë kthen të njëjtin udhëtim

@@ -251,3 +251,14 @@ Specifikimi i plotë i API-së: `backend/internal/platform/httpx/openapi/openapi
 Prej tij gjenerohet `packages/api-client` për Flutter/Next.js. Testi `openapi_test.go` skanon kodin për çdo rrugë të
 regjistruar dhe dështon nëse ndonjë endpoint mungon në spec (ose spec-i ka endpoint që s'ekziston) — dokumenti nuk
 mund të mbetet pas kodit.
+
+## Fraud / risk v1 (§67)
+
+Rregulla mbi ngjarjet e outbox-it (worker) që ngrenë **flamuj risku** për Operacionet — nuk bllokojnë vetë:
+`driver_cancel_rate` (7 ditë, ≥ 5 caktime, ≥ 30 % anulime nga shoferi), `customer_cancel_burst` (≥ 5 anulime/24 h;
+high nga 10), `review_burst` (≥ 3 vlerësime 1★/24 h), `topup_velocity` (≥ 3 mbushje ose ≥ 500 €/orë),
+`refund_pattern` (≥ 3 rimbursime/30 ditë). Unik për (përdorues, lloj, ngjarje) → ridorëzimi nuk dyfishon.
+Kufij të zbatuar menjëherë (Redis): 10 kërkesa udhëtimi/orë për përdorues (`TOO_MANY_REQUESTS`), përveç kufijve
+të OTP-së dhe të mbushjes. Ops: `GET/PATCH /admin/risk/flags`, `POST /admin/users/{id}/block|unblock` (bllokimi shkyç
+sesionet; `RequireAuth` refuzon përdoruesit jo-aktivë në çdo kërkesë). Çdo veprim me audit dhe ngjarje.
+Ende jo: gjurmë pajisjeje (device fingerprint), sinjale ATO nga kyçjet e reja, model pikëzimi.

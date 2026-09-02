@@ -18,6 +18,7 @@ import (
 	"krejt.app/backend/internal/modules/chat"
 	"krejt.app/backend/internal/modules/documents"
 	"krejt.app/backend/internal/modules/drivers"
+	"krejt.app/backend/internal/modules/fraud"
 	"krejt.app/backend/internal/modules/ledger"
 	"krejt.app/backend/internal/modules/location"
 	"krejt.app/backend/internal/modules/notifications"
@@ -164,7 +165,8 @@ func main() {
 	docsSvc := documents.New(pool, store)
 	driversSvc := drivers.New(pool, locSvc).WithEligibility(docsSvc)
 	appCfg := appconfig.New(pool)
-	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricingSvc).WithFlags(appCfg)
+	fraudSvc := fraud.New(pool, rdb)
+	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricingSvc).WithFlags(appCfg).WithVelocity(fraudSvc)
 	limiter := ratelimit.New(rdb, log)
 	perUser := limiter.PerUser(600, time.Minute) // §51: kufi për përdorues të kyçur
 	requireAuth := func(next http.Handler) http.Handler { return authSvc.RequireAuth("")(perUser(next)) }
@@ -197,7 +199,7 @@ func main() {
 	realtime.New(pool, rtPub, rtTokens).Routes(mux, requireAuth)
 	reviews.New(pool).Routes(mux, requireAuth)
 	docsSvc.Routes(mux, requireAuth, requireOps)
-	paymentsSvc := payments.New(pool, ledgerSvc, payProvider).WithFlags(appCfg)
+	paymentsSvc := payments.New(pool, ledgerSvc, payProvider).WithFlags(appCfg).WithRisk(fraudSvc)
 	paymentsSvc.Routes(mux, requireAuth, requireFinance)
 	wallet.New(pool, ledgerSvc, wallet.Limits{MinTopUpMinor: payments.MinTopUpMinor, MaxTopUpMinor: payments.MaxTopUpMinor, DailyTopUpMinor: payments.DailyTopUpMinor}).Routes(mux, requireAuth)
 	if dev, ok := payProvider.(*payment.DevLog); ok {
@@ -205,6 +207,7 @@ func main() {
 	}
 	support.New(pool).Routes(mux, requireAuth, requireSupport)
 	chat.New(pool).Routes(mux, requireAuth)
+	fraudSvc.Routes(mux, requireOps)
 	admin.New(pool, rdb, ledgerSvc).Routes(mux, requireStaff, requireAdmin)
 	if fs, ok := store.(*storage.DevFS); ok {
 		documents.DevRoutes(mux, fs) // vetëm development (devfs)
