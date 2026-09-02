@@ -116,3 +116,16 @@ resource "aws_budgets_budget" "dev" {
     subscriber_email_addresses = [var.alert_email]
   }
 }
+
+# --- CI/CD: GitHub Actions → ECR/ECS me OIDC (asnjë çelës i përhershëm) --------------------
+module "cicd" {
+  source              = "../../modules/cicd"
+  name                = var.name
+  region              = var.region
+  github_repo         = var.github_repo
+  cluster_name        = module.ecs.cluster_name
+  ecr_repository_arns = module.ecs.ecr_repository_arns
+  task_role_arn       = module.ecs.task_role_arn
+  exec_role_arn       = module.ecs.exec_role_arn
+  tags                = local.tags
+}

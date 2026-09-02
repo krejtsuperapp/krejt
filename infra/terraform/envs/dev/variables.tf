@@ -43,3 +43,9 @@ variable "otlp_endpoint" {
   type        = string
   default     = ""
 }
+
+variable "github_repo" {
+  description = "Repo-ja që bën deploy përmes OIDC (owner/repo)."
+  type        = string
+  default     = "krejtsuperapp/krejt"
+}

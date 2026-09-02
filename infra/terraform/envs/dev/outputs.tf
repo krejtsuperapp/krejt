@@ -11,3 +11,5 @@ output "domain_events_topic_arn" { value = module.messaging.domain_events_topic_
 output "assets_bucket" { value = module.storage.bucket_name }
 output "kms_key_arn" { value = module.security.kms_key_arn }
 output "provider_secret_arns" { value = module.security.secret_arns }
+output "deploy_role_arn" { value = module.cicd.deploy_role_arn }
+output "ecs_cluster_name" { value = module.ecs.cluster_name }

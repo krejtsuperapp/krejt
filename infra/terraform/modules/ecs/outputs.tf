@@ -5,3 +5,4 @@ output "app_security_group_id" { value = aws_security_group.app.id }
 output "ecr_repository_urls" { value = { for k, r in aws_ecr_repository.this : k => r.repository_url } }
 output "task_role_arn" { value = aws_iam_role.task.arn }
 output "exec_role_arn" { value = aws_iam_role.exec.arn }
+output "ecr_repository_arns" { value = [for k, r in aws_ecr_repository.this : r.arn] }
