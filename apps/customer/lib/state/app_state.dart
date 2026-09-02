@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
@@ -33,10 +34,13 @@ class AppState extends ChangeNotifier {
   BootPhase phase = BootPhase.starting;
   PublicConfig config = PublicConfig.fallback();
   Me? me;
+  Ride? activeRide;
+  List<Ride> recentRides = const [];
   String locale = 'sq';
   ApiError? bootError;
 
   bool get isSignedIn => me != null;
+  bool get hasActiveRide => activeRide != null;
 
   static String _platform() {
     if (kIsWeb) return 'web';
@@ -97,6 +101,7 @@ class AppState extends ChangeNotifier {
         await setLocale(me!.locale, sync: false);
       }
       phase = BootPhase.ready;
+      unawaited(refreshRides());
     } on ApiError catch (e) {
       if (e.isUnauthorized) {
         me = null;
@@ -137,6 +142,36 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Historiku i fundit dhe udhëtimi aktiv vijnë nga i njëjti burim: serveri i rendit
+  /// nga më i riu, ndaj i pari mjafton për të ditur nëse diçka është ende në rrjedhë (§20).
+  Future<void> refreshRides() async {
+    try {
+      final rides = await api.rideHistory(limit: 10);
+      recentRides = rides;
+      Ride? active;
+      for (final r in rides) {
+        if (r.isActive) {
+          active = r;
+          break;
+        }
+      }
+      activeRide = active;
+      notifyListeners();
+    } on ApiError {
+      // Pamja e vjetër mbetet; rifreskohet në veprimin e radhës.
+    }
+  }
+
+  Future<void> refreshHome() async {
+    await Future.wait([refreshMe(), refreshRides()]);
+  }
+
+  /// Ruajtja e profilit kthen përdoruesin e ri nga serveri; ekranet e shohin menjëherë.
+  Future<void> saveProfile({String? fullName, String? email}) async {
+    me = await api.updateProfile(fullName: fullName, email: email);
+    notifyListeners();
+  }
+
   Future<void> refreshMe() async {
     try {
       me = await api.me();
@@ -149,12 +184,16 @@ class AppState extends ChangeNotifier {
   Future<void> signOut() async {
     await api.logout();
     me = null;
+    activeRide = null;
+    recentRides = const [];
     phase = BootPhase.signedOut;
     notifyListeners();
   }
 
   void _onSessionExpired() {
     me = null;
+    activeRide = null;
+    recentRides = const [];
     phase = BootPhase.signedOut;
     notifyListeners();
   }
