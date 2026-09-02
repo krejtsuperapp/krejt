@@ -5,6 +5,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -40,6 +41,9 @@ var ErrNotFound = errors.New("storage: object not found")
 
 type Provider interface {
 	PresignUpload(ctx context.Context, key, contentType string, sizeBytes int64, ttl time.Duration) (UploadTarget, error)
+	// PutBytes — shkrim nga vetë serveri, për objekte që i prodhon ai (p.sh. eksporti i të dhënave).
+	// Ngarkimet e përdoruesve kalojnë gjithmonë nga PresignUpload, që bajtët të mos prekin API-në.
+	PutBytes(ctx context.Context, key, contentType string, body []byte) error
 	Head(ctx context.Context, key string) (ObjectInfo, error)
 	PresignDownload(ctx context.Context, key string, ttl time.Duration) (string, error)
 	Delete(ctx context.Context, key string) error
@@ -89,6 +93,20 @@ func (p *S3) PresignUpload(ctx context.Context, key, contentType string, sizeByt
 		}
 	}
 	return UploadTarget{URL: out.URL, Method: out.Method, Headers: headers, ExpiresAt: time.Now().Add(ttl)}, nil
+}
+
+func (p *S3) PutBytes(ctx context.Context, key, contentType string, body []byte) error {
+	_, err := p.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:        aws.String(p.bucket),
+		Key:           aws.String(key),
+		ContentType:   aws.String(contentType),
+		ContentLength: aws.Int64(int64(len(body))),
+		Body:          bytes.NewReader(body),
+	})
+	if err != nil {
+		return fmt.Errorf("storage: put: %w", err)
+	}
+	return nil
 }
 
 func (p *S3) Head(ctx context.Context, key string) (ObjectInfo, error) {
@@ -186,6 +204,10 @@ func (d *DevFS) Put(key, contentType string, body io.Reader) error {
 	delete(d.pending, key)
 	d.mu.Unlock()
 	return nil
+}
+
+func (d *DevFS) PutBytes(_ context.Context, key, contentType string, body []byte) error {
+	return d.Put(key, contentType, bytes.NewReader(body))
 }
 
 func (d *DevFS) Head(_ context.Context, key string) (ObjectInfo, error) {

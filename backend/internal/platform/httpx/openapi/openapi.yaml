@@ -110,6 +110,15 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AddressInput" } } } }
       responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Address" } } } }, "404": { $ref: "#/components/responses/Err" } }
     delete: { tags: [users], summary: Fshi adresën, responses: { "204": { description: OK }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/users/me/export:
+    post:
+      tags: [users]
+      summary: "Kërko eksportin e të dhënave personale (një në 24 h; ndërtohet nga worker-i)"
+      responses: { "202": { description: Kërkesa u pranua, content: { application/json: { schema: { $ref: "#/components/schemas/DataExport" } } } }, "409": { $ref: "#/components/responses/Err" }, "429": { $ref: "#/components/responses/Err" } }
+    get:
+      tags: [users]
+      summary: "Gjendja e eksportit të fundit; download_url vetëm kur është gati (URL e nënshkruar, 10 min)"
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DataExport" } } } } }
   /api/v1/users/me/notification-preferences:
     get: { tags: [users], summary: Preferencat e njoftimeve (8 kategori), responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Preference" } } } } } } } } }
     put:
@@ -713,6 +722,9 @@ components:
         - $ref: "#/components/schemas/AddressInput"
         - type: object
           properties: { id: { type: string, format: uuid }, created_at: { type: string, format: date-time }, updated_at: { type: string, format: date-time } }
+    DataExport:
+      type: object
+      properties: { id: { type: string, format: uuid }, status: { type: string, enum: [none, pending, building, ready, failed, expired] }, requested_at: { type: string, format: date-time }, completed_at: { type: [string, "null"], format: date-time }, expires_at: { type: [string, "null"], format: date-time }, size_bytes: { type: [integer, "null"] }, download_url: { type: string } }
     Preference:
       type: object
       required: [category]

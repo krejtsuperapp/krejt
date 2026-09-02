@@ -87,6 +87,13 @@ Të dy sekretet lidhen te task definition-i, ndaj kalimi nga njëri te tjetri nu
 Token-i i Mapbox shkon si parametër URL-je sepse ofruesi nuk pranon header autorizimi te ky endpoint; as URL-ja
 as trupi i përgjigjes nuk logohen.
 
+**dataexport (§16)** — `POST /users/me/export` regjistron një kërkesë; worker-i e ndërton në sfond dhe
+e ngarkon si JSON në S3; `GET` kthen gjendjen dhe një URL të nënshkruar 10-minutëshe kur është gati.
+Një eksport në 24 h për përdorues (një kërkesë e dështuar mund të përsëritet menjëherë). Skedari fshihet
+pas 7 ditësh nga puna periodike, ndërsa rreshti mbetet si gjurmë se eksporti u bë. Përmbajtja është vetëm
+e llogarisë kërkuese: emrat dhe numrat e shoferëve, korrierëve dhe vendeve nuk hyjnë, sepse janë të dhënat
+e tyre. API-ja nuk i shërben kurrë bajtët vetë.
+
 **pricing** — zona (`service_areas`, Prishtina aktive), kategoritë (economy/comfort/xl/taxi), rregullat për zonë × kategori
 (bazë, €/km, €/min, minimum, tarifë anulimi + periudhë hiri, surge në pikë bazë, komision). `POST /rides/quote` kthen një
 ofertë (quote) për kategori, me afat 2 min; çmimi llogaritet vetëm me numra të plotë dhe rrumbullakohet lart në 10 cent.

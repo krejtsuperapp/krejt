@@ -16,6 +16,7 @@ import (
 	"krejt.app/backend/internal/modules/analytics"
 	"krejt.app/backend/internal/modules/catalog"
 	"krejt.app/backend/internal/modules/chat"
+	"krejt.app/backend/internal/modules/dataexport"
 	"krejt.app/backend/internal/modules/dispatch"
 	"krejt.app/backend/internal/modules/documents"
 	"krejt.app/backend/internal/modules/drivers"
@@ -158,6 +159,27 @@ func main() {
 		maintenance.Job{Name: "chat.retention", Every: 6 * time.Hour, Run: func(ctx context.Context) (string, error) {
 			n, err := chat.New(pool).RetentionSweep(ctx)
 			return fmt.Sprintf("deleted=%d", n), err
+		}},
+		// Eksportet ndërtohen këtu e jo te API-ja: leximi i gjithë historikut të një përdoruesi
+		// mund të zgjasë, dhe një kërkesë HTTP nuk duhet ta presë (§16).
+		maintenance.Job{Name: "dataexport.build", Every: time.Minute, Run: func(ctx context.Context) (string, error) {
+			svc := dataexport.New(pool, store)
+			built := 0
+			for built < 5 {
+				did, err := svc.BuildNext(ctx)
+				if err != nil {
+					return fmt.Sprintf("built=%d", built), err
+				}
+				if !did {
+					break
+				}
+				built++
+			}
+			return fmt.Sprintf("built=%d", built), nil
+		}},
+		maintenance.Job{Name: "dataexport.expire", Every: time.Hour, Run: func(ctx context.Context) (string, error) {
+			n, err := dataexport.New(pool, store).ExpireOld(ctx)
+			return fmt.Sprintf("expired=%d", n), err
 		}},
 	).Run)
 	if url := cfg.QueueURLs["notifications"]; url != "" && cfg.EventsPublisher == "sns" {
