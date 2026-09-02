@@ -13,13 +13,18 @@ import (
 	"time"
 
 	"krejt.app/backend/internal/modules/auth"
+	"krejt.app/backend/internal/modules/drivers"
 	"krejt.app/backend/internal/modules/ledger"
+	"krejt.app/backend/internal/modules/location"
+	"krejt.app/backend/internal/modules/pricing"
+	"krejt.app/backend/internal/modules/rides"
 	"krejt.app/backend/internal/modules/users"
 	"krejt.app/backend/internal/platform/cache"
 	"krejt.app/backend/internal/platform/config"
 	"krejt.app/backend/internal/platform/db"
 	"krejt.app/backend/internal/platform/httpx"
 	"krejt.app/backend/internal/platform/logx"
+	"krejt.app/backend/internal/platform/providers/maps"
 	"krejt.app/backend/internal/platform/providers/sms"
 )
 
@@ -62,6 +67,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	mapsProvider, err := maps.NewFromEnv(cfg.Env, cfg.MapsProvider, cfg.GoogleMapsKey, log)
+	if err != nil {
+		log.Error("maps provider", "err", err)
+		os.Exit(1)
+	}
+
 	var signer *auth.Signer
 	if cfg.JWTPrivateKeyPEM != "" {
 		signer, err = auth.LoadSigner([]byte(cfg.JWTPrivateKeyPEM))
@@ -87,6 +98,13 @@ func main() {
 	// --- modulet -----------------------------------------------------------------
 	ledgerSvc := ledger.New(pool)
 	authSvc := auth.New(pool, rdb, smsProvider, signer, ledgerSvc, pepper)
+	locSvc := location.New(rdb, pool)
+	pricingSvc := pricing.New(pool, mapsProvider, locSvc)
+	driversSvc := drivers.New(pool, locSvc)
+	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricingSvc)
+	requireAuth := authSvc.RequireAuth("")
+	requireDriver := authSvc.RequireAnyCapability("RIDE_DRIVER", "TAXI_DRIVER")
+	requireOps := authSvc.RequireAuth("OPERATIONS")
 
 	// --- router ----------------------------------------------------------------
 	mux := http.NewServeMux()
@@ -99,7 +117,9 @@ func main() {
 		})
 	})
 	authSvc.Routes(mux)
-	users.New(pool, ledgerSvc).Routes(mux, authSvc.RequireAuth(""))
+	users.New(pool, ledgerSvc).Routes(mux, requireAuth)
+	driversSvc.Routes(mux, requireAuth, requireDriver, requireOps)
+	ridesSvc.Routes(mux, requireAuth, requireDriver)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound)
 	})

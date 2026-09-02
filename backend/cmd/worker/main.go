@@ -10,11 +10,19 @@ import (
 	"syscall"
 	"time"
 
+	"krejt.app/backend/internal/modules/dispatch"
+	"krejt.app/backend/internal/modules/drivers"
+	"krejt.app/backend/internal/modules/ledger"
+	"krejt.app/backend/internal/modules/location"
+	"krejt.app/backend/internal/modules/pricing"
+	"krejt.app/backend/internal/modules/rides"
 	"krejt.app/backend/internal/platform/cache"
 	"krejt.app/backend/internal/platform/config"
 	"krejt.app/backend/internal/platform/db"
 	"krejt.app/backend/internal/platform/events"
 	"krejt.app/backend/internal/platform/logx"
+	"krejt.app/backend/internal/platform/providers/maps"
+	dispatchworker "krejt.app/backend/internal/workers/dispatch"
 	"krejt.app/backend/internal/workers/outbox"
 )
 
@@ -52,11 +60,28 @@ func main() {
 
 	log.Info("worker started", "env", cfg.Env, "events_publisher", cfg.EventsPublisher, "queues", cfg.QueueURLs)
 
+	mapsProvider, err := maps.NewFromEnv(cfg.Env, cfg.MapsProvider, cfg.GoogleMapsKey, log)
+	if err != nil {
+		log.Error("maps provider", "err", err)
+		os.Exit(1)
+	}
+	locSvc := location.New(rdb, pool)
+	ledgerSvc := ledger.New(pool)
+	driversSvc := drivers.New(pool, locSvc)
+	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricing.New(pool, mapsProvider, locSvc))
+	dispatcher := dispatch.New(pool, locSvc, log)
+
 	relay := outbox.New(pool, publisher, log)
+	loop := dispatchworker.New(dispatcher, ridesSvc, log)
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		relay.Run(ctx)
+	}()
+	dispatchDone := make(chan struct{})
+	go func() {
+		defer close(dispatchDone)
+		loop.Run(ctx)
 	}()
 
 	// heartbeat + kontroll i lidhjeve (§50): humbja e DB/Redis duket në log dhe alarm
@@ -66,6 +91,7 @@ func main() {
 		select {
 		case <-ctx.Done():
 			<-done
+			<-dispatchDone
 			log.Info("worker stopped")
 			return
 		case <-t.C:

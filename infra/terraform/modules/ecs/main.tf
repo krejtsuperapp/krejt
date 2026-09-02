@@ -351,8 +351,11 @@ resource "aws_iam_role_policy" "task" {
 locals {
   ecr_base = "${data.aws_caller_identity.this.account_id}.dkr.ecr.${data.aws_region.this.name}.amazonaws.com/${var.name}"
 
+  # APP_ENV i backend-it: development | staging | production (emri i mjedisit AWS mbetet dev/staging/prod)
+  app_env = lookup({ dev = "development", staging = "staging", prod = "production" }, var.environment, var.environment)
+
   common_env = [
-    { name = "APP_ENV", value = var.environment },
+    { name = "APP_ENV", value = local.app_env },
     { name = "AWS_REGION", value = data.aws_region.this.name },
     { name = "S3_ASSETS_BUCKET", value = var.assets_bucket_name },
     { name = "SNS_DOMAIN_EVENTS_TOPIC_ARN", value = var.domain_events_topic_arn },
@@ -364,9 +367,16 @@ locals {
   ]
   queue_env = [for k, u in var.queue_urls : { name = "SQS_${upper(k)}_QUEUE_URL", value = u }]
 
+  # Sekretet e aplikacionit (vlerat futen me dorë në Secrets Manager; task-et nuk nisen pa to):
+  #  - krejt-<env>/jwt: JSON { "private_key_pem": "...", "otp_pepper": "..." }
+  #  - krejt-<env>/google-maps, krejt-<env>/infobip: vlera e thjeshtë (çelësi)
   common_secrets = [
     { name = "DB_CREDENTIALS_JSON", valueFrom = var.aurora_master_secret_arn },
     { name = "REDIS_AUTH", valueFrom = var.redis_auth_secret_arn },
+    { name = "JWT_PRIVATE_KEY", valueFrom = "${var.app_secret_arns["jwt"]}:private_key_pem::" },
+    { name = "OTP_PEPPER", valueFrom = "${var.app_secret_arns["jwt"]}:otp_pepper::" },
+    { name = "GOOGLE_MAPS_KEY", valueFrom = var.app_secret_arns["google-maps"] },
+    { name = "INFOBIP_API_KEY", valueFrom = var.app_secret_arns["infobip"] },
   ]
 }
 
