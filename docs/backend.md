@@ -262,3 +262,13 @@ Kufij të zbatuar menjëherë (Redis): 10 kërkesa udhëtimi/orë për përdorue
 të OTP-së dhe të mbushjes. Ops: `GET/PATCH /admin/risk/flags`, `POST /admin/users/{id}/block|unblock` (bllokimi shkyç
 sesionet; `RequireAuth` refuzon përdoruesit jo-aktivë në çdo kërkesë). Çdo veprim me audit dhe ngjarje.
 Ende jo: gjurmë pajisjeje (device fingerprint), sinjale ATO nga kyçjet e reja, model pikëzimi.
+
+## Fitimet dhe payout-et e shoferëve (Faza 1)
+
+`GET /driver/earnings` (bilanci i wallet-it të shoferit — mund të jetë negativ = borxh komisioni nga cash; sot/javë/muaj
+nga ledger-i; udhëtimet; cash-i i mbledhur), `PUT/GET /driver/bank-account` (IBAN i validuar mod-97, gjatësi sipas shtetit,
+ruhet i plotë, shfaqet i maskuar), `GET /driver/payouts`. Finance: `POST /admin/payouts/batches` (grupi javor: çdo shofer i
+miratuar me IBAN dhe bilanc ≥ 5,00 € debitohet wallet → `krejt:payout_clearing`, idempotent për shofer+grup),
+`GET …/items`, `GET …/export.csv` (skedari për Raiffeisen derisa të ketë API; IBAN i plotë vetëm këtu, auditohet),
+`PATCH /admin/payouts/items/{id}` paid/failed (dështimi i kthen paratë në wallet; grupi mbyllet kur asnjë zë s'është pending).
+Bilanci negativ nuk paguhet — kompensohet nga udhëtimet e ardhshme (prag bllokimi i cash-it: vjen me flotat).

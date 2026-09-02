@@ -268,6 +268,37 @@ paths:
       responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Document" } } } }, "422": { $ref: "#/components/responses/Err" } }
     get: { tags: [documents], summary: Dokumentet e mia + pranueshmëria, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DocumentsOverview" } } } } } }
 
+  /api/v1/driver/earnings:
+    get: { tags: [driver], summary: "Fitimet: bilanci i wallet-it të shoferit, sot/javë/muaj, udhëtimet, cash-i i mbledhur", responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Earnings" } } } } } }
+  /api/v1/driver/bank-account:
+    get: { tags: [driver], summary: Llogaria bankare (IBAN i maskuar), responses: { "200": { description: OK } } }
+    put:
+      tags: [driver]
+      summary: Vendos llogarinë bankare (IBAN validohet mod-97; XK 20 shifra)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [holder_name, iban], properties: { holder_name: { type: string }, iban: { type: string }, bank_name: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/BankAccount" } } } }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/driver/payouts:
+    get: { tags: [driver], summary: Payout-et e mia, responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/PayoutItem" } } } } } } } } }
+  /api/v1/admin/payouts/batches:
+    get: { tags: [admin], summary: Grupet e payout-eve (FINANCE), responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/PayoutBatch" } } } } } } } } }
+    post:
+      tags: [admin]
+      summary: "Krijo grupin javor: çdo shofer i miratuar me IBAN dhe bilanc ≥ 5 € debitohet nga wallet-i"
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [period_start, period_end], properties: { period_start: { type: string, format: date }, period_end: { type: string, format: date } } } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/PayoutBatch" } } } } }
+  /api/v1/admin/payouts/batches/{id}/items:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [admin], summary: Zërat e grupit, responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/PayoutItem" } } } } } } } } }
+  /api/v1/admin/payouts/batches/{id}/export.csv:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [admin], summary: "Eksporti CSV për bankën (IBAN i plotë; auditohet) → grupi exported", responses: { "200": { description: CSV, content: { text/csv: { schema: { type: string } } } } } }
+  /api/v1/admin/payouts/items/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    patch:
+      tags: [admin]
+      summary: "Shëno zërin paid / failed (dështimi i kthen paratë në wallet)"
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status], properties: { status: { type: string, enum: [paid, failed] }, reason: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/PayoutItem" } } } }, "404": { $ref: "#/components/responses/Err" } }
   /api/v1/wallet:
     get: { tags: [wallet], summary: Bilanci (nga ledger-i), limitet; closed_loop gjithmonë true, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/WalletOverview" } } } } } }
   /api/v1/wallet/transactions:
@@ -660,6 +691,18 @@ components:
     DispatchLive:
       type: object
       properties: { rides: { type: array, items: { $ref: "#/components/schemas/AdminRide" } }, counts: { type: object, additionalProperties: { type: integer } }, online_drivers: { type: object, additionalProperties: { type: integer } }, open_offers: { type: integer }, safety_open: { type: integer }, generated_at: { type: string, format: date-time } }
+    Earnings:
+      type: object
+      properties: { balance_minor: { type: integer }, today_minor: { type: integer }, week_minor: { type: integer }, month_minor: { type: integer }, rides_today: { type: integer }, rides_week: { type: integer }, cash_collected_week_minor: { type: integer }, next_payout_min_minor: { type: integer }, currency: { type: string } }
+    BankAccount:
+      type: object
+      properties: { holder_name: { type: string }, iban_masked: { type: string }, bank_name: { type: [string, "null"] }, verified_at: { type: [string, "null"], format: date-time }, updated_at: { type: string, format: date-time } }
+    PayoutBatch:
+      type: object
+      properties: { id: { type: string, format: uuid }, period_start: { type: string, format: date }, period_end: { type: string, format: date }, status: { type: string, enum: [pending, exported, completed] }, total_minor: { type: integer }, item_count: { type: integer }, created_at: { type: string, format: date-time }, exported_at: { type: [string, "null"], format: date-time }, completed_at: { type: [string, "null"], format: date-time } }
+    PayoutItem:
+      type: object
+      properties: { id: { type: string, format: uuid }, batch_id: { type: string, format: uuid }, driver_id: { type: string, format: uuid }, amount_minor: { type: integer }, currency: { type: string }, iban_masked: { type: string }, holder_name: { type: string }, status: { type: string, enum: [pending, paid, failed] }, failure_reason: { type: [string, "null"] }, created_at: { type: string, format: date-time } }
     RiskFlag:
       type: object
       properties: { id: { type: string, format: uuid }, user_id: { type: string, format: uuid }, kind: { type: string }, severity: { type: string, enum: [low, medium, high] }, score: { type: integer }, details: { type: object }, source_event: { type: [string, "null"], format: uuid }, status: { type: string }, note: { type: [string, "null"] }, created_at: { type: string, format: date-time }, resolved_at: { type: [string, "null"], format: date-time } }
