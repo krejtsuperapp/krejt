@@ -571,8 +571,8 @@ func (s *Service) Discover(ctx context.Context, f DiscoverFilter) ([]Merchant, e
 		WHERE status = 'active'
 		  AND ($3 = '' OR type = $3)
 		  AND ($4 = '' OR $4 = ANY(cuisines))
-		  AND ($5 = '' OR unaccent(name) ILIKE '%' || unaccent($5) || '%' OR EXISTS (
-		        SELECT 1 FROM products p WHERE p.merchant_id = merchants.id AND p.deleted_at IS NULL AND p.available AND unaccent(p.name) ILIKE '%' || unaccent($5) || '%'))
+		  AND ($5 = '' OR krejt_unaccent(name) ILIKE '%' || krejt_unaccent($5) || '%' OR EXISTS (
+		        SELECT 1 FROM products p WHERE p.merchant_id = merchants.id AND p.deleted_at IS NULL AND p.available AND krejt_unaccent(p.name) ILIKE '%' || krejt_unaccent($5) || '%'))
 		ORDER BY dist NULLS LAST, rating_count DESC, name LIMIT $6`, lat, lng, f.Type, strings.ToLower(f.Cuisine), f.Query, f.Limit)
 	if err != nil {
 		return nil, err
