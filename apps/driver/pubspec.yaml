@@ -1,0 +1,31 @@
+name: krejt_driver
+description: KREJT — aplikacioni i shoferit dhe korrierit.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  krejt_design:
+    path: ../../packages/krejt_design
+  krejt_api:
+    path: ../../packages/krejt_api
+  krejt_l10n:
+    path: ../../packages/krejt_l10n
+  go_router: ^14.6.2
+  provider: ^6.1.2
+  shared_preferences: ^2.3.3
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
