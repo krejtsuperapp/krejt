@@ -37,9 +37,7 @@ func TestDataExportFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	now := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
 	svc := New(pool, fs)
-	svc.now = func() time.Time { return now }
 
 	var userID uuid.UUID
 	if err := pool.QueryRow(ctx,
@@ -94,8 +92,9 @@ func TestDataExportFlow(t *testing.T) {
 	if ready.SizeBytes == nil || *ready.SizeBytes == 0 {
 		t.Fatal("madhësia duhet e njohur")
 	}
-	if ready.ExpiresAt == nil || !ready.ExpiresAt.Equal(now.Add(RetentionPeriod)) {
-		t.Fatalf("skadimi duhet %v, është %v", now.Add(RetentionPeriod), ready.ExpiresAt)
+	// Skadimi vendoset nga baza; mjafton të jetë rreth shtatë ditësh larg.
+	if ready.ExpiresAt == nil || time.Until(*ready.ExpiresAt) < RetentionPeriod-time.Hour {
+		t.Fatalf("skadimi duhet rreth %v larg, është %v", RetentionPeriod, ready.ExpiresAt)
 	}
 
 	// Përmbajtja: profili dhe adresa e përdoruesit, dhe asgjë e askujt tjetër.
@@ -132,8 +131,13 @@ func TestDataExportFlow(t *testing.T) {
 		t.Fatalf("pritej ErrTooSoon, u kthye %v", err)
 	}
 
-	// Një ditë më vonë lejohet.
-	svc.now = func() time.Time { return now.Add(MinInterval + time.Minute) }
+	// Një ditë më vonë lejohet. Kërkesën e vjetër e kthejmë prapa në kohë, që të mos varemi
+	// nga ora e procesit: vendimin e merr baza.
+	if _, err := pool.Exec(ctx,
+		`UPDATE data_exports SET requested_at = now() - interval '25 hours' WHERE user_id = $1`,
+		userID); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := svc.Request(ctx, actor); err != nil {
 		t.Fatalf("pas 24 orëve duhet lejuar: %v", err)
 	}
@@ -143,7 +147,6 @@ func TestDataExportFlow(t *testing.T) {
 	}
 
 	// Pas skadimit skedari fshihet dhe gjendja bëhet 'expired'.
-	svc.now = func() time.Time { return now.Add(RetentionPeriod + 2*time.Hour) }
 	if _, err := pool.Exec(ctx,
 		`UPDATE data_exports SET expires_at = now() - interval '1 hour' WHERE user_id = $1`, userID); err != nil {
 		t.Fatal(err)

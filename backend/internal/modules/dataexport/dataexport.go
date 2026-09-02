@@ -72,11 +72,14 @@ type Export struct {
 
 // Request — regjistron një kërkesë të re. Nuk ndërton asgjë: atë e bën worker-i.
 func (s *Service) Request(ctx context.Context, a principal.Actor) (*Export, error) {
+	// Krahasimi i kohës bëhet nga baza, jo nga aplikacioni: rreshtat i vulos ajo, ndaj vetëm ajo
+	// e di me siguri sa kohë ka kaluar.
 	var lastStatus string
-	var lastAt time.Time
+	var tooSoon bool
 	err := s.pool.QueryRow(ctx, `
-		SELECT status, requested_at FROM data_exports
-		WHERE user_id = $1 ORDER BY requested_at DESC LIMIT 1`, a.UserID).Scan(&lastStatus, &lastAt)
+		SELECT status, requested_at > now() - $2::interval
+		FROM data_exports WHERE user_id = $1 ORDER BY requested_at DESC LIMIT 1`,
+		a.UserID, MinInterval.String()).Scan(&lastStatus, &tooSoon)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
@@ -85,7 +88,7 @@ func (s *Service) Request(ctx context.Context, a principal.Actor) (*Export, erro
 			return nil, ErrInProgress
 		}
 		// Një kërkesë e dështuar mund të përsëritet menjëherë: dështimi nuk është faji i përdoruesit.
-		if lastStatus != "failed" && s.now().Sub(lastAt) < MinInterval {
+		if lastStatus != "failed" && tooSoon {
 			return nil, ErrTooSoon
 		}
 	}
@@ -102,10 +105,12 @@ func (s *Service) Request(ctx context.Context, a principal.Actor) (*Export, erro
 func (s *Service) Latest(ctx context.Context, userID uuid.UUID) (*Export, error) {
 	var e Export
 	var objectKey *string
+	var expired bool
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, status, requested_at, completed_at, expires_at, size_bytes, object_key
+		SELECT id, status, requested_at, completed_at, expires_at, size_bytes, object_key,
+		       COALESCE(expires_at < now(), false)
 		FROM data_exports WHERE user_id = $1 ORDER BY requested_at DESC LIMIT 1`, userID).
-		Scan(&e.ID, &e.Status, &e.RequestedAt, &e.CompletedAt, &e.ExpiresAt, &e.SizeBytes, &objectKey)
+		Scan(&e.ID, &e.Status, &e.RequestedAt, &e.CompletedAt, &e.ExpiresAt, &e.SizeBytes, &objectKey, &expired)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, httpx.ErrNotFound
 	}
@@ -115,7 +120,7 @@ func (s *Service) Latest(ctx context.Context, userID uuid.UUID) (*Export, error)
 
 	if e.Status == "ready" && objectKey != nil {
 		// Skedari mund të ketë skaduar pa e prekur ende puna periodike; atëherë nuk premtojmë lidhje.
-		if e.ExpiresAt != nil && s.now().After(*e.ExpiresAt) {
+		if expired {
 			e.Status = "expired"
 			return &e, nil
 		}
@@ -172,8 +177,9 @@ func (s *Service) BuildNext(ctx context.Context) (bool, error) {
 
 	_, err = s.pool.Exec(ctx, `
 		UPDATE data_exports
-		SET status = 'ready', object_key = $2, size_bytes = $3, completed_at = now(), expires_at = $4
-		WHERE id = $1`, id, key, size, s.now().Add(RetentionPeriod))
+		SET status = 'ready', object_key = $2, size_bytes = $3, completed_at = now(),
+		    expires_at = now() + $4::interval
+		WHERE id = $1`, id, key, size, RetentionPeriod.String())
 	return true, err
 }
 
