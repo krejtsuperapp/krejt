@@ -8,8 +8,26 @@ import { API_BASE, appHeaders, clearTokens, readTokens, writeTokens } from '@/li
 
 type Action = 'request' | 'verify' | 'logout' | 'me';
 
+const DEVICE = 'krejt_did';
+
 /// Kur serveri nuk arrihet fare, kthehet i njëjti zarf gabimi si kudo tjetër, jo një faqe e Next-it.
 const OFFLINE = { error: { code: 'OFFLINE', message_key: 'errors.offline', http_status: 503 } };
+
+/// Identifikuesi i shfletuesit: krijohet një herë dhe ruhet veç sesionit, ndaj dalja nga
+/// llogaria nuk e ndryshon. Nuk është sekret; shërben vetëm që sesionet të dallohen.
+function deviceId(jar: Awaited<ReturnType<typeof cookies>>): string {
+  const existing = jar.get(DEVICE)?.value;
+  if (existing) return existing;
+  const fresh = crypto.randomUUID();
+  jar.set(DEVICE, fresh, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 400 * 24 * 60 * 60,
+  });
+  return fresh;
+}
 
 async function call(path: string, init: RequestInit): Promise<Response> {
   try {
@@ -52,7 +70,13 @@ export async function POST(req: NextRequest) {
   if (action === 'verify') {
     const res = await call('auth/otp/verify', {
       method: 'POST',
-      body: JSON.stringify({ phone, code, device_name: 'Paneli i Operacioneve' }),
+      body: JSON.stringify({
+        phone,
+        code,
+        // Serveri e kërkon pajisjen si objekt me id dhe platformë. Identifikuesi rri në një
+        // cookie të vetën, që i njëjti shfletues të mbetet i njëjti te lista e pajisjeve.
+        device: { id: deviceId(jar), name: 'Paneli i Operacioneve', platform: 'web' },
+      }),
     });
     if (!res.ok) return passthrough(res);
 
