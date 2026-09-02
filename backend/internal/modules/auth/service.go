@@ -195,7 +195,8 @@ func (s *Service) RevokeAll(ctx context.Context, userID uuid.UUID) error {
 // SessionActive verifikohet në çdo kërkesë të autentikuar: shkyçja vlen menjëherë, jo pas 15 min.
 func (s *Service) SessionActive(ctx context.Context, sessionID uuid.UUID) (bool, error) {
 	var active bool
-	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM sessions WHERE id = $1 AND revoked_at IS NULL AND refresh_expires_at > now())`, sessionID).Scan(&active)
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM sessions s JOIN users u ON u.id = s.user_id
+		WHERE s.id = $1 AND s.revoked_at IS NULL AND s.refresh_expires_at > now() AND u.status = 'active')`, sessionID).Scan(&active)
 	return active, err
 }
 

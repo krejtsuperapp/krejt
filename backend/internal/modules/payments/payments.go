@@ -52,6 +52,7 @@ type Service struct {
 	ledger   *ledger.Service
 	provider payment.Provider
 	flags    Flags
+	risk     Risk
 	now      func() time.Time
 }
 
@@ -61,6 +62,16 @@ func New(pool *pgxpool.Pool, led *ledger.Service, p payment.Provider) *Service {
 
 func (s *Service) WithFlags(f Flags) *Service {
 	s.flags = f
+	return s
+}
+
+// Risk — sinjal pas rimbursimit (fraud §67: rimbursime të përsëritura).
+type Risk interface {
+	RefundPattern(ctx context.Context, userID, refundID uuid.UUID) error
+}
+
+func (s *Service) WithRisk(r Risk) *Service {
+	s.risk = r
 	return s
 }
 
@@ -330,5 +341,8 @@ func (s *Service) Refund(ctx context.Context, finance principal.Actor, intentID 
 	}
 	meta, _ := json.Marshal(map[string]any{"amount_minor": amount, "reason": reason, "user_id": userID})
 	_, _ = s.pool.Exec(ctx, `INSERT INTO audit_log (actor_id, action, target_type, target_id, metadata) VALUES ($1, 'wallet.refund', 'payment_refund', $2, $3)`, finance.UserID, refundID.String(), meta)
+	if s.risk != nil {
+		_ = s.risk.RefundPattern(ctx, userID, refundID)
+	}
 	return refundID, nil
 }
