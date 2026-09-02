@@ -1,0 +1,31 @@
+# sekrete & mjedis
+.env
+.env.*
+!.env.example
+*.pem
+*.p8
+*.p12
+
+# terraform
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+
+# build
+node_modules/
+dist/
+build/
+.next/
+bin/
+*.exe
+
+# ide / os
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

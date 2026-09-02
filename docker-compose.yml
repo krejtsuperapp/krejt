@@ -1,0 +1,59 @@
+# KREJT — mjedisi lokal i zhvillimit (§73 development). Postgres 16 + Redis 7 + api + worker.
+# Fjalëkalimet këtu janë VETËM për laptopin; asnjëherë të njëjta me staging/prod.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: krejt
+      POSTGRES_USER: krejt
+      POSTGRES_PASSWORD: krejt_dev_only
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U krejt -d krejt"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "krejt_dev_only", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "krejt_dev_only", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ./backend
+      args: { CMD: api }
+    environment:
+      APP_ENV: development
+      HTTP_PORT: "8080"
+      DATABASE_URL: postgres://krejt:krejt_dev_only@postgres:5432/krejt?sslmode=disable
+      REDIS_HOST: redis:6379
+      REDIS_AUTH: krejt_dev_only
+      REDIS_TLS: "false"
+    ports: ["8080:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    build:
+      context: ./backend
+      args: { CMD: worker }
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgres://krejt:krejt_dev_only@postgres:5432/krejt?sslmode=disable
+      REDIS_HOST: redis:6379
+      REDIS_AUTH: krejt_dev_only
+      REDIS_TLS: "false"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+volumes:
+  pgdata:

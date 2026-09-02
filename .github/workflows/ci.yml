@@ -1,0 +1,91 @@
+# KREJT — CI (§70): formatim, lint, tipe, teste njësie + integrimi, skanim sigurie/varësish, build,
+# validim kontejneri, terraform fmt/validate. Asnjë deploy pa këto porta.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_DB: krejt_test, POSTGRES_USER: krejt, POSTGRES_PASSWORD: krejt }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U krejt" --health-interval 5s --health-timeout 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: formatim
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; echo 'gofmt: skedarë të paformatuar'; exit 1; }
+      - name: vet
+        run: go vet ./...
+      - name: lint (staticcheck)
+        run: go run honnef.co/go/tools/cmd/staticcheck@2024.1.1 ./...
+      - name: teste (njësi + integrim me Postgres)
+        env:
+          TEST_DATABASE_URL: postgres://krejt:krejt@localhost:5432/krejt_test?sslmode=disable
+        run: go test -race -count=1 -coverprofile=coverage.out ./...
+      - name: skanim varësish (govulncheck)
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - name: build
+        run: CGO_ENABLED=0 go build ./...
+
+  container:
+    runs-on: ubuntu-latest
+    needs: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: build api (arm64, pa push)
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          platforms: linux/arm64
+          build-args: CMD=api
+          push: false
+          load: false
+          tags: krejt/api:ci
+      - name: skanim imazhi (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: backend
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: gitleaks (asnjë sekret në repo)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: "1.15.8" }
+      - name: fmt
+        run: terraform fmt -check -recursive infra/terraform
+      - name: validate (dev, pa backend)
+        working-directory: infra/terraform/envs/dev
+        run: terraform init -backend=false -input=false && terraform validate
