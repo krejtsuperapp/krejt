@@ -1,0 +1,197 @@
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 16px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.muted {
+  background: var(--surface-3);
+  color: var(--text-dim);
+}
+.brand {
+  background: var(--brand-100);
+  color: var(--brand-400);
+}
+.ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.info {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.okText {
+  color: var(--ok);
+}
+.warnText {
+  color: var(--warn);
+}
+.dangerText {
+  color: var(--danger);
+}
+.brandText {
+  color: var(--brand-400);
+}
+.infoText {
+  color: var(--info);
+}
+.mutedText {
+  color: var(--muted);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+}
+
+.statLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.statValue {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.button {
+  min-height: var(--tap);
+  padding: 0 16px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primary {
+  background: var(--brand-500);
+  color: var(--on-brand);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--brand-600);
+}
+
+.ghost {
+  background: transparent;
+  border-color: var(--line-2);
+  color: var(--text-dim);
+}
+
+.ghost:hover:not(:disabled) {
+  border-color: var(--brand-400);
+  color: var(--text);
+}
+
+.danger {
+  background: transparent;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--danger-bg);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.input {
+  min-height: var(--tap);
+  padding: 0 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 15px;
+}
+
+.input::placeholder {
+  color: var(--muted);
+}
+
+.input:focus {
+  border-color: var(--brand-400);
+  outline: none;
+}
+
+.inputError {
+  border-color: var(--danger);
+}
+
+.fieldError {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 24px 4px;
+  color: var(--muted);
+}
+
+.stateTitle {
+  font-size: 15px;
+  color: var(--text);
+}
+
+.stateMessage {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}

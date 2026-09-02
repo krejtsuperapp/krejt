@@ -1,0 +1,46 @@
+# KREJT — CI e panelit të Operacioneve (§70): lint, tipe, teste dhe ndërtim.
+name: admin
+
+on:
+  pull_request:
+    paths:
+      - 'admin/**'
+      - '.github/workflows/admin.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'admin/**'
+      - '.github/workflows/admin.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  admin:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+
+      - name: install
+        run: npm ci
+
+      - name: lint
+        run: npm run lint
+
+      - name: typecheck
+        run: npm run typecheck
+
+      - name: test
+        run: npm test
+
+      # Ndërtimi nuk kërkon as API as sekrete: adresa e serverit lexohet në kohë ekzekutimi.
+      - name: build
+        run: npm run build
