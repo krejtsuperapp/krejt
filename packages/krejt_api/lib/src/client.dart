@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'errors.dart';
 import 'models/config.dart';
 import 'models/driver.dart';
+import 'models/order.dart';
 import 'models/ride.dart';
 import 'models/user.dart';
 import 'models/wallet.dart';
@@ -554,6 +555,141 @@ class KrejtApi {
     );
     return DriverDocument.fromJson(confirmed);
   }
+
+  // ------------------------------------------------------- ushqimi dhe marketi
+
+  /// Zbulimi publik: merchant-ët aktivë brenda 15 km, me distancën dhe nëse janë hapur (§21).
+  Future<List<Merchant>> merchants({
+    required double lat,
+    required double lng,
+    String? type,
+    String? query,
+    String? cuisine,
+    int limit = 20,
+  }) async {
+    final rows = await _getList(
+      '/api/v1/merchants',
+      'items',
+      query: {
+        'lat': lat,
+        'lng': lng,
+        'type': ?type,
+        if (query != null && query.isNotEmpty) 'q': query,
+        'cuisine': ?cuisine,
+        'limit': limit,
+      },
+    );
+    return rows.map(Merchant.fromJson).toList();
+  }
+
+  Future<Merchant> merchantBySlug(String slug) async =>
+      Merchant.fromJson(await _get('/api/v1/merchants/$slug', anon: true));
+
+  Future<Menu> merchantMenu(String merchantId) async =>
+      Menu.fromJson(await _get('/api/v1/merchants/$merchantId/menu', anon: true));
+
+  /// Çmimi i shportës llogaritet nga serveri para se të krijohet ndonjë porosi (§19).
+  Future<OrderQuote> quoteOrder({
+    required String merchantId,
+    required List<CartLine> lines,
+    required String paymentMethod,
+    required String fulfillment,
+    String? addressId,
+    String? note,
+  }) async => OrderQuote.fromJson(
+    await _post(
+      '/api/v1/orders/quote',
+      body: _checkout(
+        merchantId: merchantId,
+        lines: lines,
+        paymentMethod: paymentMethod,
+        fulfillment: fulfillment,
+        addressId: addressId,
+        note: note,
+      ),
+    ),
+  );
+
+  Future<Order> createOrder({
+    required String merchantId,
+    required List<CartLine> lines,
+    required String paymentMethod,
+    required String fulfillment,
+    String? addressId,
+    String? note,
+    String? idempotencyKey,
+  }) async => Order.fromJson(
+    await _post(
+      '/api/v1/orders',
+      body: _checkout(
+        merchantId: merchantId,
+        lines: lines,
+        paymentMethod: paymentMethod,
+        fulfillment: fulfillment,
+        addressId: addressId,
+        note: note,
+      ),
+      idempotencyKey: idempotencyKey ?? newIdempotencyKey(),
+    ),
+  );
+
+  Map<String, dynamic> _checkout({
+    required String merchantId,
+    required List<CartLine> lines,
+    required String paymentMethod,
+    required String fulfillment,
+    String? addressId,
+    String? note,
+  }) => {
+    'merchant_id': merchantId,
+    'items': lines.map((l) => l.toJson()).toList(),
+    'payment_method': paymentMethod,
+    'fulfillment': fulfillment,
+    'address_id': ?addressId,
+    if (note != null && note.isNotEmpty) 'note': note,
+  };
+
+  Future<Order> order(String id) async => Order.fromJson(await _get('/api/v1/orders/$id'));
+
+  Future<List<Order>> orderHistory({int limit = 20}) async {
+    final rows = await _getList('/api/v1/orders', 'items', query: {'limit': limit});
+    return rows.map(Order.fromJson).toList();
+  }
+
+  Future<Order> cancelOrder(String id, {String? reason}) async =>
+      Order.fromJson(await _post('/api/v1/orders/$id/cancel', body: {'reason': ?reason}));
+
+  // ------------------------------------------------------------------ korrieri
+
+  Future<List<CourierOffer>> courierOffers() async {
+    final rows = await _getList('/api/v1/courier/offers', 'items');
+    return rows.map(CourierOffer.fromJson).toList();
+  }
+
+  Future<Order> acceptCourierOffer(String offerId) async => Order.fromJson(
+    await _post('/api/v1/courier/offers/$offerId/accept', idempotencyKey: newIdempotencyKey()),
+  );
+
+  Future<void> declineCourierOffer(String offerId) =>
+      _post('/api/v1/courier/offers/$offerId/decline');
+
+  Future<Order?> courierActiveOrder() async {
+    final j = await _get('/api/v1/courier/orders/active');
+    if (j.isEmpty || j['id'] == null) return null;
+    return Order.fromJson(j);
+  }
+
+  /// Marrja te merchant-i kërkon kodin 6-shkronjor të porosisë: pa të, korrieri s'e merr dot (§26).
+  Future<Order> courierPickup(String orderId, {required String code}) async =>
+      Order.fromJson(await _post('/api/v1/courier/orders/$orderId/pickup', body: {'code': code}));
+
+  Future<Order> courierDeliver(String orderId) async => Order.fromJson(
+    await _post('/api/v1/courier/orders/$orderId/deliver', idempotencyKey: newIdempotencyKey()),
+  );
+
+  Future<Order> courierRelease(String orderId, {String? reason}) async => Order.fromJson(
+    await _post('/api/v1/courier/orders/$orderId/release', body: {'reason': ?reason}),
+  );
 
   // ------------------------------------------------------------------- support
 

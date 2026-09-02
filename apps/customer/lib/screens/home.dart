@@ -5,6 +5,8 @@ import 'package:krejt_l10n/krejt_l10n.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
+import 'food/discover.dart';
+import 'food/order_tracking.dart';
 import 'ride/destination.dart';
 import 'ride/tracking.dart';
 
@@ -40,6 +42,7 @@ class HomeScreen extends StatelessWidget {
     final me = state.me;
     final locale = state.locale;
     final active = state.activeRide;
+    final activeOrder = state.activeOrder;
     final past = state.recentRides.where((r) => r.isFinished).take(4).toList();
 
     return SafeArea(
@@ -63,6 +66,19 @@ class HomeScreen extends StatelessWidget {
                 onTap: () => Navigator.of(
                   context,
                 ).push(MaterialPageRoute<void>(builder: (_) => TrackingScreen(rideId: active.id))),
+              ),
+              const SizedBox(height: K.s4),
+            ],
+            if (activeOrder != null) ...[
+              KActiveBanner(
+                icon: Icons.restaurant,
+                title: context.t('home.active.order'),
+                subtitle: context.t(orderStateKey(activeOrder.state)),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => OrderTrackingScreen(orderId: activeOrder.id),
+                  ),
+                ),
               ),
               const SizedBox(height: K.s4),
             ],
@@ -93,6 +109,9 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.restaurant_outlined,
                     label: context.t('home.services.food'),
                     ready: state.config.flag('food'),
+                    onTap: () =>
+                        Navigator.of(context)
+                            .push(MaterialPageRoute<void>(builder: (_) => const DiscoverScreen())),
                   ),
                 ),
               ],

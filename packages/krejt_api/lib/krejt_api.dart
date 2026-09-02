@@ -11,3 +11,4 @@ export 'src/models/user.dart';
 export 'src/models/ride.dart';
 export 'src/models/wallet.dart';
 export 'src/models/driver.dart';
+export 'src/models/order.dart';

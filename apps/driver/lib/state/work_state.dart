@@ -24,7 +24,9 @@ class WorkState extends ChangeNotifier {
   bool online = false;
   bool busy = false;
   List<RideOffer> offers = const [];
+  List<CourierOffer> deliveryOffers = const [];
   Ride? activeRide;
+  Order? activeOrder;
   ApiError? lastError;
   LocationProblem? locationProblem;
 
@@ -34,6 +36,16 @@ class WorkState extends ChangeNotifier {
     }
     return null;
   }
+
+  CourierOffer? get topDeliveryOffer {
+    for (final o in deliveryOffers) {
+      if (!o.expired) return o;
+    }
+    return null;
+  }
+
+  /// I zënë me punë: as udhëtim as dorëzim i ri nuk ka kuptim derisa kjo të mbarojë.
+  bool get isBusyWithWork => activeRide != null || activeOrder != null;
 
   @override
   void dispose() {
@@ -91,6 +103,7 @@ class WorkState extends ChangeNotifier {
       _stopTimers();
       online = false;
       offers = const [];
+      deliveryOffers = const [];
       busy = false;
       notifyListeners();
     }
@@ -107,17 +120,19 @@ class WorkState extends ChangeNotifier {
   }
 
   Future<void> _pollOffers() async {
-    // Gjatë një udhëtimi aktiv nuk kërkohen oferta të reja: shoferi është i zënë.
-    if (activeRide != null) {
-      if (offers.isNotEmpty) {
+    // Gjatë një pune aktive nuk kërkohen oferta të reja: shoferi është i zënë.
+    if (isBusyWithWork) {
+      if (offers.isNotEmpty || deliveryOffers.isNotEmpty) {
         offers = const [];
+        deliveryOffers = const [];
         notifyListeners();
       }
       return;
     }
     try {
-      final items = await api.driverOffers();
-      offers = items;
+      final results = await Future.wait([api.driverOffers(), api.courierOffers()]);
+      offers = results[0] as List<RideOffer>;
+      deliveryOffers = results[1] as List<CourierOffer>;
       lastError = null;
       notifyListeners();
     } on ApiError catch (e) {
@@ -128,9 +143,16 @@ class WorkState extends ChangeNotifier {
 
   Future<void> _pollActiveRide() async {
     try {
-      final ride = await api.driverActiveRide();
-      final changed = ride?.id != activeRide?.id || ride?.state != activeRide?.state;
+      final results = await Future.wait([api.driverActiveRide(), api.courierActiveOrder()]);
+      final ride = results[0] as Ride?;
+      final order = results[1] as Order?;
+      final changed =
+          ride?.id != activeRide?.id ||
+          ride?.state != activeRide?.state ||
+          order?.id != activeOrder?.id ||
+          order?.state != activeOrder?.state;
       activeRide = ride;
+      activeOrder = order;
       if (changed) notifyListeners();
     } on ApiError catch (e) {
       lastError = e;
@@ -165,6 +187,64 @@ class WorkState extends ChangeNotifier {
       // Refuzimi është i pakthyeshëm nga ana e klientit; serveri e kalon te shoferi tjetër.
     }
   }
+
+  // ------------------------------------------------------------------ dorëzimi
+
+  Future<bool> acceptDelivery(CourierOffer offer) async {
+    busy = true;
+    notifyListeners();
+    try {
+      activeOrder = await api.acceptCourierOffer(offer.id);
+      deliveryOffers = const [];
+      return true;
+    } on ApiError catch (e) {
+      lastError = e;
+      unawaited(_pollOffers());
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> declineDelivery(CourierOffer offer) async {
+    deliveryOffers = deliveryOffers.where((o) => o.id != offer.id).toList();
+    notifyListeners();
+    try {
+      await api.declineCourierOffer(offer.id);
+    } on ApiError {
+      // Serveri e kalon te korrieri tjetër; klienti nuk ka çfarë të rregullojë.
+    }
+  }
+
+  Future<bool> pickup({required String code}) =>
+      _orderStep(() => api.courierPickup(activeOrder!.id, code: code));
+
+  Future<bool> deliver() => _orderStep(() => api.courierDeliver(activeOrder!.id));
+
+  Future<bool> release({String? reason}) =>
+      _orderStep(() => api.courierRelease(activeOrder!.id, reason: reason));
+
+  Future<bool> _orderStep(Future<Order> Function() run) async {
+    if (activeOrder == null) return false;
+    busy = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      final order = await run();
+      // Dorëzimi i kryer ose i lëshuar e liron korrierin për punën e radhës.
+      activeOrder = (order.isActive && order.courierId != null) ? order : null;
+      return true;
+    } on ApiError catch (e) {
+      lastError = e;
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  // ------------------------------------------------------------------ udhëtimi
 
   Future<bool> arrived() => _step(() => api.driverArrived(activeRide!.id));
 
