@@ -3,6 +3,11 @@
 -- katalogu (kategori, produkte, modifikues me rregulla min/max, disponueshmëri). Vetëm Kosovë.
 -- =============================================================================
 
+-- unaccent() nuk është IMMUTABLE, prandaj s'lejohet drejtpërdrejt në indeks: mbështjellës i qëndrueshëm
+-- (fjalori jepet shprehimisht, që rezultati të mos varet nga search_path).
+CREATE OR REPLACE FUNCTION krejt_unaccent(text) RETURNS text
+  LANGUAGE sql IMMUTABLE PARALLEL SAFE STRICT AS $fn$ SELECT public.unaccent('public.unaccent', $1) $fn$;
+
 CREATE TABLE merchants (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_user_id       uuid NOT NULL REFERENCES users(id),
@@ -37,7 +42,7 @@ CREATE TABLE merchants (
 );
 CREATE INDEX merchants_status_idx ON merchants(status, type);
 CREATE INDEX merchants_area_idx ON merchants(service_area_id) WHERE status = 'active';
-CREATE INDEX merchants_name_trgm_idx ON merchants USING gin (unaccent(name) gin_trgm_ops);
+CREATE INDEX merchants_name_trgm_idx ON merchants USING gin (krejt_unaccent(name) gin_trgm_ops);
 
 CREATE TABLE merchant_hours (
   merchant_id  uuid NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
@@ -84,7 +89,7 @@ CREATE TABLE products (
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX products_merchant_idx ON products(merchant_id, category_id, sort) WHERE deleted_at IS NULL;
-CREATE INDEX products_name_trgm_idx ON products USING gin (unaccent(name) gin_trgm_ops);
+CREATE INDEX products_name_trgm_idx ON products USING gin (krejt_unaccent(name) gin_trgm_ops);
 
 CREATE TABLE modifier_groups (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
