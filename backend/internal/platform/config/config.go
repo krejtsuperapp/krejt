@@ -44,9 +44,11 @@ type Config struct {
 	EventsPublisher      string
 	DomainEventsTopicARN string
 
-	// hartat (§46): MAPS_PROVIDER google | devestimate (vetëm development); çelësi nga Secrets Manager (krejt/<env>/google-maps)
+	// hartat (§46): MAPS_PROVIDER google | mapbox | devestimate (vetëm development).
+	// Çelësat vijnë nga Secrets Manager: krejt/<env>/google-maps ose krejt/<env>/mapbox-token.
 	MapsProvider  string
 	GoogleMapsKey string
+	MapboxToken   string
 
 	// push (§47): PUSH_PROVIDER fcm | devlog (vetëm development); llogaria e shërbimit nga Secrets Manager (krejt/<env>/fcm)
 	PushProvider          string
@@ -102,6 +104,7 @@ func Load() (*Config, error) {
 		DomainEventsTopicARN:      os.Getenv("SNS_DOMAIN_EVENTS_TOPIC_ARN"),
 		MapsProvider:              getenv("MAPS_PROVIDER", "google"),
 		GoogleMapsKey:             os.Getenv("GOOGLE_MAPS_KEY"),
+		MapboxToken:               os.Getenv("MAPBOX_TOKEN"),
 		PushProvider:              getenv("PUSH_PROVIDER", "fcm"),
 		FCMServiceAccountJSON:     os.Getenv("FCM_SERVICE_ACCOUNT_JSON"),
 		RealtimeProvider:          getenv("REALTIME_PROVIDER", "centrifugo"),

@@ -90,7 +90,7 @@ variable "tags" {
 }
 
 variable "app_secret_arns" {
-  description = "Sekretet e ofruesve sipas emrit (nga moduli security): jwt, google-maps, infobip, …"
+  description = "Sekretet e ofruesve sipas emrit (nga moduli security): jwt, google-maps, mapbox-token, infobip, …"
   type        = map(string)
 }
 

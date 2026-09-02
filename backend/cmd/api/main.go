@@ -110,7 +110,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	mapsProvider, err := maps.NewFromEnv(cfg.Env, cfg.MapsProvider, cfg.GoogleMapsKey, log)
+	mapsProvider, err := maps.NewFromEnv(cfg.Env, cfg.MapsProvider, cfg.GoogleMapsKey, cfg.MapboxToken, log)
 	if err != nil {
 		log.Error("maps provider", "err", err)
 		os.Exit(1)

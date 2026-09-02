@@ -73,8 +73,19 @@ Mungon ende (e shënuar, jo e simuluar): ri-autentikim/MFA para fshirjes së llo
 
 ## Faza 1 (thelbi) — udhëtimet: harta, çmimi, shoferët, lokacioni, dispatch
 
-**MapProvider (§46)** — `platform/providers/maps`: `Provider.Route(from, to)`; zbatimi Google Routes API
-(`computeRoutes`, TRAFFIC_AWARE). `MAPS_PROVIDER=devestimate` (vetëm development) vlerëson vijë ajrore × 1.3 me 25 km/h.
+**MapProvider (§46)** — `platform/providers/maps`: një ndërfaqe me një metodë të vetme, `Provider.Route(from, to)`,
+që kthen distancë dhe kohëzgjatje. Dy zbatime prodhimi janë të njëjtëvlefshme dhe zgjidhen me `MAPS_PROVIDER`:
+
+| `MAPS_PROVIDER` | Zbatimi | Kredencialja | Shënim |
+| --- | --- | --- | --- |
+| `google` (parazgjedhje) | Google Routes API `computeRoutes` | `GOOGLE_MAPS_KEY` | `TRAFFIC_AWARE` |
+| `mapbox` | Mapbox Directions v5, profili `driving-traffic` | `MAPBOX_TOKEN` | koordinatat lng,lat; `code` ≠ `Ok` do të thotë pa rrugë |
+| `devestimate` | vijë ajrore × 1.3 me 25 km/h | — | refuzohet jashtë `development` |
+
+Asnjë modul biznesi nuk e di se cili ofrues është aktiv: ndërrimi bëhet me një variabël mjedisi dhe një sekret.
+Të dy sekretet lidhen te task definition-i, ndaj kalimi nga njëri te tjetri nuk kërkon ndryshim infrastrukture.
+Token-i i Mapbox shkon si parametër URL-je sepse ofruesi nuk pranon header autorizimi te ky endpoint; as URL-ja
+as trupi i përgjigjes nuk logohen.
 
 **pricing** — zona (`service_areas`, Prishtina aktive), kategoritë (economy/comfort/xl/taxi), rregullat për zonë × kategori
 (bazë, €/km, €/min, minimum, tarifë anulimi + periudhë hiri, surge në pikë bazë, komision). `POST /rides/quote` kthen një
