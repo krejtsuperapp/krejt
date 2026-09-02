@@ -216,3 +216,12 @@ SOS të hapura), `GET /admin/audit` (vetëm ADMIN). Veprimet me peshë mbeten n�
 support, payments, appconfig) — çdonjëra me audit.
 
 Ende jo: chat klient↔shofer (§28), moderimi i vlerësimeve nga Support si endpoint, analitika (§66), fraud v1 (§67) si modul.
+
+## Chat klient ↔ shofer (§28)
+
+`POST /rides/{id}/chat` dhe `GET /rides/{id}/chat?after=` (leximi shënon mesazhet e palës tjetër si të lexuara) — vetëm
+mes palëve të udhëtimit, nga caktimi i shoferit deri 24 h pas përfundimit (1 h pas anulimit). Çdo mesazh emeton
+`RideChatMessage`: kanali live `ride:{id}` e dorëzon menjëherë; marrësi merr push me parapamje (grumbulluar për udhëtim).
+Raportimi: tiketë mbështetjeje me `ride_id`; Support-i e sheh udhëtimin, jo chat-in e plotë pa kërkesë (moderimi vjen me
+panelin). Ruajtja: mesazhet fshihen pas 90 ditësh (worker `chat.retention`). Worker-i i mirëmbajtjes tani mban punë me
+intervale të veçanta (`documents.expire` çdo orë, `chat.retention` çdo 6 orë), secila edhe në nisje.

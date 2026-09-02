@@ -15,6 +15,7 @@ import (
 	"krejt.app/backend/internal/modules/admin"
 	"krejt.app/backend/internal/modules/appconfig"
 	"krejt.app/backend/internal/modules/auth"
+	"krejt.app/backend/internal/modules/chat"
 	"krejt.app/backend/internal/modules/documents"
 	"krejt.app/backend/internal/modules/drivers"
 	"krejt.app/backend/internal/modules/ledger"
@@ -178,6 +179,7 @@ func main() {
 		paymentsSvc.DevRoutes(mux, dev) // vetëm development (devlog)
 	}
 	support.New(pool).Routes(mux, requireAuth, requireSupport)
+	chat.New(pool).Routes(mux, requireAuth)
 	admin.New(pool, rdb, ledgerSvc).Routes(mux, requireStaff, requireAdmin)
 	if fs, ok := store.(*storage.DevFS); ok {
 		documents.DevRoutes(mux, fs) // vetëm development (devfs)

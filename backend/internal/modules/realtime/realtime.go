@@ -88,7 +88,7 @@ func (s *Service) Handle(ctx context.Context, ev events.Event) error {
 		if hasDriver == nil {
 			return s.pub.Publish(ctx, DriverChannel(driverID), msg)
 		}
-	case "RideAssigned", "RideDriverArrived", "RideStarted", "RideCompleted", "RideNoDriver", "RidePaymentSettled", "RidePaymentFailed":
+	case "RideAssigned", "RideDriverArrived", "RideStarted", "RideCompleted", "RideNoDriver", "RidePaymentSettled", "RidePaymentFailed", "RideChatMessage":
 		if hasRide == nil {
 			return s.pub.Publish(ctx, RideChannel(rideID), msg)
 		}

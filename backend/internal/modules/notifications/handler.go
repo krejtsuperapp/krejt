@@ -144,6 +144,14 @@ func Map(ev events.Event) ([]Target, error) {
 		return []Target{{UserID: uid, Category: "wallet", TextKey: "notif.wallet.topup",
 			Params:   map[string]string{"amount_minor": fmt.Sprint(p.int64("amount_minor")), "currency": p.str("currency"), "intent_id": p.str("intent_id")},
 			DeepLink: "krejt://wallet", Priority: "normal"}}, nil
+	case "RideChatMessage":
+		rid, ok := p.uuid("recipient_id")
+		if !ok {
+			return nil, nil
+		}
+		return []Target{{UserID: rid, Category: "rides", TextKey: "notif.chat.message",
+			Params:   map[string]string{"ride_id": p.str("ride_id"), "preview": p.str("preview"), "sender_role": p.str("sender_role")},
+			DeepLink: "krejt://rides/" + p.str("ride_id") + "/chat", Priority: "high", Collapse: "chat:" + p.str("ride_id")}}, nil
 	case "SupportTicketReplied":
 		uid, ok := p.uuid("user_id")
 		if !ok {
