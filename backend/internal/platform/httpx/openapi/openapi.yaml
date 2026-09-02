@@ -29,6 +29,7 @@ tags:
   - name: wallet
   - name: payments
   - name: support
+  - name: merchants
   - name: admin
 paths:
   /healthz:
@@ -306,6 +307,101 @@ paths:
       summary: "Shëno zërin paid / failed (dështimi i kthen paratë në wallet)"
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status], properties: { status: { type: string, enum: [paid, failed] }, reason: { type: string } } } } } }
       responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/PayoutItem" } } } }, "404": { $ref: "#/components/responses/Err" } }
+  /api/v1/merchants:
+    get:
+      tags: [merchants]
+      security: [{}, { bearerAuth: [] }]
+      summary: "Zbulimi i merchant-ëve aktivë (<= 15 km nga lat/lng, distancë, open_now, kërkim pa theksa)"
+      parameters: [{ name: lat, in: query, schema: { type: number } }, { name: lng, in: query, schema: { type: number } }, { name: type, in: query, schema: { type: string, enum: [restaurant, store, grocery, pharmacy] } }, { name: q, in: query, schema: { type: string } }, { name: cuisine, in: query, schema: { type: string } }, { $ref: "#/components/parameters/Limit" }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Merchant" } }, types: { type: array, items: { type: string } } } } } } } }
+  /api/v1/merchants/{slug}:
+    parameters: [{ name: slug, in: path, required: true, schema: { type: string } }]
+    get: { tags: [merchants], security: [{}, { bearerAuth: [] }], summary: Profili publik i merchant-it (me orare), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Merchant" } } } }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/merchants/{id}/menu:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [merchants], security: [{}, { bearerAuth: [] }], summary: "Menuja publike (kategori, produkte me modifikues; cache 30 s)", responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Menu" } } } } } }
+  /api/v1/merchant/apply:
+    post:
+      tags: [merchants]
+      summary: Apliko si merchant (pronari; pending derisa Operacionet ta aktivizojnë)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/MerchantApply" } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Merchant" } } } }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/merchant/mine:
+    get: { tags: [merchants], summary: Merchant-ët ku jam staf, responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Merchant" } } } } } } } } }
+  /api/v1/merchant/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [merchants], summary: Merchant-i (stafi), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Merchant" } } } }, "403": { $ref: "#/components/responses/Err" } } }
+    patch:
+      tags: [merchants]
+      summary: Profili (owner/manager)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { name: { type: string }, description: { type: string }, phone: { type: string }, cuisines: { type: array, items: { type: string } }, fulfillment_mode: { type: string, enum: [courier, merchant_delivers, pickup] }, min_order_minor: { type: integer }, delivery_fee_minor: { type: integer }, prep_time_min: { type: integer }, accepting_orders: { type: boolean }, logo_key: { type: string }, cover_key: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Merchant" } } } }, "403": { $ref: "#/components/responses/Err" } }
+  /api/v1/merchant/{id}/hours:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    put:
+      tags: [merchants]
+      summary: "Oraret (weekday 0-6, HH:MM; closes <= opens = pas mesnate; deri 3/ditë)"
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [hours], properties: { hours: { type: array, items: { $ref: "#/components/schemas/Hours" } } } } } } }
+      responses: { "200": { description: OK } }
+  /api/v1/merchant/{id}/staff:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [merchants]
+      summary: Shto staf me telefon (owner)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [phone, role], properties: { phone: { type: string }, role: { type: string, enum: [manager, staff] } } } } } }
+      responses: { "204": { description: OK }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/merchant/{id}/staff/{user_id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }, { name: user_id, in: path, required: true, schema: { type: string, format: uuid } }]
+    delete: { tags: [merchants], summary: Hiq stafin (owner), responses: { "204": { description: OK } } }
+  /api/v1/merchant/{id}/menu:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [merchants], summary: Menuja e plotë për stafin (edhe të padisponueshmet), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Menu" } } } } } }
+  /api/v1/merchant/{id}/categories:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [merchants]
+      summary: Krijo kategori
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CategoryInput" } } } }
+      responses: { "201": { description: OK } }
+  /api/v1/merchant/{id}/categories/{cat}:
+    parameters: [{ $ref: "#/components/parameters/Id" }, { name: cat, in: path, required: true, schema: { type: string, format: uuid } }]
+    put:
+      tags: [merchants]
+      summary: Ndrysho kategorinë
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CategoryInput" } } } }
+      responses: { "200": { description: OK } }
+    delete: { tags: [merchants], summary: Fshi kategorinë, responses: { "204": { description: OK } } }
+  /api/v1/merchant/{id}/products:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [merchants]
+      summary: Krijo produkt (me modifikues)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ProductInput" } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/merchant/{id}/products/{product}:
+    parameters: [{ $ref: "#/components/parameters/Id" }, { name: product, in: path, required: true, schema: { type: string, format: uuid } }]
+    put:
+      tags: [merchants]
+      summary: Ndrysho produktin (modifiers zëvendësohen kur dërgohen)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ProductInput" } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } } }
+    delete: { tags: [merchants], summary: Fshi produktin (e butë), responses: { "204": { description: OK } } }
+  /api/v1/merchant/{id}/products/{product}/availability:
+    parameters: [{ $ref: "#/components/parameters/Id" }, { name: product, in: path, required: true, schema: { type: string, format: uuid } }]
+    patch:
+      tags: [merchants]
+      summary: Disponueshmëria e shpejtë
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [available], properties: { available: { type: boolean } } } } } }
+      responses: { "204": { description: OK } }
+  /api/v1/admin/merchants:
+    get: { tags: [admin], summary: Aplikimet e merchant-ëve në pritje (OPERATIONS), responses: { "200": { description: OK } } }
+  /api/v1/admin/merchants/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    patch:
+      tags: [admin]
+      summary: activate (jep MERCHANT) / pause / suspend (me arsye)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [action], properties: { action: { type: string, enum: [activate, pause, suspend] }, reason: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Merchant" } } } } }
   /api/v1/wallet:
     get: { tags: [wallet], summary: Bilanci (nga ledger-i), limitet; closed_loop gjithmonë true, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/WalletOverview" } } } } } }
   /api/v1/wallet/transactions:
@@ -699,6 +795,27 @@ components:
     DispatchLive:
       type: object
       properties: { rides: { type: array, items: { $ref: "#/components/schemas/AdminRide" } }, counts: { type: object, additionalProperties: { type: integer } }, online_drivers: { type: object, additionalProperties: { type: integer } }, open_offers: { type: integer }, safety_open: { type: integer }, generated_at: { type: string, format: date-time } }
+    Hours: { type: object, required: [weekday, opens, closes], properties: { weekday: { type: integer, minimum: 0, maximum: 6 }, opens: { type: string, example: "08:00" }, closes: { type: string, example: "23:00" } } }
+    MerchantApply:
+      type: object
+      required: [type, name, address_line1, city, location]
+      properties: { type: { type: string, enum: [restaurant, store, grocery, pharmacy] }, name: { type: string }, description: { type: string }, phone: { type: string }, address_line1: { type: string }, city: { type: string }, location: { $ref: "#/components/schemas/Point" }, cuisines: { type: array, items: { type: string } }, fulfillment_mode: { type: string, enum: [courier, merchant_delivers, pickup] }, min_order_minor: { type: integer }, prep_time_min: { type: integer } }
+    Merchant:
+      type: object
+      properties: { id: { type: string, format: uuid }, type: { type: string }, name: { type: string }, slug: { type: string }, description: { type: [string, "null"] }, address_line1: { type: string }, city: { type: string }, location: { $ref: "#/components/schemas/Point" }, service_area_id: { type: [string, "null"] }, status: { type: string, enum: [pending, active, paused, suspended] }, cuisines: { type: array, items: { type: string } }, tags: { type: array, items: { type: string } }, fulfillment_mode: { type: string }, min_order_minor: { type: integer }, delivery_fee_minor: { type: integer }, prep_time_min: { type: integer }, rating: { type: [number, "null"] }, rating_count: { type: integer }, logo_key: { type: [string, "null"] }, cover_key: { type: [string, "null"] }, accepting_orders: { type: boolean }, open_now: { type: boolean }, distance_m: { type: integer }, hours: { type: array, items: { $ref: "#/components/schemas/Hours" } }, created_at: { type: string, format: date-time } }
+    CategoryInput: { type: object, required: [name], properties: { name: { type: string }, sort: { type: integer }, active: { type: boolean } } }
+    ModifierOption: { type: object, properties: { id: { type: string, format: uuid }, name: { type: string }, price_delta_minor: { type: integer }, available: { type: boolean }, sort: { type: integer } } }
+    ModifierGroup: { type: object, properties: { id: { type: string, format: uuid }, name: { type: string }, min_select: { type: integer }, max_select: { type: integer }, sort: { type: integer }, options: { type: array, items: { $ref: "#/components/schemas/ModifierOption" } } } }
+    ProductInput:
+      type: object
+      required: [name, price_minor]
+      properties: { category_id: { type: string, format: uuid }, name: { type: string }, description: { type: string }, price_minor: { type: integer }, image_key: { type: string }, available: { type: boolean }, unit: { type: string, enum: [piece, kg, g, l, ml, portion] }, tags: { type: array, items: { type: string } }, sort: { type: integer }, modifiers: { type: array, items: { type: object, properties: { name: { type: string }, min_select: { type: integer }, max_select: { type: integer }, options: { type: array, items: { type: object, properties: { name: { type: string }, price_delta_minor: { type: integer }, available: { type: boolean } } } } } } } }
+    Product:
+      type: object
+      properties: { id: { type: string, format: uuid }, merchant_id: { type: string, format: uuid }, category_id: { type: [string, "null"], format: uuid }, name: { type: string }, description: { type: [string, "null"] }, price_minor: { type: integer }, currency: { type: string }, image_key: { type: [string, "null"] }, available: { type: boolean }, unit: { type: string }, tags: { type: array, items: { type: string } }, sort: { type: integer }, modifiers: { type: array, items: { $ref: "#/components/schemas/ModifierGroup" } } }
+    Menu:
+      type: object
+      properties: { merchant_id: { type: string, format: uuid }, categories: { type: array, items: { type: object, properties: { id: { type: string, format: uuid }, name: { type: string }, sort: { type: integer }, active: { type: boolean } } } }, products: { type: array, items: { $ref: "#/components/schemas/Product" } }, generated_at: { type: string, format: date-time } }
     Earnings:
       type: object
       properties: { balance_minor: { type: integer }, today_minor: { type: integer }, week_minor: { type: integer }, month_minor: { type: integer }, rides_today: { type: integer }, rides_week: { type: integer }, cash_collected_week_minor: { type: integer }, next_payout_min_minor: { type: integer }, currency: { type: string } }

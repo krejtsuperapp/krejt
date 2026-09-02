@@ -279,3 +279,22 @@ Bilanci negativ nuk paguhet — kompensohet nga udhëtimet e ardhshme (prag bllo
 nënshkruar jetëshkurtër (HS256, 5 min, pa sekrete brenda). Shoferi mund të nisë udhëtimin vetëm me kodin e saktë ose
 QR-in e skanuar (`POST /driver/rides/{id}/start {code | qr_token}` → `PICKUP_CODE_INVALID`): klienti i duhur hip në
 makinën e duhur, para se të fillojë matja e udhëtimit.
+
+## Faza 2 — merchant-ët dhe katalogu (§19, §21)
+
+**merchants** — `POST /merchant/apply` (pronari; merchant-i `pending`, pronari staf `owner`, zona nga koordinatat — vetëm
+Kosovë), `PATCH /admin/merchants/{id}` (OPERATIONS: activate → kapaciteti MERCHANT te pronari / pause / suspend me arsye;
+ngjarje + njoftim), `GET /merchant/mine`, `GET/PATCH /merchant/{id}` (owner/manager: emër, përshkrim, kuzhina, mënyra e
+përmbushjes courier/merchant_delivers/pickup, minimum porosie, tarifa e dërgesës, koha e përgatitjes, `accepting_orders`
+= pauzë e shpejtë, logo/cover si çelësa S3), `PUT /merchant/{id}/hours` (deri 3 intervale/ditë, me kalim mesnate),
+staf me role (`POST/DELETE /merchant/{id}/staff`, përdoruesi duhet të ketë llogari). Publik: `GET /merchants?lat&lng&type&q&cuisine`
+(aktivë ≤ 15 km, distancë, `open_now` = orar + accepting_orders, kërkim pa theksa edhe në emrat e produkteve),
+`GET /merchants/{slug}` (pa telefon).
+
+**catalog** — kategori, produkte (çmim në cent, njësi, etiketa, foto si çelës S3, disponueshmëri, fshirje e butë),
+modifikues me grupe (min/max) dhe opsione me delta çmimi; `GET /merchants/{id}/menu` (publik, cache 30 s, vetëm të
+disponueshmet), `GET /merchant/{id}/menu` (stafi, gjithçka). **`Price(merchant, zgjedhje)`** llogarit në server çmimin
+e një rreshti (produkt + opsione × sasi) duke verifikuar merchant-in, disponueshmërinë dhe rregullat min/max të çdo grupi —
+orders (hapi tjetër) e përdor këtë; klienti nuk dërgon kurrë çmime.
+
+Ende jo: porositë (checkout, makina e gjendjeve, korrieri), promocionet, analitika e merchant-it, tableti i kuzhinës.

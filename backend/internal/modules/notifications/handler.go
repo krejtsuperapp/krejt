@@ -159,6 +159,18 @@ func Map(ev events.Event) ([]Target, error) {
 		}
 		return []Target{{UserID: uid, Category: "support", TextKey: "notif.support.reply", Params: map[string]string{"ticket_id": p.str("ticket_id")},
 			DeepLink: "krejt://support/tickets/" + p.str("ticket_id"), Priority: "normal", Collapse: "ticket:" + p.str("ticket_id")}}, nil
+	case "MerchantStatusChanged":
+		oid, ok := p.uuid("owner_id")
+		if !ok {
+			return nil, nil
+		}
+		switch p.str("status") {
+		case "active":
+			return []Target{{UserID: oid, Category: "support", TextKey: "notif.merchant.active", Params: map[string]string{"merchant_id": p.str("merchant_id")}, DeepLink: "krejt://merchant/" + p.str("merchant_id"), Priority: "normal"}}, nil
+		case "suspended":
+			return []Target{{UserID: oid, Category: "support", TextKey: "notif.merchant.suspended", Params: map[string]string{"merchant_id": p.str("merchant_id"), "reason": p.str("reason")}, DeepLink: "krejt://merchant/" + p.str("merchant_id"), Priority: "normal"}}, nil
+		}
+		return nil, nil
 	case "DriverDocumentReviewed":
 		did, ok := p.uuid("driver_id")
 		if !ok || p.str("status") != "rejected" {
@@ -376,6 +388,13 @@ func (s *Service) enrich(ctx context.Context, t Target) map[string]string {
 	}
 	if fee > 0 {
 		params["fee_minor"] = fmt.Sprint(fee)
+	}
+	// merchant-i: emri
+	if mid, err := uuid.Parse(params["merchant_id"]); err == nil {
+		var name string
+		if err := s.pool.QueryRow(ctx, `SELECT name FROM merchants WHERE id = $1`, mid).Scan(&name); err == nil {
+			params["name"] = name
+		}
 	}
 	// tiketa: subjekti
 	if tid, err := uuid.Parse(params["ticket_id"]); err == nil {
