@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"krejt.app/backend/internal/modules/admin"
 	"krejt.app/backend/internal/modules/appconfig"
 	"krejt.app/backend/internal/modules/auth"
 	"krejt.app/backend/internal/modules/documents"
@@ -24,6 +25,7 @@ import (
 	"krejt.app/backend/internal/modules/realtime"
 	"krejt.app/backend/internal/modules/reviews"
 	"krejt.app/backend/internal/modules/rides"
+	"krejt.app/backend/internal/modules/support"
 	"krejt.app/backend/internal/modules/users"
 	"krejt.app/backend/internal/modules/wallet"
 	"krejt.app/backend/internal/platform/cache"
@@ -146,6 +148,9 @@ func main() {
 	}
 	requireOps := authSvc.RequireAuth("OPERATIONS")
 	requireFinance := authSvc.RequireAuth("FINANCE")
+	requireSupport := authSvc.RequireAnyCapability("SUPPORT", "ADMIN")
+	requireStaff := authSvc.RequireAnyCapability("ADMIN", "SUPPORT", "OPERATIONS", "FINANCE")
+	requireAdmin := authSvc.RequireAuth("ADMIN")
 
 	// --- router ----------------------------------------------------------------
 	mux := http.NewServeMux()
@@ -172,6 +177,8 @@ func main() {
 	if dev, ok := payProvider.(*payment.DevLog); ok {
 		paymentsSvc.DevRoutes(mux, dev) // vetëm development (devlog)
 	}
+	support.New(pool).Routes(mux, requireAuth, requireSupport)
+	admin.New(pool, rdb, ledgerSvc).Routes(mux, requireStaff, requireAdmin)
 	if fs, ok := store.(*storage.DevFS); ok {
 		documents.DevRoutes(mux, fs) // vetëm development (devfs)
 	}

@@ -197,3 +197,22 @@ për përqindje është determinist për përdorues (hash i çelësit + id-së).
 Kufizimi i shpejtësisë: 300 kërkesa/min për IP (para autentikimit) dhe 600/min për përdorues (pas RequireAuth), dritare
 fikse në Redis me `Retry-After`; OTP-ja mban kufijtë e vet më të rreptë. Nëse Redis-i nuk përgjigjet, kërkesa kalon
 (fail-open) dhe logohet — kufizimi nuk rrëzon shërbimin.
+
+## Mbështetja (§36) dhe Admin (§35)
+
+**support** — tiketa (`POST/GET /support/tickets`, `GET /support/tickets/{id}`, `POST …/messages`, `POST …/close`) me kategori
+(ride/order/payment/refund/account/safety/other) dhe prioritet automatik (safety → urgent, payment/refund → high);
+udhëtimi i lidhur verifikohet si i përdoruesit. `POST /safety/reports` (SOS, ngasje e rrezikshme, ngacmim, aksident…) →
+tiketë urgjente + `SafetyReportCreated` (kanali live `ops:` për panelin e Operacioneve). Agjentët (SUPPORT/ADMIN):
+`GET /admin/support/tickets?status=&priority=&assigned=me` (urgentët para), `GET /admin/support/tickets/{id}` (mesazhet +
+konteksti: telefon/emër/gjuhë, përmbledhja e udhëtimit — qasja auditohet), `POST …/messages` (→ `pending_user`, njoftim
+push te përdoruesi), `PATCH …` (status/prioritet/caktim; mbyllja mbyll edhe raportin e sigurisë).
+
+**admin** (lexim; ADMIN/SUPPORT/OPERATIONS/FINANCE, SUPER_ADMIN gjithmonë) — `GET /admin/users?q=` (telefon/email/emër/id),
+`GET /admin/users/{id}` (kapacitetet, wallet-i, udhëtimet, sesionet, profili i shoferit, audit-i i fundit; qasja auditohet),
+`GET /admin/rides?state=&customer_id=&driver_id=`, `GET /admin/rides/{id}` (ngjarjet e makinës së gjendjeve + ofertat e
+dispatch-it), `GET /admin/dispatch/live` (udhëtimet aktive, ofertat e hapura, shoferët online sipas kategorisë nga Redis,
+SOS të hapura), `GET /admin/audit` (vetëm ADMIN). Veprimet me peshë mbeten në modulet e tyre (drivers, documents,
+support, payments, appconfig) — çdonjëra me audit.
+
+Ende jo: chat klient↔shofer (§28), moderimi i vlerësimeve nga Support si endpoint, analitika (§66), fraud v1 (§67) si modul.
