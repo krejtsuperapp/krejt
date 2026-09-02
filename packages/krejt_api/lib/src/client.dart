@@ -223,7 +223,17 @@ class KrejtApi {
   Future<Me> verifyOtp({required String phone, required String code, String? deviceName}) async {
     final j = await _post(
       '/api/v1/auth/otp/verify',
-      body: {'phone': phone, 'code': code, 'device_name': ?deviceName},
+      body: {
+        'phone': phone,
+        'code': code,
+        'locale': locale,
+        // Serveri e kërkon pajisjen si objekt me id dhe platformë; pa to kthen 422.
+        'device': {
+          'id': session.deviceId,
+          'name': deviceName ?? config.appId,
+          'platform': config.platform,
+        },
+      },
       anon: true,
     );
     final pair = TokenPair.fromJson(j);
