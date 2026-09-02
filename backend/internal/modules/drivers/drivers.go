@@ -56,14 +56,28 @@ type ApplyInput struct {
 	Categories   []string `json:"categories"`
 }
 
+// Eligibility — a i ka shoferi dokumentet e detyrueshme të miratuara (moduli documents).
+type Eligibility interface {
+	Eligible(ctx context.Context, driverID uuid.UUID) (ok bool, missing []string, err error)
+}
+
 type Service struct {
-	pool *pgxpool.Pool
-	loc  *location.Service
+	pool        *pgxpool.Pool
+	loc         *location.Service
+	eligibility Eligibility
 }
 
 func New(pool *pgxpool.Pool, loc *location.Service) *Service {
 	return &Service{pool: pool, loc: loc}
 }
+
+// WithEligibility — miratimi kërkon dokumentet e detyrueshme (kur është vendosur).
+func (s *Service) WithEligibility(e Eligibility) *Service {
+	s.eligibility = e
+	return s
+}
+
+var ErrDocumentsIncomplete = &httpx.APIError{Code: "DRIVER_DOCUMENTS_INCOMPLETE", MessageKey: "errors.drivers.documents_incomplete", HTTPStatus: http.StatusUnprocessableEntity}
 
 const profileCols = `user_id, status, vehicle_make, vehicle_model, vehicle_plate, vehicle_color, categories,
 	rating_sum, rating_count, approved_at, suspended_reason, created_at, updated_at`
@@ -220,6 +234,23 @@ func (s *Service) Approve(ctx context.Context, admin principal.Actor, driverID u
 	cats, ok := NormalizeCategories(categories)
 	if !ok {
 		return nil, httpx.ErrValidation.WithFields(map[string]string{"categories": "invalid"})
+	}
+	if s.eligibility != nil {
+		// kategoritë e reja (p.sh. taxi) ndikojnë në dokumentet e kërkuara — ruhen para kontrollit
+		if _, err := s.pool.Exec(ctx, `UPDATE drivers SET categories = $2, updated_at = now() WHERE user_id = $1`, driverID, cats); err != nil {
+			return nil, err
+		}
+		ok, missing, err := s.eligibility.Eligible(ctx, driverID)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			f := map[string]string{}
+			for _, m := range missing {
+				f["documents."+m] = "missing"
+			}
+			return nil, ErrDocumentsIncomplete.WithFields(f)
+		}
 	}
 	var out *Profile
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {

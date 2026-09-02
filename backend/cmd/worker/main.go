@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"krejt.app/backend/internal/modules/dispatch"
+	"krejt.app/backend/internal/modules/documents"
 	"krejt.app/backend/internal/modules/drivers"
 	"krejt.app/backend/internal/modules/ledger"
 	"krejt.app/backend/internal/modules/location"
@@ -28,7 +29,9 @@ import (
 	"krejt.app/backend/internal/platform/providers/maps"
 	"krejt.app/backend/internal/platform/providers/push"
 	rtprovider "krejt.app/backend/internal/platform/providers/realtime"
+	"krejt.app/backend/internal/platform/providers/storage"
 	dispatchworker "krejt.app/backend/internal/workers/dispatch"
+	"krejt.app/backend/internal/workers/maintenance"
 	"krejt.app/backend/internal/workers/outbox"
 	"krejt.app/backend/internal/workers/queue"
 )
@@ -66,6 +69,8 @@ func main() {
 	fatal(log, "push provider", err)
 	rtPub, err := rtprovider.NewFromEnv(cfg.Env, cfg.RealtimeProvider, cfg.CentrifugoAPIURL, cfg.CentrifugoAPIKey, log)
 	fatal(log, "realtime provider", err)
+	store, err := storage.NewFromEnv(ctx, cfg.Env, cfg.StorageProvider, cfg.Region, cfg.AssetsBucket, cfg.DevFSDir, cfg.PublicBaseURL, log)
+	fatal(log, "storage provider", err)
 
 	// --- modulet ------------------------------------------------------------------
 	locSvc := location.New(rdb, pool).WithRealtime(rtPub)
@@ -105,6 +110,7 @@ func main() {
 	}
 	run("outbox", outbox.New(pool, publisher, log).Run)
 	run("dispatch", dispatchworker.New(dispatcher, ridesSvc, log).Run)
+	run("maintenance", maintenance.New(documents.New(pool, store), log).Run)
 	if url := cfg.QueueURLs["notifications"]; url != "" && cfg.EventsPublisher == "sns" {
 		consumer, err := queue.New(ctx, cfg.Region, url, "notifications", handle, log)
 		fatal(log, "sqs consumer", err)

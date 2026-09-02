@@ -57,6 +57,12 @@ type Config struct {
 	CentrifugoAPIURL          string
 	CentrifugoAPIKey          string
 	CentrifugoTokenHMACSecret string
+
+	// ruajtja e objekteve (§43 S3): STORAGE_PROVIDER s3 | devfs (vetëm development)
+	StorageProvider string
+	AssetsBucket    string
+	DevFSDir        string
+	PublicBaseURL   string // URL-ja publike e API-së (për devfs dhe linqe)
 }
 
 func Load() (*Config, error) {
@@ -91,6 +97,10 @@ func Load() (*Config, error) {
 		CentrifugoAPIURL:          os.Getenv("CENTRIFUGO_API_URL"),
 		CentrifugoAPIKey:          os.Getenv("CENTRIFUGO_API_KEY"),
 		CentrifugoTokenHMACSecret: os.Getenv("CENTRIFUGO_TOKEN_HMAC_SECRET"),
+		StorageProvider:           getenv("STORAGE_PROVIDER", "s3"),
+		AssetsBucket:              os.Getenv("S3_ASSETS_BUCKET"),
+		DevFSDir:                  os.Getenv("DEVFS_DIR"),
+		PublicBaseURL:             getenv("PUBLIC_BASE_URL", "http://localhost:8080"),
 	}
 	for _, kv := range os.Environ() {
 		if strings.HasPrefix(kv, "SQS_") && strings.Contains(kv, "_QUEUE_URL=") {

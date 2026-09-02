@@ -13,12 +13,14 @@ import (
 	"time"
 
 	"krejt.app/backend/internal/modules/auth"
+	"krejt.app/backend/internal/modules/documents"
 	"krejt.app/backend/internal/modules/drivers"
 	"krejt.app/backend/internal/modules/ledger"
 	"krejt.app/backend/internal/modules/location"
 	"krejt.app/backend/internal/modules/notifications"
 	"krejt.app/backend/internal/modules/pricing"
 	"krejt.app/backend/internal/modules/realtime"
+	"krejt.app/backend/internal/modules/reviews"
 	"krejt.app/backend/internal/modules/rides"
 	"krejt.app/backend/internal/modules/users"
 	"krejt.app/backend/internal/platform/cache"
@@ -29,6 +31,7 @@ import (
 	"krejt.app/backend/internal/platform/providers/maps"
 	rtprovider "krejt.app/backend/internal/platform/providers/realtime"
 	"krejt.app/backend/internal/platform/providers/sms"
+	"krejt.app/backend/internal/platform/providers/storage"
 )
 
 func main() {
@@ -87,6 +90,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	store, err := storage.NewFromEnv(ctx, cfg.Env, cfg.StorageProvider, cfg.Region, cfg.AssetsBucket, cfg.DevFSDir, cfg.PublicBaseURL, log)
+	if err != nil {
+		log.Error("storage provider", "err", err)
+		os.Exit(1)
+	}
+
 	var signer *auth.Signer
 	if cfg.JWTPrivateKeyPEM != "" {
 		signer, err = auth.LoadSigner([]byte(cfg.JWTPrivateKeyPEM))
@@ -114,7 +123,8 @@ func main() {
 	authSvc := auth.New(pool, rdb, smsProvider, signer, ledgerSvc, pepper)
 	locSvc := location.New(rdb, pool).WithRealtime(rtPub)
 	pricingSvc := pricing.New(pool, mapsProvider, locSvc)
-	driversSvc := drivers.New(pool, locSvc)
+	docsSvc := documents.New(pool, store)
+	driversSvc := drivers.New(pool, locSvc).WithEligibility(docsSvc)
 	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricingSvc)
 	requireAuth := authSvc.RequireAuth("")
 	requireDriver := authSvc.RequireAnyCapability("RIDE_DRIVER", "TAXI_DRIVER")
@@ -136,6 +146,11 @@ func main() {
 	ridesSvc.Routes(mux, requireAuth, requireDriver)
 	notifications.New(pool, nil).Routes(mux, requireAuth) // API-ja vetëm kutinë + token-at; push-in e dërgon worker-i
 	realtime.New(pool, rtPub, rtTokens).Routes(mux, requireAuth)
+	reviews.New(pool).Routes(mux, requireAuth)
+	docsSvc.Routes(mux, requireAuth, requireOps)
+	if fs, ok := store.(*storage.DevFS); ok {
+		documents.DevRoutes(mux, fs) // vetëm development (devfs)
+	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound)
 	})
