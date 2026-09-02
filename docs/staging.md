@@ -59,6 +59,16 @@ Shto atë CNAME te Cloudflare **me proxy të fikur** (renë gri): validimi i ACM
 përmes proxy-t. Kur statusi bëhet `ISSUED`, vendos ARN-në te
 `infra/terraform/envs/staging/terraform.tfvars`, te `acm_certificate_arn`.
 
+Në të njëjtin skedar plotëso edhe:
+
+- `infobip_base_url` — base URL-ja **personale** e llogarisë tënde Infobip, e formës
+  `https://xxxxx.api.infobip.com`. E gjen te paneli i tyre. Adresa e përgjithshme
+  `https://api.infobip.com` nuk dërgon.
+- `maps_provider` — `google` ose `mapbox`, sipas çelësit që ke.
+- `infobip_sender` — lëre `KREJT` derisa sender-i të aprovohet.
+
+Këto nuk janë sekrete: janë emra dhe adresa, ndaj rrinë te tfvars e jo te Secrets Manager.
+
 ## 3. Ngritja e infrastrukturës
 
 ```bash

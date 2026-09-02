@@ -365,6 +365,12 @@ locals {
     { name = "REDIS_HOST", value = var.redis_endpoint },
     { name = "REDIS_TLS", value = "true" },
     { name = "CENTRIFUGO_API_URL", value = "http://centrifugo.${var.name}.local:8000/api" },
+    { name = "PUBLIC_BASE_URL", value = var.public_base_url },
+    # Ofruesit zgjidhen këtu e jo nga vlerat e paracaktuara të kodit: një mjedis i vërtetë
+    # nuk duhet të varet nga ajo çka ndodh të jetë default.
+    { name = "MAPS_PROVIDER", value = var.maps_provider },
+    { name = "INFOBIP_BASE_URL", value = var.infobip_base_url },
+    { name = "INFOBIP_SENDER", value = var.infobip_sender },
     { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = var.otlp_endpoint },
     { name = "OTEL_TRACES_SAMPLER_ARG", value = "0.2" },
   ]

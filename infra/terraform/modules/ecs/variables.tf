@@ -94,6 +94,33 @@ variable "app_secret_arns" {
   type        = map(string)
 }
 
+variable "public_base_url" {
+  description = "Adresa publike e API-së (p.sh. https://staging.krejt.app). Përdoret për lidhjet që ndërton vetë serveri."
+  type        = string
+}
+
+variable "maps_provider" {
+  description = "Ofruesi i hartave: google | mapbox. Të dy sekretet janë të lidhur; kjo vendos cili përdoret."
+  type        = string
+  default     = "google"
+
+  validation {
+    condition     = contains(["google", "mapbox"], var.maps_provider)
+    error_message = "maps_provider duhet google ose mapbox."
+  }
+}
+
+variable "infobip_base_url" {
+  description = "Base URL personale e llogarisë Infobip (p.sh. https://xxxxx.api.infobip.com). Adresa e përgjithshme nuk dërgon."
+  type        = string
+}
+
+variable "infobip_sender" {
+  description = "Sender ID i aprovuar për SMS."
+  type        = string
+  default     = "KREJT"
+}
+
 variable "otlp_endpoint" {
   description = "Endpoint-i OTLP i Grafana Cloud (bosh = pa eksport gjurmësh/metrikash)."
   type        = string
