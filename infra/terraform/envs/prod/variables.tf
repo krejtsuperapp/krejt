@@ -52,6 +52,30 @@ variable "public_base_url" {
   type        = string
 }
 
+variable "sms_provider" {
+  description = "infobip | devlog (vetëm development)"
+  type        = string
+  default     = "infobip"
+}
+
+variable "payment_provider" {
+  description = "stripe | devlog (vetëm development)"
+  type        = string
+  default     = "stripe"
+}
+
+variable "push_provider" {
+  description = "fcm | devlog (vetëm development)"
+  type        = string
+  default     = "fcm"
+}
+
+variable "analytics_provider" {
+  description = "posthog | devlog (vetëm development)"
+  type        = string
+  default     = "posthog"
+}
+
 variable "maps_provider" {
   description = "google | mapbox"
   type        = string

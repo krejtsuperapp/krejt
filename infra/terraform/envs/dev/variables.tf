@@ -30,6 +30,21 @@ variable "alb_enabled" {
   type    = bool
   default = false
 }
+# Numri i detyrave nis nga zero: mjedisi ekziston pa shpenzuar për detyra që do të
+# dështonin derisa imazhi i parë të jetë në ECR.
+variable "api_desired_count" {
+  type    = number
+  default = 0
+}
+variable "worker_desired_count" {
+  type    = number
+  default = 0
+}
+variable "centrifugo_desired_count" {
+  type    = number
+  default = 0
+}
+
 variable "monthly_budget_usd" {
   type    = number
   default = 60
@@ -41,6 +56,30 @@ variable "alert_email" {
 variable "public_base_url" {
   description = "Adresa publike e API-së për këtë mjedis."
   type        = string
+}
+
+variable "sms_provider" {
+  description = "infobip | devlog (vetëm development)"
+  type        = string
+  default     = "infobip"
+}
+
+variable "payment_provider" {
+  description = "stripe | devlog (vetëm development)"
+  type        = string
+  default     = "stripe"
+}
+
+variable "push_provider" {
+  description = "fcm | devlog (vetëm development)"
+  type        = string
+  default     = "fcm"
+}
+
+variable "analytics_provider" {
+  description = "posthog | devlog (vetëm development)"
+  type        = string
+  default     = "posthog"
 }
 
 variable "maps_provider" {
