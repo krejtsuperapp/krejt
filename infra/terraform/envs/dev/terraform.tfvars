@@ -11,6 +11,11 @@ alert_email        = "krejtsuperapp@gmail.com"
 # Adresa publike e API-së dhe ofruesit që zgjedh ky mjedis.
 public_base_url = "https://dev.krejt.app"
 maps_provider   = "mapbox" # google | mapbox
+
+# SMS-ja mbetet devlog derisa sender-i te Infobip të aprovohet: me një sender të paaprovuar
+# kërkesa dështon pa dërguar asgjë, dhe askush nuk kyçet dot. Me devlog kodi shkruhet te
+# CloudWatch, ndaj kyçja nga larg funksionon. Ndërroje në "infobip" ditën e aprovimit.
+sms_provider = "devlog"
 # Base URL personale e llogarisë Infobip; e gjen te paneli i tyre (jo https://api.infobip.com).
 infobip_base_url = ""
 infobip_sender   = "KREJT"
