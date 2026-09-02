@@ -60,6 +60,9 @@ services:
       CENTRIFUGO_API_URL: http://centrifugo:8000/api
       CENTRIFUGO_API_KEY: krejt_dev_only_api_key
       CENTRIFUGO_TOKEN_HMAC_SECRET: krejt_dev_only_hmac_secret_32chars
+      STORAGE_PROVIDER: devfs
+      DEVFS_DIR: /tmp/krejt-devfs
+      PUBLIC_BASE_URL: http://localhost:8080
     ports: ["8080:8080"]
     depends_on:
       postgres: { condition: service_healthy }

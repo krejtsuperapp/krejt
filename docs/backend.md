@@ -140,3 +140,21 @@ më nevojë për polling të ofertave (mbetet si rezervë), dhe klienti e sheh m
 Në AWS: Centrifugo si shërbim ECS (Redis engine), i arritshëm nga api/worker përmes Cloud Map
 (`centrifugo.<name>.local:8000`); klientët lidhen përmes ALB `/connection/*`. Lokalisht: `docker compose up` ngre
 Centrifugo-n me sekrete vetëm-për-laptop.
+
+## Vlerësimet (§30) dhe dokumentet e shoferit (§18, §51)
+
+**reviews** — `POST /rides/{id}/review` (rolin e nxjerr serveri: klienti → shoferi, shoferi → klienti), vetëm për udhëtime
+të përfunduara, brenda 7 ditësh, një herë për person (unik në DB); etiketa të lejuara për rol, koment ≤ 300; agregati
+(shuma/numërimi) te `drivers`/`users` përditësohet në të njëjtin transaksion. `POST /reviews/{id}/report` → `flagged`
+(pala e vlerësuar e raporton; Support e moderon). `GET /rides/{id}/reviews` kthen të vetat + të tjetrit vetëm nëse `visible`.
+
+**documents** — ngarkim direkt në S3 me URL të nënshkruar (`POST /driver/documents/upload-url` → PUT; `STORAGE_PROVIDER=devfs`
+vetëm në development me `PUT /api/v1/dev/uploads/{key}`), pastaj `POST /driver/documents` që verifikon objektin (ekziston,
+lloji dhe madhësia përputhen me të premtuarën — jpeg/png/pdf, ≤ 10 MB) dhe datën e skadimit. Llojet: foto profili, ID,
+patentë, librezë, sigurim, dëshmi e pastërtisë (+ certifikatë taksie për kategorinë taxi). Operacionet: `GET /admin/driver-documents`,
+`GET /admin/drivers/{id}/documents` (URL leximi 5 min), `PATCH /admin/driver-documents/{id}` approve/reject.
+**Miratimi i shoferit tani kërkon dokumentet e detyrueshme të miratuara** (`DRIVER_DOCUMENTS_INCOMPLETE` me listën).
+Worker-i (çdo orë) skadon dokumentet e miratuara me datë të kaluar dhe **pezullon** shoferin (kapacitetet hiqen, ngjarje →
+njoftim) derisa ta rinovojë.
+
+Ende jo: skanim malware i skedarëve (§51), OCR/lexim automatik, rikthim automatik i shoferit pas rinovimit (bëhet nga ops).
