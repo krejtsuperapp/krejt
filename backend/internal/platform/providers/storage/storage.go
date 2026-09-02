@@ -206,8 +206,16 @@ func (d *DevFS) Put(key, contentType string, body io.Reader) error {
 	return nil
 }
 
+// PutBytes — shkrim i drejtpërdrejtë nga serveri. Nuk kalon nga Put: ai verifikon një ngarkim të
+// premtuar më parë me PresignUpload, ndërsa këtu objektin e prodhon vetë serveri.
 func (d *DevFS) PutBytes(_ context.Context, key, contentType string, body []byte) error {
-	return d.Put(key, contentType, bytes.NewReader(body))
+	if err := os.MkdirAll(filepath.Dir(d.path(key)), 0o700); err != nil {
+		return err
+	}
+	if err := os.WriteFile(d.path(key), body, 0o600); err != nil {
+		return err
+	}
+	return os.WriteFile(d.path(key)+".ct", []byte(contentType), 0o600)
 }
 
 func (d *DevFS) Head(_ context.Context, key string) (ObjectInfo, error) {
