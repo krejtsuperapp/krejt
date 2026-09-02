@@ -17,7 +17,7 @@ maps_provider   = "mapbox" # google | mapbox
 # CloudWatch, ndaj kyçja nga larg funksionon. Ndërroje në "infobip" ditën e aprovimit.
 sms_provider = "devlog"
 # Base URL personale e llogarisë Infobip; e gjen te paneli i tyre (jo https://api.infobip.com).
-infobip_base_url = ""
+infobip_base_url = "https://rk8n2y.api.infobip.com"
 infobip_sender   = "KREJT"
 
 # ARN-ja e certifikatës për dev.krejt.app, e lëshuar në eu-central-1. ALB-ja nuk ngrihet pa të.
