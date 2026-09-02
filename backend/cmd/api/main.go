@@ -17,6 +17,7 @@ import (
 	"krejt.app/backend/internal/modules/auth"
 	"krejt.app/backend/internal/modules/catalog"
 	"krejt.app/backend/internal/modules/chat"
+	"krejt.app/backend/internal/modules/dataexport"
 	"krejt.app/backend/internal/modules/documents"
 	"krejt.app/backend/internal/modules/drivers"
 	"krejt.app/backend/internal/modules/fraud"
@@ -197,6 +198,7 @@ func main() {
 	authSvc.Routes(mux)
 	appCfg.Routes(mux, authSvc.OptionalAuth(), requireOps)
 	users.New(pool, ledgerSvc).Routes(mux, requireAuth)
+	dataexport.New(pool, store).Routes(mux, requireAuth)
 	driversSvc.Routes(mux, requireAuth, requireDriver, requireOps)
 	ridesSvc.Routes(mux, requireAuth, requireDriver)
 	notifications.New(pool, nil).Routes(mux, requireAuth) // API-ja vetëm kutinë + token-at; push-in e dërgon worker-i
