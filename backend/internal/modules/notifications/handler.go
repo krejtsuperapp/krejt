@@ -144,6 +144,13 @@ func Map(ev events.Event) ([]Target, error) {
 		return []Target{{UserID: uid, Category: "wallet", TextKey: "notif.wallet.topup",
 			Params:   map[string]string{"amount_minor": fmt.Sprint(p.int64("amount_minor")), "currency": p.str("currency"), "intent_id": p.str("intent_id")},
 			DeepLink: "krejt://wallet", Priority: "normal"}}, nil
+	case "SupportTicketReplied":
+		uid, ok := p.uuid("user_id")
+		if !ok {
+			return nil, nil
+		}
+		return []Target{{UserID: uid, Category: "support", TextKey: "notif.support.reply", Params: map[string]string{"ticket_id": p.str("ticket_id")},
+			DeepLink: "krejt://support/tickets/" + p.str("ticket_id"), Priority: "normal", Collapse: "ticket:" + p.str("ticket_id")}}, nil
 	case "DriverDocumentReviewed":
 		did, ok := p.uuid("driver_id")
 		if !ok || p.str("status") != "rejected" {
@@ -361,6 +368,13 @@ func (s *Service) enrich(ctx context.Context, t Target) map[string]string {
 	}
 	if fee > 0 {
 		params["fee_minor"] = fmt.Sprint(fee)
+	}
+	// tiketa: subjekti
+	if tid, err := uuid.Parse(params["ticket_id"]); err == nil {
+		var subject string
+		if err := s.pool.QueryRow(ctx, `SELECT subject FROM support_tickets WHERE id = $1`, tid).Scan(&subject); err == nil {
+			params["subject"] = subject
+		}
 	}
 	// oferta: distanca shofer→marrje
 	if oid, err := uuid.Parse(params["offer_id"]); err == nil {

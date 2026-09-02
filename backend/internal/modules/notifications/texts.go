@@ -78,6 +78,11 @@ var texts = map[string]map[string][2]string{
 		"en": {"Document rejected", "{doc_type}: {reason}. Please upload it again."},
 		"de": {"Dokument abgelehnt", "{doc_type}: {reason}. Bitte lade es erneut hoch."},
 	},
+	"notif.support.reply": {
+		"sq": {"Përgjigje nga Mbështetja", "{subject}: ke një përgjigje të re."},
+		"en": {"Reply from Support", "{subject}: you have a new reply."},
+		"de": {"Antwort vom Support", "{subject}: du hast eine neue Antwort."},
+	},
 	"notif.driver.approved": {
 		"sq": {"Je miratuar si shofer", "Mund të dalësh online dhe të marrësh udhëtime."},
 		"en": {"You're approved as a driver", "You can go online and start taking rides."},

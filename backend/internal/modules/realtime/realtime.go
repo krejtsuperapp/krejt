@@ -54,6 +54,9 @@ func (s *Service) Authorize(ctx context.Context, a principal.Actor, channel stri
 	switch kind {
 	case "user", "driver":
 		return id == a.UserID, nil
+	case "ops":
+		// ops:{çdo id} — vetëm stafi (dispatch live, SOS); id-ja është emri i panelit, jo përdorues
+		return a.Has("OPERATIONS") || a.Has("ADMIN") || a.Has("SUPPORT"), nil
 	case "ride":
 		var allowed bool
 		err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM rides WHERE id = $1 AND (customer_id = $2 OR driver_id = $2))`, id, a.UserID).Scan(&allowed)
@@ -102,9 +105,14 @@ func (s *Service) Handle(ctx context.Context, ev events.Event) error {
 		if hasRide == nil && p["reassign"] == true {
 			return s.pub.Publish(ctx, RideChannel(rideID), msg)
 		}
+	case "SafetyReportCreated", "SupportTicketCreated":
+		return s.pub.Publish(ctx, OpsChannel, msg)
 	}
 	return nil
 }
+
+// OpsChannel — paneli i Operacioneve (SOS, tiketa të reja); vetëm stafi abonohet.
+const OpsChannel = "ops:" + "00000000-0000-0000-0000-000000000001"
 
 // --- HTTP -------------------------------------------------------------------------
 
