@@ -38,6 +38,28 @@ variable "alert_email" {
   type = string
 }
 
+variable "public_base_url" {
+  description = "Adresa publike e API-së për këtë mjedis."
+  type        = string
+}
+
+variable "maps_provider" {
+  description = "google | mapbox"
+  type        = string
+  default     = "google"
+}
+
+variable "infobip_base_url" {
+  description = "Base URL personale e llogarisë Infobip; e gjen te paneli i tyre."
+  type        = string
+}
+
+variable "infobip_sender" {
+  description = "Sender ID i aprovuar."
+  type        = string
+  default     = "KREJT"
+}
+
 variable "otlp_endpoint" {
   description = "Grafana Cloud OTLP gateway (p.sh. https://otlp-gateway-prod-eu-west-2.grafana.net/otlp); bosh = pa eksport."
   type        = string
