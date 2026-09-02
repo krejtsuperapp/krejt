@@ -32,17 +32,31 @@ var (
 	ErrOfferGone                = &httpx.APIError{Code: "OFFER_GONE", MessageKey: "errors.rides.offer_gone", HTTPStatus: http.StatusConflict}
 )
 
+// Flags — feature flags (§65): `rides.request` = çaktivizim emergjent i shërbimit.
+type Flags interface {
+	Enabled(ctx context.Context, key string, userID uuid.UUID) bool
+}
+
+var ErrServiceDisabled = &httpx.APIError{Code: "SERVICE_DISABLED", MessageKey: "errors.rides.service_disabled", HTTPStatus: http.StatusServiceUnavailable, Retryable: true}
+
 type Service struct {
 	pool    *pgxpool.Pool
 	loc     *location.Service
 	ledger  *ledger.Service
 	drivers *drivers.Service
 	pricing *pricing.Service
+	flags   Flags
 	now     func() time.Time
 }
 
 func New(pool *pgxpool.Pool, loc *location.Service, led *ledger.Service, drv *drivers.Service, pr *pricing.Service) *Service {
 	return &Service{pool: pool, loc: loc, ledger: led, drivers: drv, pricing: pr, now: time.Now}
+}
+
+// WithFlags — kur është vendosur, kërkesat e reja kontrollojnë flag-un `rides.request`.
+func (s *Service) WithFlags(f Flags) *Service {
+	s.flags = f
+	return s
 }
 
 // Ride — pamja e udhëtimit (e njëjta për klientin dhe shoferin; klienti sheh shoferin, jo komisionin).
@@ -138,6 +152,9 @@ func (s *Service) Request(ctx context.Context, a principal.Actor, idemKey string
 	}
 	if len(fields) > 0 {
 		return nil, httpx.ErrValidation.WithFields(fields)
+	}
+	if s.flags != nil && !s.flags.Enabled(ctx, "rides.request", a.UserID) {
+		return nil, ErrServiceDisabled
 	}
 
 	// idempotencë: e njëjta kërkesë kthen të njëjtin udhëtim

@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"krejt.app/backend/internal/modules/appconfig"
 	"krejt.app/backend/internal/modules/auth"
 	"krejt.app/backend/internal/modules/documents"
 	"krejt.app/backend/internal/modules/drivers"
@@ -35,6 +36,7 @@ import (
 	rtprovider "krejt.app/backend/internal/platform/providers/realtime"
 	"krejt.app/backend/internal/platform/providers/sms"
 	"krejt.app/backend/internal/platform/providers/storage"
+	"krejt.app/backend/internal/platform/ratelimit"
 )
 
 func main() {
@@ -134,9 +136,14 @@ func main() {
 	pricingSvc := pricing.New(pool, mapsProvider, locSvc)
 	docsSvc := documents.New(pool, store)
 	driversSvc := drivers.New(pool, locSvc).WithEligibility(docsSvc)
-	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricingSvc)
-	requireAuth := authSvc.RequireAuth("")
-	requireDriver := authSvc.RequireAnyCapability("RIDE_DRIVER", "TAXI_DRIVER")
+	appCfg := appconfig.New(pool)
+	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricingSvc).WithFlags(appCfg)
+	limiter := ratelimit.New(rdb, log)
+	perUser := limiter.PerUser(600, time.Minute) // §51: kufi për përdorues të kyçur
+	requireAuth := func(next http.Handler) http.Handler { return authSvc.RequireAuth("")(perUser(next)) }
+	requireDriver := func(next http.Handler) http.Handler {
+		return authSvc.RequireAnyCapability("RIDE_DRIVER", "TAXI_DRIVER")(perUser(next))
+	}
 	requireOps := authSvc.RequireAuth("OPERATIONS")
 	requireFinance := authSvc.RequireAuth("FINANCE")
 
@@ -151,6 +158,7 @@ func main() {
 		})
 	})
 	authSvc.Routes(mux)
+	appCfg.Routes(mux, authSvc.OptionalAuth(), requireOps)
 	users.New(pool, ledgerSvc).Routes(mux, requireAuth)
 	driversSvc.Routes(mux, requireAuth, requireDriver, requireOps)
 	ridesSvc.Routes(mux, requireAuth, requireDriver)
@@ -158,7 +166,7 @@ func main() {
 	realtime.New(pool, rtPub, rtTokens).Routes(mux, requireAuth)
 	reviews.New(pool).Routes(mux, requireAuth)
 	docsSvc.Routes(mux, requireAuth, requireOps)
-	paymentsSvc := payments.New(pool, ledgerSvc, payProvider)
+	paymentsSvc := payments.New(pool, ledgerSvc, payProvider).WithFlags(appCfg)
 	paymentsSvc.Routes(mux, requireAuth, requireFinance)
 	wallet.New(pool, ledgerSvc, wallet.Limits{MinTopUpMinor: payments.MinTopUpMinor, MaxTopUpMinor: payments.MaxTopUpMinor, DailyTopUpMinor: payments.DailyTopUpMinor}).Routes(mux, requireAuth)
 	if dev, ok := payProvider.(*payment.DevLog); ok {
@@ -177,6 +185,8 @@ func main() {
 		httpx.SecureHeaders(),
 		httpx.Timeout(30*time.Second),
 		httpx.AccessLog(log),
+		limiter.PerIP(300, time.Minute), // §51: kufi publik për IP (para autentikimit)
+		appCfg.Gate(),                   // §64: update i detyrueshëm / mirëmbajtje
 	)
 
 	srv := &http.Server{
