@@ -47,6 +47,16 @@ type Config struct {
 	// hartat (§46): MAPS_PROVIDER google | devestimate (vetëm development); çelësi nga Secrets Manager (krejt/<env>/google-maps)
 	MapsProvider  string
 	GoogleMapsKey string
+
+	// push (§47): PUSH_PROVIDER fcm | devlog (vetëm development); llogaria e shërbimit nga Secrets Manager (krejt/<env>/fcm)
+	PushProvider          string
+	FCMServiceAccountJSON string
+
+	// realtime (§42): REALTIME_PROVIDER centrifugo | devlog (vetëm development); sekretet nga krejt/<env>/centrifugo
+	RealtimeProvider          string
+	CentrifugoAPIURL          string
+	CentrifugoAPIKey          string
+	CentrifugoTokenHMACSecret string
 }
 
 func Load() (*Config, error) {
@@ -64,17 +74,23 @@ func Load() (*Config, error) {
 			Password: os.Getenv("REDIS_AUTH"),
 			TLS:      strings.EqualFold(getenv("REDIS_TLS", "false"), "true"),
 		},
-		QueueURLs:            map[string]string{},
-		JWTPrivateKeyPEM:     os.Getenv("JWT_PRIVATE_KEY"),
-		OTPPepper:            os.Getenv("OTP_PEPPER"),
-		SMSProvider:          getenv("SMS_PROVIDER", "infobip"),
-		InfobipBaseURL:       getenv("INFOBIP_BASE_URL", "https://api.infobip.com"),
-		InfobipAPIKey:        os.Getenv("INFOBIP_API_KEY"),
-		InfobipSender:        getenv("INFOBIP_SENDER", "KREJT"),
-		EventsPublisher:      getenv("EVENTS_PUBLISHER", "sns"),
-		DomainEventsTopicARN: os.Getenv("SNS_DOMAIN_EVENTS_TOPIC_ARN"),
-		MapsProvider:         getenv("MAPS_PROVIDER", "google"),
-		GoogleMapsKey:        os.Getenv("GOOGLE_MAPS_KEY"),
+		QueueURLs:                 map[string]string{},
+		JWTPrivateKeyPEM:          os.Getenv("JWT_PRIVATE_KEY"),
+		OTPPepper:                 os.Getenv("OTP_PEPPER"),
+		SMSProvider:               getenv("SMS_PROVIDER", "infobip"),
+		InfobipBaseURL:            getenv("INFOBIP_BASE_URL", "https://api.infobip.com"),
+		InfobipAPIKey:             os.Getenv("INFOBIP_API_KEY"),
+		InfobipSender:             getenv("INFOBIP_SENDER", "KREJT"),
+		EventsPublisher:           getenv("EVENTS_PUBLISHER", "sns"),
+		DomainEventsTopicARN:      os.Getenv("SNS_DOMAIN_EVENTS_TOPIC_ARN"),
+		MapsProvider:              getenv("MAPS_PROVIDER", "google"),
+		GoogleMapsKey:             os.Getenv("GOOGLE_MAPS_KEY"),
+		PushProvider:              getenv("PUSH_PROVIDER", "fcm"),
+		FCMServiceAccountJSON:     os.Getenv("FCM_SERVICE_ACCOUNT_JSON"),
+		RealtimeProvider:          getenv("REALTIME_PROVIDER", "centrifugo"),
+		CentrifugoAPIURL:          os.Getenv("CENTRIFUGO_API_URL"),
+		CentrifugoAPIKey:          os.Getenv("CENTRIFUGO_API_KEY"),
+		CentrifugoTokenHMACSecret: os.Getenv("CENTRIFUGO_TOKEN_HMAC_SECRET"),
 	}
 	for _, kv := range os.Environ() {
 		if strings.HasPrefix(kv, "SQS_") && strings.Contains(kv, "_QUEUE_URL=") {

@@ -364,12 +364,13 @@ locals {
     { name = "DB_NAME", value = "krejt" },
     { name = "REDIS_HOST", value = var.redis_endpoint },
     { name = "REDIS_TLS", value = "true" },
+    { name = "CENTRIFUGO_API_URL", value = "http://centrifugo.${var.name}.local:8000/api" },
   ]
   queue_env = [for k, u in var.queue_urls : { name = "SQS_${upper(k)}_QUEUE_URL", value = u }]
 
   # Sekretet e aplikacionit (vlerat futen me dorë në Secrets Manager; task-et nuk nisen pa to):
   #  - krejt-<env>/jwt: JSON { "private_key_pem": "...", "otp_pepper": "..." }
-  #  - krejt-<env>/google-maps, krejt-<env>/infobip: vlera e thjeshtë (çelësi)
+  #  - krejt-<env>/google-maps, krejt-<env>/infobip: vlera e thjeshtë (çelësi); krejt-<env>/fcm: JSON-i i llogarisë së shërbimit
   common_secrets = [
     { name = "DB_CREDENTIALS_JSON", valueFrom = var.aurora_master_secret_arn },
     { name = "REDIS_AUTH", valueFrom = var.redis_auth_secret_arn },
@@ -377,6 +378,9 @@ locals {
     { name = "OTP_PEPPER", valueFrom = "${var.app_secret_arns["jwt"]}:otp_pepper::" },
     { name = "GOOGLE_MAPS_KEY", valueFrom = var.app_secret_arns["google-maps"] },
     { name = "INFOBIP_API_KEY", valueFrom = var.app_secret_arns["infobip"] },
+    { name = "FCM_SERVICE_ACCOUNT_JSON", valueFrom = var.app_secret_arns["fcm"] },
+    { name = "CENTRIFUGO_API_KEY", valueFrom = "${var.centrifugo_secret_arn}:api_key::" },
+    { name = "CENTRIFUGO_TOKEN_HMAC_SECRET", valueFrom = "${var.centrifugo_secret_arn}:token_hmac_secret_key::" },
   ]
 }
 
@@ -543,6 +547,28 @@ resource "aws_ecs_service" "worker" {
   lifecycle { ignore_changes = [desired_count] }
 }
 
+# DNS privat brenda VPC-së (§43): api/worker publikojnë te http://centrifugo.<name>.local:8000/api
+resource "aws_service_discovery_private_dns_namespace" "this" {
+  name        = "${var.name}.local"
+  vpc         = var.vpc_id
+  description = "KREJT ${var.name} — zbulim i brendshëm i shërbimeve"
+  tags        = var.tags
+}
+
+resource "aws_service_discovery_service" "centrifugo" {
+  name = "centrifugo"
+  dns_config {
+    namespace_id   = aws_service_discovery_private_dns_namespace.this.id
+    routing_policy = "MULTIVALUE"
+    dns_records {
+      ttl  = 10
+      type = "A"
+    }
+  }
+  health_check_custom_config { failure_threshold = 1 }
+  tags = var.tags
+}
+
 resource "aws_ecs_service" "centrifugo" {
   count                             = local.alb_n
   name                              = "${var.name}-centrifugo"
@@ -560,6 +586,9 @@ resource "aws_ecs_service" "centrifugo" {
     target_group_arn = aws_lb_target_group.centrifugo[0].arn
     container_name   = "centrifugo"
     container_port   = 8000
+  }
+  service_registries {
+    registry_arn = aws_service_discovery_service.centrifugo.arn
   }
   deployment_circuit_breaker {
     enable   = true

@@ -16,7 +16,9 @@ import (
 	"krejt.app/backend/internal/modules/drivers"
 	"krejt.app/backend/internal/modules/ledger"
 	"krejt.app/backend/internal/modules/location"
+	"krejt.app/backend/internal/modules/notifications"
 	"krejt.app/backend/internal/modules/pricing"
+	"krejt.app/backend/internal/modules/realtime"
 	"krejt.app/backend/internal/modules/rides"
 	"krejt.app/backend/internal/modules/users"
 	"krejt.app/backend/internal/platform/cache"
@@ -25,6 +27,7 @@ import (
 	"krejt.app/backend/internal/platform/httpx"
 	"krejt.app/backend/internal/platform/logx"
 	"krejt.app/backend/internal/platform/providers/maps"
+	rtprovider "krejt.app/backend/internal/platform/providers/realtime"
 	"krejt.app/backend/internal/platform/providers/sms"
 )
 
@@ -73,6 +76,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	rtPub, err := rtprovider.NewFromEnv(cfg.Env, cfg.RealtimeProvider, cfg.CentrifugoAPIURL, cfg.CentrifugoAPIKey, log)
+	if err != nil {
+		log.Error("realtime provider", "err", err)
+		os.Exit(1)
+	}
+	rtTokens, err := rtprovider.NewTokenIssuer(cfg.Env, cfg.CentrifugoTokenHMACSecret, log)
+	if err != nil {
+		log.Error("realtime tokens", "err", err)
+		os.Exit(1)
+	}
+
 	var signer *auth.Signer
 	if cfg.JWTPrivateKeyPEM != "" {
 		signer, err = auth.LoadSigner([]byte(cfg.JWTPrivateKeyPEM))
@@ -98,7 +112,7 @@ func main() {
 	// --- modulet -----------------------------------------------------------------
 	ledgerSvc := ledger.New(pool)
 	authSvc := auth.New(pool, rdb, smsProvider, signer, ledgerSvc, pepper)
-	locSvc := location.New(rdb, pool)
+	locSvc := location.New(rdb, pool).WithRealtime(rtPub)
 	pricingSvc := pricing.New(pool, mapsProvider, locSvc)
 	driversSvc := drivers.New(pool, locSvc)
 	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricingSvc)
@@ -120,6 +134,8 @@ func main() {
 	users.New(pool, ledgerSvc).Routes(mux, requireAuth)
 	driversSvc.Routes(mux, requireAuth, requireDriver, requireOps)
 	ridesSvc.Routes(mux, requireAuth, requireDriver)
+	notifications.New(pool, nil).Routes(mux, requireAuth) // API-ja vetëm kutinë + token-at; push-in e dërgon worker-i
+	realtime.New(pool, rtPub, rtTokens).Routes(mux, requireAuth)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound)
 	})
