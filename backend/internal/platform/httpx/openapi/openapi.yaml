@@ -181,6 +181,9 @@ paths:
       summary: Anulim nga klienti (tarifë pas periudhës së hirit; jo gjatë udhëtimit)
       requestBody: { content: { application/json: { schema: { type: object, properties: { reason: { type: string } } } } } }
       responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/rides/{id}/qr:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [rides], summary: "QR i marrjes (token i nënshkruar, 5 min; vetëm klienti) — shoferi e skanon para nisjes", responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { token: { type: string }, expires_at: { type: string, format: date-time } } } } } }, "409": { $ref: "#/components/responses/Err" } } }
   /api/v1/rides/{id}/chat:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
@@ -243,7 +246,11 @@ paths:
     post: { tags: [driver], summary: Mbërrita te pika e marrjes, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "409": { $ref: "#/components/responses/Err" } } }
   /api/v1/driver/rides/{id}/start:
     parameters: [{ $ref: "#/components/parameters/Id" }]
-    post: { tags: [driver], summary: Fillo udhëtimin, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "409": { $ref: "#/components/responses/Err" } } }
+    post:
+      tags: [driver]
+      summary: "Fillo udhëtimin — kërkon kodin 4-shifror të klientit ose QR-in e skanuar (PICKUP_CODE_INVALID)"
+      requestBody: { content: { application/json: { schema: { type: object, properties: { code: { type: string, example: "4821" }, qr_token: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "409": { $ref: "#/components/responses/Err" }, "422": { $ref: "#/components/responses/Err" } }
   /api/v1/driver/rides/{id}/complete:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     post: { tags: [driver], summary: Përfundo (çmimi i paracaktuar shlyhet në ledger), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "409": { $ref: "#/components/responses/Err" } } }
@@ -579,6 +586,7 @@ components:
         payment_status: { type: string, enum: [pending, paid, failed, cash, none] }
         pickup: { $ref: "#/components/schemas/Point" }
         pickup_address: { type: [string, "null"] }
+        pickup_code: { type: string, description: "4 shifra; vetëm në pamjen e klientit (§25)" }
         dropoff: { $ref: "#/components/schemas/Point" }
         dropoff_address: { type: [string, "null"] }
         distance_m: { type: integer }

@@ -20,13 +20,14 @@ func (s *Service) Routes(mux *http.ServeMux, requireAuth, requireDriver httpx.Mi
 	mux.Handle("GET /api/v1/rides", requireAuth(principal.Handler(s.handleHistory)))
 	mux.Handle("GET /api/v1/rides/{id}", requireAuth(principal.Handler(s.handleGet)))
 	mux.Handle("POST /api/v1/rides/{id}/cancel", requireAuth(principal.Handler(s.handleCancel)))
+	mux.Handle("GET /api/v1/rides/{id}/qr", requireAuth(principal.Handler(s.handleQR)))
 
 	mux.Handle("GET /api/v1/driver/offers", requireDriver(principal.Handler(s.handleOffers)))
 	mux.Handle("POST /api/v1/driver/offers/{id}/accept", requireDriver(principal.Handler(s.handleAccept)))
 	mux.Handle("POST /api/v1/driver/offers/{id}/decline", requireDriver(principal.Handler(s.handleDecline)))
 	mux.Handle("GET /api/v1/driver/rides/active", requireDriver(principal.Handler(s.handleActive)))
 	mux.Handle("POST /api/v1/driver/rides/{id}/arrived", requireDriver(principal.Handler(s.step(s.Arrived))))
-	mux.Handle("POST /api/v1/driver/rides/{id}/start", requireDriver(principal.Handler(s.step(s.Start))))
+	mux.Handle("POST /api/v1/driver/rides/{id}/start", requireDriver(principal.Handler(s.handleStart)))
 	mux.Handle("POST /api/v1/driver/rides/{id}/complete", requireDriver(principal.Handler(s.step(s.Complete))))
 	mux.Handle("POST /api/v1/driver/rides/{id}/cancel", requireDriver(principal.Handler(s.handleDriverCancel)))
 }
@@ -167,6 +168,36 @@ func (s *Service) step(fn func(context.Context, principal.Actor, uuid.UUID) (*Ri
 		ride, err := fn(r.Context(), a, id)
 		respond(w, r, ride, err)
 	}
+}
+
+func (s *Service) handleStart(w http.ResponseWriter, r *http.Request, a principal.Actor) {
+	id, err := pathID(r)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	var body struct {
+		Code    string `json:"code"`
+		QRToken string `json:"qr_token"`
+	}
+	if r.ContentLength != 0 {
+		if err := httpx.DecodeJSON(r, &body); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
+	ride, err := s.Start(r.Context(), a, id, body.Code, body.QRToken)
+	respond(w, r, ride, err)
+}
+
+func (s *Service) handleQR(w http.ResponseWriter, r *http.Request, a principal.Actor) {
+	id, err := pathID(r)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	tok, exp, err := s.QRToken(r.Context(), a, id)
+	respond(w, r, map[string]any{"token": tok, "expires_at": exp}, err)
 }
 
 func (s *Service) handleDriverCancel(w http.ResponseWriter, r *http.Request, a principal.Actor) {

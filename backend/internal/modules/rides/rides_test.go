@@ -174,6 +174,10 @@ func TestRideLifecycleWalletHappyPath(t *testing.T) {
 	if ride.State != StateMatching || ride.PriceQuotedMinor < 200 {
 		t.Fatalf("kërkesa: %+v", ride)
 	}
+	code := ride.PickupCode
+	if code == nil || len(*code) != 4 {
+		t.Fatalf("klienti duhet ta shohë kodin e marrjes: %v", code)
+	}
 	// idempotencë: i njëjti çelës → i njëjti udhëtim; udhëtim i dytë aktiv → refuzohet
 	again, err := e.rides.Request(e.ctx, customer, "idem-2-"+uuid.NewString(), RequestInput{QuoteID: qid, PaymentMethod: "wallet"})
 	if !errors.Is(err, ErrActiveRide) {
@@ -208,13 +212,16 @@ func TestRideLifecycleWalletHappyPath(t *testing.T) {
 	}
 
 	// hapat e shoferit; kalim i gabuar refuzohet
-	if _, err := e.rides.Start(e.ctx, driver, ride.ID); !errors.Is(err, ErrInvalidState) {
+	if _, err := e.rides.Start(e.ctx, driver, ride.ID, *code, ""); !errors.Is(err, ErrInvalidState) {
 		t.Fatalf("start para arrived: %v", err)
 	}
 	if ride, err = e.rides.Arrived(e.ctx, driver, ride.ID); err != nil || ride.State != StateArrived {
 		t.Fatalf("arrived: %v", err)
 	}
-	if ride, err = e.rides.Start(e.ctx, driver, ride.ID); err != nil || ride.State != StateInProgress {
+	if _, err := e.rides.Start(e.ctx, driver, ride.ID, "0000x", ""); !errors.Is(err, ErrPickupCode) {
+		t.Fatalf("kod i gabuar: %v", err)
+	}
+	if ride, err = e.rides.Start(e.ctx, driver, ride.ID, *code, ""); err != nil || ride.State != StateInProgress || ride.PickupCode != nil {
 		t.Fatalf("start: %v", err)
 	}
 	if _, err := e.rides.CancelByCustomer(e.ctx, customer, ride.ID, "u pendova"); !errors.Is(err, ErrInvalidState) {
@@ -305,13 +312,15 @@ func TestRideCashDriverCancelAndNoDriver(t *testing.T) {
 	if len(offers) != 1 {
 		t.Fatalf("ofertat 2: %+v", offers)
 	}
-	if _, err := e.rides.AcceptOffer(e.ctx, driver, offers[0].ID); err != nil {
+	if accepted, err := e.rides.AcceptOffer(e.ctx, driver, offers[0].ID); err != nil {
 		t.Fatal(err)
+	} else if accepted.PickupCode != nil {
+		t.Fatal("shoferi nuk duhet ta shohë kodin e marrjes")
 	}
 	if _, err := e.rides.Arrived(e.ctx, driver, ride.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.rides.Start(e.ctx, driver, ride.ID); err != nil {
+	if _, err := e.rides.Start(e.ctx, driver, ride.ID, *ride.PickupCode, ""); err != nil {
 		t.Fatal(err)
 	}
 	ride, err = e.rides.Complete(e.ctx, driver, ride.ID)
