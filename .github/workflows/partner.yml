@@ -1,0 +1,46 @@
+# KREJT — CI e panelit të partnerit (§70): lint, tipe, teste dhe ndërtim.
+name: partner
+
+on:
+  pull_request:
+    paths:
+      - 'partner/**'
+      - '.github/workflows/partner.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'partner/**'
+      - '.github/workflows/partner.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  partner:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: partner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: partner/package-lock.json
+
+      - name: install
+        run: npm ci
+
+      - name: lint
+        run: npm run lint
+
+      - name: typecheck
+        run: npm run typecheck
+
+      - name: test
+        run: npm test
+
+      # Ndërtimi nuk kërkon as API as sekrete: adresa e serverit lexohet në kohë ekzekutimi.
+      - name: build
+        run: npm run build
