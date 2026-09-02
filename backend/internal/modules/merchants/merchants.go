@@ -275,33 +275,37 @@ func (s *Service) Apply(ctx context.Context, a principal.Actor, in ApplyInput) (
 	if area, err := s.pricing.ResolveArea(ctx, in.Location); err == nil {
 		areaID = &area.ID
 	}
+	// slug-u zgjidhet PARA transaksionit: një përplasje brenda tij do ta anulonte gjithë transaksionin
 	slug := Slugify(in.Name)
-	var out *Merchant
-	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		for attempt := 0; attempt < 5; attempt++ {
-			candidate := slug
-			if attempt > 0 {
-				candidate = slug + "-" + uuid.NewString()[:4]
-			}
-			m, err := scanMerchant(tx.QueryRow(ctx, `
-				INSERT INTO merchants (owner_user_id, type, name, slug, description, phone, address_line1, city, lat, lng, service_area_id,
-				  cuisines, fulfillment_mode, min_order_minor, prep_time_min)
-				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING `+merchantCols,
-				a.UserID, in.Type, in.Name, candidate, nullable(in.Description), nullable(in.Phone), in.AddressLine1, in.City,
-				in.Location.Lat, in.Location.Lng, areaID, in.Cuisines, in.FulfillmentMode, in.MinOrderMinor, in.PrepTimeMin))
-			if err != nil {
-				var pgErr *pgconn.PgError
-				if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-					continue // slug i zënë → provo me prapashtesë
-				}
-				return err
-			}
-			out = m
+	if slug == "" {
+		slug = "merchant"
+	}
+	for attempt := 0; attempt < 5; attempt++ {
+		var taken bool
+		if err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM merchants WHERE slug = $1)`, slug).Scan(&taken); err != nil {
+			return nil, err
+		}
+		if !taken {
 			break
 		}
-		if out == nil {
-			return ErrSlugTaken
+		slug = Slugify(in.Name) + "-" + uuid.NewString()[:4]
+	}
+	var out *Merchant
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		m, err := scanMerchant(tx.QueryRow(ctx, `
+			INSERT INTO merchants (owner_user_id, type, name, slug, description, phone, address_line1, city, lat, lng, service_area_id,
+			  cuisines, fulfillment_mode, min_order_minor, prep_time_min)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING `+merchantCols,
+			a.UserID, in.Type, in.Name, slug, nullable(in.Description), nullable(in.Phone), in.AddressLine1, in.City,
+			in.Location.Lat, in.Location.Lng, areaID, in.Cuisines, in.FulfillmentMode, in.MinOrderMinor, in.PrepTimeMin))
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				return ErrSlugTaken // garë e rrallë: klienti provon sërish me emër tjetër
+			}
+			return err
 		}
+		out = m
 		if _, err := tx.Exec(ctx, `INSERT INTO merchant_staff (merchant_id, user_id, role) VALUES ($1, $2, 'owner')`, out.ID, a.UserID); err != nil {
 			return err
 		}
