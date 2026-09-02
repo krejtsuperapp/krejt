@@ -58,7 +58,7 @@ func (s *Service) RegisterToken(ctx context.Context, a principal.Actor, in Regis
 	}
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO push_tokens (user_id, session_id, platform, token, locale)
-		VALUES ($1, $2, $3, $4, $5)
+		VALUES ($1, (SELECT id FROM sessions WHERE id = $2), $3, $4, $5)
 		ON CONFLICT (token) DO UPDATE SET user_id = EXCLUDED.user_id, session_id = EXCLUDED.session_id,
 		  platform = EXCLUDED.platform, locale = EXCLUDED.locale, invalid_at = NULL, updated_at = now()`,
 		a.UserID, a.SessionID, in.Platform, in.Token, in.Locale)
