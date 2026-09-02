@@ -531,7 +531,7 @@ resource "aws_ecs_service" "api" {
   deployment_maximum_percent         = 200
   depends_on                         = [aws_lb_listener_rule.api]
   tags                               = var.tags
-  lifecycle { ignore_changes = [desired_count] }
+  lifecycle { ignore_changes = [desired_count, task_definition] } # deploy-i nga CI regjistron revizione të reja
 }
 
 resource "aws_ecs_service" "worker" {
@@ -551,7 +551,7 @@ resource "aws_ecs_service" "worker" {
     rollback = true
   }
   tags = var.tags
-  lifecycle { ignore_changes = [desired_count] }
+  lifecycle { ignore_changes = [desired_count, task_definition] }
 }
 
 # DNS privat brenda VPC-së (§43): api/worker publikojnë te http://centrifugo.<name>.local:8000/api
