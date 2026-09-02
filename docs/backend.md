@@ -43,3 +43,30 @@ Pas imazhit të parë: `nat_enabled = true`, `alb_enabled = true`, `api_desired_
 ## Çka vjen në Fazën 2 (identiteti)
 
 `modules/identity` (users, capabilities), `modules/auth` (OTP përmes `SmsProvider` → Infobip, JWT RS256 jetëshkurtër + refresh me rotacion, sesione/pajisje, MFA), `modules/audit`, middleware i autorizimit me kapacitete.
+
+## Faza 2 (vazhdim) — `users` + outbox real
+
+**Outbox → SNS (§41).** Modulet shkruajnë ngjarjet me `events.Emit(ctx, tx, …)` në të njëjtin transaksion me ndryshimin.
+Worker-i (`internal/workers/outbox`) i lexon me `FOR UPDATE SKIP LOCKED` (disa instanca pa dyfishim), i publikon në
+SNS `domain-events` (atribute `event_type`, `aggregate_type` për filtrim në abonimet SQS), i shënon `published_at`.
+Dështimi: `attempts++`, `next_attempt_at = now() + 2^n s` (max 10 min), `last_error`; ngjarjet pasuese të të njëjtit
+agregat presin (renditja ruhet). Pas 10 përpjekjesh logohet në nivel ERROR (alarm). `EVENTS_PUBLISHER=devlog` lejohet
+vetëm në development dhe vetëm logon.
+
+**Moduli `users`** (`/api/v1/users/me/*`, të gjitha pas `RequireAuth`):
+
+| Metoda | Rruga | Çfarë bën |
+|---|---|---|
+| PATCH | `/users/me` | emri, emaili (unik), gjuha sq/en/de — `""` pastron emrin/emailin |
+| DELETE | `/users/me` | fshirje e butë + anonimizim; kërkon wallet = 0 (`WALLET_NOT_EMPTY`) |
+| GET/POST | `/users/me/addresses` | adresat e ruajtura (max 20); e para bëhet parazgjedhje |
+| PUT/DELETE | `/users/me/addresses/{id}` | ndryshim / fshirje e butë |
+| GET/PUT | `/users/me/notification-preferences` | 8 kategori × push/email/sms; `security.push` s'çaktivizohet |
+| GET | `/users/me/sessions` | pajisjet e kyçura (`current: true` për këtë) |
+| DELETE | `/users/me/sessions/{id}` | shkyç një pajisje |
+
+Rregulla: adresat pranohen vetëm brenda kufijve të Kosovës (§1; kuti kufizuese në V1, poligon me modulin `maps`) —
+`ADDRESS_OUTSIDE_KOSOVO`. Gabimet e validimit kthejnë `error.fields {fusha: arsyeja}` për shfaqje inline (§57).
+Çdo veprim: rresht në `audit_log` (actor, IP, request_id) + ngjarje në outbox (`UserProfileUpdated`, `UserAddressAdded`, `UserDeleted`).
+
+Mungon ende (e shënuar, jo e simuluar): ri-autentikim/MFA para fshirjes së llogarisë, eksporti i të dhënave, poligoni i saktë i kufirit.

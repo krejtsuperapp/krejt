@@ -1,5 +1,6 @@
-// Package httpx — serveri HTTP, middleware-t dhe formati i vetëm i gabimeve (§57 e vjetër / §55).
-// Klienti merr gjithmonë: code, message_key (për përkthim), request_id, trace_id, retryable.
+// Package httpx — serveri HTTP, middleware-t dhe formati i vetëm i gabimeve (§55, §57).
+// Klienti merr gjithmonë: code, message_key (për përkthim), request_id, trace_id, retryable,
+// dhe për validim: fields {emri_i_fushës: arsyeja} për gabime inline (§57).
 // Stack trace nuk ekspozohet kurrë; detajet teknike mbeten në log.
 package httpx
 
@@ -12,11 +13,12 @@ import (
 )
 
 type APIError struct {
-	Code       string `json:"code"`
-	MessageKey string `json:"message_key"`
-	HTTPStatus int    `json:"http_status"`
-	Retryable  bool   `json:"retryable"`
-	Err        error  `json:"-"`
+	Code       string            `json:"code"`
+	MessageKey string            `json:"message_key"`
+	HTTPStatus int               `json:"http_status"`
+	Retryable  bool              `json:"retryable"`
+	Fields     map[string]string `json:"fields,omitempty"`
+	Err        error             `json:"-"`
 }
 
 func (e *APIError) Error() string {
@@ -28,10 +30,23 @@ func (e *APIError) Error() string {
 
 func (e *APIError) Unwrap() error { return e.Err }
 
+// Is — dy APIError janë "i njëjti gabim" kur kanë të njëjtin Code (kopjet me With/WithFields përputhen).
+func (e *APIError) Is(target error) bool {
+	t, ok := target.(*APIError)
+	return ok && t.Code == e.Code
+}
+
 // With bashkangjit shkakun teknik (vetëm për log).
 func (e *APIError) With(err error) *APIError {
 	c := *e
 	c.Err = err
+	return &c
+}
+
+// WithFields bashkangjit gabimet për fushë (§57 inline validation): {"email": "invalid"}.
+func (e *APIError) WithFields(fields map[string]string) *APIError {
+	c := *e
+	c.Fields = fields
 	return &c
 }
 
@@ -51,12 +66,13 @@ var (
 
 type errorEnvelope struct {
 	Error struct {
-		Code       string `json:"code"`
-		MessageKey string `json:"message_key"`
-		HTTPStatus int    `json:"http_status"`
-		RequestID  string `json:"request_id,omitempty"`
-		TraceID    string `json:"trace_id,omitempty"`
-		Retryable  bool   `json:"retryable"`
+		Code       string            `json:"code"`
+		MessageKey string            `json:"message_key"`
+		HTTPStatus int               `json:"http_status"`
+		RequestID  string            `json:"request_id,omitempty"`
+		TraceID    string            `json:"trace_id,omitempty"`
+		Retryable  bool              `json:"retryable"`
+		Fields     map[string]string `json:"fields,omitempty"`
 	} `json:"error"`
 }
 
@@ -73,6 +89,7 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	env.Error.RequestID = logx.RequestID(r.Context())
 	env.Error.TraceID = logx.TraceID(r.Context())
 	env.Error.Retryable = api.Retryable
+	env.Error.Fields = api.Fields
 	WriteJSON(w, api.HTTPStatus, env)
 }
 
@@ -81,3 +98,17 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
+
+// DecodeJSON lexon trupin JSON (max 64 KiB, fusha të panjohura refuzohen); gabimi kthehet si VALIDATION_FAILED.
+func DecodeJSON(r *http.Request, v any) error {
+	r.Body = http.MaxBytesReader(nil, r.Body, 64<<10)
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(v); err != nil {
+		return ErrValidation.With(err).WithFields(map[string]string{"body": "invalid_json"})
+	}
+	return nil
+}
+
+// ClientIP — IP-ja e klientit (pas ALB/Cloudflare: X-Forwarded-For i pari).
+func ClientIP(r *http.Request) string { return clientIP(r) }

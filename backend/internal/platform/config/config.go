@@ -39,6 +39,10 @@ type Config struct {
 	InfobipBaseURL   string
 	InfobipAPIKey    string
 	InfobipSender    string
+
+	// ngjarjet e domenit (§41): EVENTS_PUBLISHER sns | devlog (vetëm development)
+	EventsPublisher      string
+	DomainEventsTopicARN string
 }
 
 func Load() (*Config, error) {
@@ -56,13 +60,15 @@ func Load() (*Config, error) {
 			Password: os.Getenv("REDIS_AUTH"),
 			TLS:      strings.EqualFold(getenv("REDIS_TLS", "false"), "true"),
 		},
-		QueueURLs:        map[string]string{},
-		JWTPrivateKeyPEM: os.Getenv("JWT_PRIVATE_KEY"),
-		OTPPepper:        os.Getenv("OTP_PEPPER"),
-		SMSProvider:      getenv("SMS_PROVIDER", "infobip"),
-		InfobipBaseURL:   getenv("INFOBIP_BASE_URL", "https://api.infobip.com"),
-		InfobipAPIKey:    os.Getenv("INFOBIP_API_KEY"),
-		InfobipSender:    getenv("INFOBIP_SENDER", "KREJT"),
+		QueueURLs:            map[string]string{},
+		JWTPrivateKeyPEM:     os.Getenv("JWT_PRIVATE_KEY"),
+		OTPPepper:            os.Getenv("OTP_PEPPER"),
+		SMSProvider:          getenv("SMS_PROVIDER", "infobip"),
+		InfobipBaseURL:       getenv("INFOBIP_BASE_URL", "https://api.infobip.com"),
+		InfobipAPIKey:        os.Getenv("INFOBIP_API_KEY"),
+		InfobipSender:        getenv("INFOBIP_SENDER", "KREJT"),
+		EventsPublisher:      getenv("EVENTS_PUBLISHER", "sns"),
+		DomainEventsTopicARN: os.Getenv("SNS_DOMAIN_EVENTS_TOPIC_ARN"),
 	}
 	for _, kv := range os.Environ() {
 		if strings.HasPrefix(kv, "SQS_") && strings.Contains(kv, "_QUEUE_URL=") {

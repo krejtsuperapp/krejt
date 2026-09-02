@@ -14,6 +14,7 @@ import (
 
 	"krejt.app/backend/internal/modules/auth"
 	"krejt.app/backend/internal/modules/ledger"
+	"krejt.app/backend/internal/modules/users"
 	"krejt.app/backend/internal/platform/cache"
 	"krejt.app/backend/internal/platform/config"
 	"krejt.app/backend/internal/platform/db"
@@ -98,6 +99,7 @@ func main() {
 		})
 	})
 	authSvc.Routes(mux)
+	users.New(pool, ledgerSvc).Routes(mux, authSvc.RequireAuth(""))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound)
 	})
