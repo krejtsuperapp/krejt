@@ -39,8 +39,8 @@ func TestUsersModuleEndToEnd(t *testing.T) {
 			t.Fatal(err)
 		}
 		var sid uuid.UUID
-		if err := pool.QueryRow(ctx, `INSERT INTO sessions (user_id, device_id, platform, refresh_token_hash, refresh_expires_at)
-			VALUES ($1, 'dev-1', 'android', '\x00', now() + interval '30 days') RETURNING id`, id).Scan(&sid); err != nil {
+		if err := pool.QueryRow(ctx, `INSERT INTO sessions (user_id, device_id, platform, refresh_token_hash, refresh_expires_at, ip)
+			VALUES ($1, 'dev-1', 'android', '\x00', now() + interval '30 days', '203.0.113.7'::inet) RETURNING id`, id).Scan(&sid); err != nil {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, id) })
