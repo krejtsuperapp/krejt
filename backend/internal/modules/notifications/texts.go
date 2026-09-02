@@ -88,6 +88,16 @@ var texts = map[string]map[string][2]string{
 		"en": {"Reply from Support", "{subject}: you have a new reply."},
 		"de": {"Antwort vom Support", "{subject}: du hast eine neue Antwort."},
 	},
+	"notif.merchant.active": {
+		"sq": {"Merchant-i u aktivizua", "{name} tani është i dukshëm në KREJT dhe mund të marrë porosi."},
+		"en": {"Merchant activated", "{name} is now live on KREJT and can receive orders."},
+		"de": {"Händler aktiviert", "{name} ist jetzt auf KREJT sichtbar und kann Bestellungen annehmen."},
+	},
+	"notif.merchant.suspended": {
+		"sq": {"Merchant-i u pezullua", "{name}: {reason}. Kontakto mbështetjen."},
+		"en": {"Merchant suspended", "{name}: {reason}. Contact support."},
+		"de": {"Händler gesperrt", "{name}: {reason}. Kontaktiere den Support."},
+	},
 	"notif.driver.approved": {
 		"sq": {"Je miratuar si shofer", "Mund të dalësh online dhe të marrësh udhëtime."},
 		"en": {"You're approved as a driver", "You can go online and start taking rides."},

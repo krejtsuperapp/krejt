@@ -22,3 +22,9 @@
 
 ## Lokalisht
 `docker compose up --build` (Postgres, Redis, Centrifugo, api, worker me ofrues dev). `make test` për testet e integrimit.
+
+## Testi i ngarkesës (§69)
+`tests/load/rides.js` (k6): oferta çmimi me rritje deri 90/s, mostra GPS 200/s, rrjedha kërkesë→anulim; pragjet p95
+quote < 500 ms, request < 800 ms, gabime < 1 %. Ekzekutohet kundër **staging-ut** me token-a të llogarive të testit:
+`k6 run -e BASE=https://api-staging.krejt.app -e CUSTOMER_TOKEN=… -e DRIVER_TOKEN=… tests/load/rides.js`.
+Kriteri i nisjes (Faza 1): 30 ditë pa incident P1 në staging nën 2–3× e pikut.

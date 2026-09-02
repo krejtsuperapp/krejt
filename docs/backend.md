@@ -279,3 +279,45 @@ Bilanci negativ nuk paguhet — kompensohet nga udhëtimet e ardhshme (prag bllo
 nënshkruar jetëshkurtër (HS256, 5 min, pa sekrete brenda). Shoferi mund të nisë udhëtimin vetëm me kodin e saktë ose
 QR-in e skanuar (`POST /driver/rides/{id}/start {code | qr_token}` → `PICKUP_CODE_INVALID`): klienti i duhur hip në
 makinën e duhur, para se të fillojë matja e udhëtimit.
+
+## Faza 2 — merchant-ët dhe katalogu (§19, §21)
+
+**merchants** — `POST /merchant/apply` (pronari; merchant-i `pending`, pronari staf `owner`, zona nga koordinatat — vetëm
+Kosovë), `PATCH /admin/merchants/{id}` (OPERATIONS: activate → kapaciteti MERCHANT te pronari / pause / suspend me arsye;
+ngjarje + njoftim), `GET /merchant/mine`, `GET/PATCH /merchant/{id}` (owner/manager: emër, përshkrim, kuzhina, mënyra e
+përmbushjes courier/merchant_delivers/pickup, minimum porosie, tarifa e dërgesës, koha e përgatitjes, `accepting_orders`
+= pauzë e shpejtë, logo/cover si çelësa S3), `PUT /merchant/{id}/hours` (deri 3 intervale/ditë, me kalim mesnate),
+staf me role (`POST/DELETE /merchant/{id}/staff`, përdoruesi duhet të ketë llogari). Publik: `GET /merchants?lat&lng&type&q&cuisine`
+(aktivë ≤ 15 km, distancë, `open_now` = orar + accepting_orders, kërkim pa theksa edhe në emrat e produkteve),
+`GET /merchants/{slug}` (pa telefon).
+
+**catalog** — kategori, produkte (çmim në cent, njësi, etiketa, foto si çelës S3, disponueshmëri, fshirje e butë),
+modifikues me grupe (min/max) dhe opsione me delta çmimi; `GET /merchants/{id}/menu` (publik, cache 30 s, vetëm të
+disponueshmet), `GET /merchant/{id}/menu` (stafi, gjithçka). **`Price(merchant, zgjedhje)`** llogarit në server çmimin
+e një rreshti (produkt + opsione × sasi) duke verifikuar merchant-in, disponueshmërinë dhe rregullat min/max të çdo grupi —
+orders (hapi tjetër) e përdor këtë; klienti nuk dërgon kurrë çmime.
+
+Ende jo: porositë (checkout, makina e gjendjeve, korrieri), promocionet, analitika e merchant-it, tableti i kuzhinës.
+
+## Porositë (§19, §21) — checkout, merchant, korrier
+
+Rrjedha: `POST /orders/quote` (çmimi i shportës nga `catalog.Price`, tarifa e dërgesës, minimumi, `open_now`) →
+`POST /orders` me `Idempotency-Key` (çmimi rillogaritet, wallet-i kontrollohet, adresa brenda Kosovës për dërgesë,
+merchant-i duhet aktiv/hapur) → `pending_merchant`. Kodi 6-shkronjor i porosisë (pa 0/O/1/I) shërben për marrjen nga korrieri.
+
+Makina e gjendjeve: `pending_merchant → accepted → preparing → ready → courier_assigned → picked_up → delivered`;
+`cancelled` (klienti vetëm para përgatitjes, pa tarifë në V1; merchant-i me arsye), `rejected`. Për `pickup` dhe
+`merchant_delivers`, merchant-i kalon nga `ready` direkt në `delivered`.
+
+Merchant-i: `GET /merchant/{id}/orders` (radha), `POST /merchant/orders/{id}/transition` (accepted me `prep_time_min`,
+preparing, ready, delivered, cancelled/rejected me arsye). Korrieri: `GET /courier/offers`, accept/decline,
+`POST /courier/orders/{id}/pickup` (kërkon kodin), `/deliver`, `/release` (kthen porosinë në `ready`).
+Dispatch-i i korrierëve: worker çdo sekondë (oferta 25 s, rreze 5 km, korrierë të lirë pa udhëtim/porosi aktive);
+pa korrier brenda 10 min → `OrderNoCourier` për Operacionet.
+
+Shlyerja (idempotente): **wallet** → debit klienti (total), kredit merchant-i (artikujt − komision), kredit
+`krejt:commission`, kredit `krejt:delivery_fees`; **cash** → merchant-i mban paratë, i debitohet komisioni + tarifa e
+dërgesës (borxh ndaj platformës). Riprovohet nga worker-i si te udhëtimet.
+
+Ende jo: promocionet/kuponat, rimbursim i pjesshëm i porosisë, batching i dorëzimeve, tableti i kuzhinës, korrierë me
+kategori të vetën (tani përdoren shoferët `economy`).

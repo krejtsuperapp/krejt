@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"krejt.app/backend/internal/modules/analytics"
+	"krejt.app/backend/internal/modules/catalog"
 	"krejt.app/backend/internal/modules/chat"
 	"krejt.app/backend/internal/modules/dispatch"
 	"krejt.app/backend/internal/modules/documents"
@@ -21,7 +22,9 @@ import (
 	"krejt.app/backend/internal/modules/fraud"
 	"krejt.app/backend/internal/modules/ledger"
 	"krejt.app/backend/internal/modules/location"
+	"krejt.app/backend/internal/modules/merchants"
 	"krejt.app/backend/internal/modules/notifications"
+	"krejt.app/backend/internal/modules/orders"
 	"krejt.app/backend/internal/modules/pricing"
 	"krejt.app/backend/internal/modules/realtime"
 	"krejt.app/backend/internal/modules/rides"
@@ -39,6 +42,7 @@ import (
 	"krejt.app/backend/internal/platform/providers/storage"
 	dispatchworker "krejt.app/backend/internal/workers/dispatch"
 	"krejt.app/backend/internal/workers/maintenance"
+	ordersworker "krejt.app/backend/internal/workers/orders"
 	"krejt.app/backend/internal/workers/outbox"
 	"krejt.app/backend/internal/workers/queue"
 
@@ -102,6 +106,9 @@ func main() {
 	driversSvc := drivers.New(pool, locSvc)
 	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricing.New(pool, mapsProvider, locSvc))
 	dispatcher := dispatch.New(pool, locSvc, log)
+	merchantsSvc := merchants.New(pool, pricing.New(pool, mapsProvider, locSvc))
+	ordersSvc := orders.New(pool, ledgerSvc, catalog.New(pool, merchantsSvc), merchantsSvc).WithLocation(locSvc)
+	ordersDispatcher := orders.NewDispatcher(ordersSvc, orders.LocationNearby{Loc: locSvc}, log)
 	notifSvc := notifications.New(pool, pushProvider)
 	rtSvc := realtime.New(pool, rtPub, nil) // worker-i vetëm publikon; token-at i lëshon API-ja
 	analyticsSvc := analytics.New(analyticsProvider)
@@ -142,6 +149,7 @@ func main() {
 	}
 	run("outbox", outbox.New(pool, publisher, log).Run)
 	run("dispatch", dispatchworker.New(dispatcher, ridesSvc, log).Run)
+	run("orders-dispatch", ordersworker.New(ordersDispatcher, ordersSvc, log).Run)
 	run("maintenance", maintenance.New(log,
 		maintenance.Job{Name: "documents.expire", Every: time.Hour, Run: func(ctx context.Context) (string, error) {
 			e, s, err := documents.New(pool, store).ExpireSweep(ctx)
