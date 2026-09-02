@@ -50,9 +50,23 @@ func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	return nil, fmt.Errorf("db: connect: %w", err)
 }
 
+// migrateLockKey — bllokim këshillimor: vetëm një proces migron njëherësh (disa task-e ECS ose paketa
+// testesh paralele kundër së njëjtës bazë do të garonin te CREATE TABLE dhe te vetë migrimet).
+const migrateLockKey = 7_263_001
+
 // Migrate zbaton migrimet që mungojnë, me radhë leksikografike (0001_, 0002_, …), secilën në transaksion.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	if _, err := pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("db: migrate acquire: %w", err)
+	}
+	defer conn.Release()
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1)`, migrateLockKey); err != nil {
+		return fmt.Errorf("db: migrate lock: %w", err)
+	}
+	defer func() { _, _ = conn.Exec(context.WithoutCancel(ctx), `SELECT pg_advisory_unlock($1)`, migrateLockKey) }()
+
+	if _, err := conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`); err != nil {
 		return fmt.Errorf("db: migrations table: %w", err)
 	}
