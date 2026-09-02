@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  VETËM për ndërtimin debug. Adresa e serverit të zhvillimit ndryshon nga një makinë te tjetra —
+  10.0.2.2 për emulatorin, një adresë private Wi-Fi për një telefon real — dhe konfigurimi i
+  Android-it i krahason adresat fjalë për fjalë, pa mbështetur vargje. Prandaj hapet e gjitha këtu.
+
+  Kjo nuk zbut asgjë në prodhim: skedari rri te src/debug dhe nuk hyn kurrë në një ndërtim release,
+  ku staging dhe prodhimi janë gjithmonë https.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
