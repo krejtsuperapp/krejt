@@ -1,0 +1,132 @@
+# =============================================================================
+# KREJT — mjedisi PROD (eu-central-1). Këtu rrinë paratë dhe të dhënat e njerëzve.
+# Ndryshimet ndaj staging-ut janë pikërisht ato që i kushtojnë kur mungojnë:
+#   • NAT në secilën zonë, që humbja e një zone të mos i heqë daljet e të tjerave
+#   • Aurora me tre instanca dhe mbrojtje nga fshirja; backup 30 ditë
+#   • Redis me replikë në zonë tjetër
+#   • protect = true te ECS: asnjë burim nuk fshihet me një terraform destroy të pakujdesshëm
+# =============================================================================
+locals {
+  tags = { Project = "krejt", Environment = var.environment, ManagedBy = "terraform" }
+}
+
+module "security" {
+  source = "../../modules/security"
+  name   = var.name
+  region = var.region
+  tags   = local.tags
+}
+
+module "network" {
+  source      = "../../modules/network"
+  name        = var.name
+  region      = var.region
+  cidr        = "10.40.0.0/16"
+  az_count    = 3
+  nat_enabled = true
+  # Një NAT për zonë: dalja e një zone nuk varet nga një zonë tjetër.
+  single_nat = false
+  tags       = local.tags
+}
+
+module "storage" {
+  source      = "../../modules/storage"
+  bucket_name = var.assets_bucket_name
+  kms_key_arn = module.security.kms_key_arn
+  tags        = local.tags
+}
+
+module "messaging" {
+  source     = "../../modules/messaging"
+  name       = var.name
+  kms_key_id = module.security.kms_key_id
+  tags       = local.tags
+}
+
+module "ecs" {
+  source                   = "../../modules/ecs"
+  name                     = var.name
+  environment              = var.environment
+  vpc_id                   = module.network.vpc_id
+  public_subnet_ids        = module.network.public_subnet_ids
+  private_subnet_ids       = module.network.private_subnet_ids
+  kms_key_arn              = module.security.kms_key_arn
+  assets_bucket_name       = module.storage.bucket_name
+  assets_bucket_arn        = module.storage.bucket_arn
+  queue_urls               = module.messaging.queue_urls
+  queue_arns               = values(module.messaging.queue_arns)
+  domain_events_topic_arn  = module.messaging.domain_events_topic_arn
+  secret_arns              = concat(values(module.security.secret_arns), [module.data.aurora_master_secret_arn, module.data.redis_auth_secret_arn])
+  aurora_writer_endpoint   = module.data.aurora_writer_endpoint
+  aurora_reader_endpoint   = module.data.aurora_reader_endpoint
+  aurora_master_secret_arn = module.data.aurora_master_secret_arn
+  redis_endpoint           = module.data.redis_configuration_endpoint
+  redis_auth_secret_arn    = module.data.redis_auth_secret_arn
+  centrifugo_secret_arn    = module.security.secret_arns["centrifugo"]
+  app_secret_arns          = module.security.secret_arns
+  otlp_endpoint            = var.otlp_endpoint
+  alb_enabled              = true
+  acm_certificate_arn      = var.acm_certificate_arn
+  protect                  = true
+  api_desired_count        = var.api_desired_count
+  worker_desired_count     = var.worker_desired_count
+  centrifugo_desired_count = var.centrifugo_desired_count
+  tags                     = local.tags
+}
+
+module "data" {
+  source                = "../../modules/data"
+  name                  = var.name
+  vpc_id                = module.network.vpc_id
+  data_subnet_ids       = module.network.data_subnet_ids
+  app_security_group_id = module.ecs.app_security_group_id
+  kms_key_arn           = module.security.kms_key_arn
+
+  # Tre instanca: një shkrues dhe dy lexues në zona të ndryshme.
+  aurora_instance_count     = 3
+  aurora_min_acu            = 1
+  aurora_max_acu            = 16
+  aurora_auto_pause_seconds = 0
+  backup_retention_days     = 30
+  deletion_protection       = true
+
+  redis_node_type          = "cache.t4g.small"
+  redis_shards             = 1
+  redis_replicas_per_shard = 1
+  tags                     = local.tags
+}
+
+resource "aws_budgets_budget" "prod" {
+  name         = "${var.name}-monthly"
+  budget_type  = "COST"
+  limit_amount = tostring(var.monthly_budget_usd)
+  limit_unit   = "USD"
+  time_unit    = "MONTHLY"
+
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 80
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = [var.alert_email]
+  }
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "FORECASTED"
+    subscriber_email_addresses = [var.alert_email]
+  }
+}
+
+module "cicd" {
+  source              = "../../modules/cicd"
+  name                = var.name
+  region              = var.region
+  github_repo         = var.github_repo
+  cluster_name        = module.ecs.cluster_name
+  ecr_repository_arns = module.ecs.ecr_repository_arns
+  task_role_arn       = module.ecs.task_role_arn
+  exec_role_arn       = module.ecs.exec_role_arn
+  tags                = local.tags
+}
