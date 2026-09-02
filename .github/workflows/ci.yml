@@ -40,7 +40,7 @@ jobs:
       - name: vet
         run: go vet ./...
       - name: lint (staticcheck)
-        run: go run honnef.co/go/tools/cmd/staticcheck@2024.1.1 ./...
+        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 ./... # 2024.1.1 nuk ndërtohet me Go 1.26
       - name: teste (njësi + integrim me Postgres)
         env:
           TEST_DATABASE_URL: postgres://krejt:krejt@localhost:5432/krejt_test?sslmode=disable
@@ -66,7 +66,7 @@ jobs:
           load: false
           tags: krejt/api:ci
       - name: skanim imazhi (Trivy)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: backend
