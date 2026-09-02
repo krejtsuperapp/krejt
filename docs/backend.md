@@ -104,3 +104,39 @@ nga aplikacioni i shoferit) dhe përgjigjet me `/accept` ose `/decline`.
 
 Ende jo (e shënuar): push/Centrifugo për ofertat dhe gjurmimin, vlerësimet, chat-i, SOS, dokumentet e shoferit me skadim,
 surge dinamik, poligonet H3 të zonave, rillogaritje e çmimit kur rruga ndryshon shumë.
+
+## Njoftimet (§29, §47)
+
+Rrjedha: modulet shkruajnë ngjarje në outbox → worker-i i publikon në SNS `domain-events` → SQS `notifications` →
+konsumatori (`internal/workers/queue`) thërret `notifications.Handle(ngjarja)`. Në development pa AWS
+(`EVENTS_PUBLISHER=devlog`) e njëjta ngjarje i jepet `Handle` direkt në proces — të njëjtat funksione, pa simulim.
+
+`Handle`: harton ngjarjen te marrësit (`Map`: kush, kategori, tekst, deep link, prioritet/TTL), shkruan rreshtin në kutinë
+e aplikacionit (`notifications`, unik për ngjarje+përdorues → ridorëzimi i SQS nuk dyfishon asgjë), zbaton preferencat
+(§29; `security` gjithmonë push), dërgon push në çdo pajisje të vlefshme në **gjuhën e pajisjes** (sq/en/de) dhe shkruan
+gjurmën e dorëzimit (`notification_deliveries`: sent/failed/skipped, token i shkurtuar). Token-at që FCM i kthen
+UNREGISTERED shënohen `invalid_at` dhe nuk përdoren më.
+
+`PushProvider` (§47): FCM HTTP v1 me llogari shërbimi (OAuth2 JWT RS256, token i ruajtur deri në skadim), prioritet/TTL/
+collapse për Android dhe APNs. `PUSH_PROVIDER=devlog` vetëm në development.
+
+API: `POST/DELETE /api/v1/notifications/push-token` (regjistrim/rifreskim/çregjistrim), `GET /api/v1/notifications`
+(kutia + `unread`), `POST /api/v1/notifications/{id}/read`, `POST /api/v1/notifications/read-all`.
+
+Ende jo: email (Postmark) dhe SMS jo-OTP si kanale njoftimi, njoftimet e planifikuara/marketing, Centrifugo për ekranet live.
+
+## Kanalet e gjalla (§42) — Centrifugo
+
+`RealtimeProvider`: Centrifugo (HTTP API `publish`, çelës API) + `TokenIssuer` (JWT HS256 me të njëjtin sekret si
+`token_hmac_secret_key` i Centrifugo-s). API: `POST /api/v1/realtime/token` (token lidhjeje, 1 h) dhe
+`POST /api/v1/realtime/subscribe {channel}` → token abonimi (2 h) **vetëm pas autorizimit server-side**:
+`ride:{id}` për klientin/shoferin e udhëtimit, `driver:{id}` dhe `user:{id}` vetëm për vetveten.
+
+Publikimet: worker-i (i njëjti përpunues si njoftimet) → `ride:{id}` për RideAssigned/DriverArrived/Started/Completed/
+Cancelled/NoDriver/Payment*, `driver:{id}` për RideOffered/RideOfferExpired (dhe anulimin nga klienti); moduli `location`
+publikon pozicionin e shoferit në `ride:{id}` në çdo mostër të pranuar gjatë udhëtimit. Kështu klienti i shoferit nuk ka
+më nevojë për polling të ofertave (mbetet si rezervë), dhe klienti e sheh makinën të lëvizë pa pyetur serverin.
+
+Në AWS: Centrifugo si shërbim ECS (Redis engine), i arritshëm nga api/worker përmes Cloud Map
+(`centrifugo.<name>.local:8000`); klientët lidhen përmes ALB `/connection/*`. Lokalisht: `docker compose up` ngre
+Centrifugo-n me sekrete vetëm-për-laptop.

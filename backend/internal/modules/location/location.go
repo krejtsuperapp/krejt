@@ -56,14 +56,26 @@ type Candidate struct {
 	RecordedAt time.Time
 }
 
+// Realtime — kanali i gjallë (§42): pozicioni i shoferit gjatë udhëtimit shkon te klienti pa polling.
+type Realtime interface {
+	Publish(ctx context.Context, channel string, data any) error
+}
+
 type Service struct {
-	rdb  redis.UniversalClient
-	pool *pgxpool.Pool
-	now  func() time.Time
+	rdb      redis.UniversalClient
+	pool     *pgxpool.Pool
+	now      func() time.Time
+	realtime Realtime
 }
 
 func New(rdb redis.UniversalClient, pool *pgxpool.Pool) *Service {
 	return &Service{rdb: rdb, pool: pool, now: time.Now}
+}
+
+// WithRealtime — aktivizon publikimin e pozicionit në kanalin `ride:{id}` gjatë udhëtimit.
+func (s *Service) WithRealtime(r Realtime) *Service {
+	s.realtime = r
+	return s
 }
 
 func geoKey(category string) string { return "geo:drivers:" + category }
@@ -143,6 +155,18 @@ func (s *Service) Ingest(ctx context.Context, driverID uuid.UUID, samples []Samp
 	pipe.Expire(ctx, drvKey(driverID), hashTTL)
 	if _, err := pipe.Exec(ctx); err != nil {
 		return 0, err
+	}
+
+	// gjatë udhëtimit: pozicioni te klienti në kohë reale (best-effort; gabimi s'e ndal marrjen)
+	if rideID := h["ride_id"]; rideID != "" && s.realtime != nil {
+		pos := map[string]any{"type": "driver_location", "ride_id": rideID, "lat": latest.Lat, "lng": latest.Lng, "ts": latest.RecordedAtMs}
+		if latest.Heading != nil {
+			pos["heading"] = *latest.Heading
+		}
+		if latest.SpeedMPS != nil {
+			pos["speed_mps"] = *latest.SpeedMPS
+		}
+		_ = s.realtime.Publish(ctx, "ride:"+rideID, pos)
 	}
 
 	// persistencë selektive: vetëm gjatë udhëtimit, ~çdo 30 s

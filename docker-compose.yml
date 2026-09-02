@@ -1,5 +1,7 @@
-# KREJT — mjedisi lokal i zhvillimit (§73 development). Postgres 16 + Redis 7 + api + worker.
-# Fjalëkalimet këtu janë VETËM për laptopin; asnjëherë të njëjta me staging/prod.
+# KREJT — mjedisi lokal i zhvillimit (§73 development): Postgres 16 + Redis 7 + Centrifugo + api + worker.
+# Fjalëkalimet/çelësat këtu janë VETËM për laptopin; asnjëherë të njëjta me staging/prod.
+# Ofruesit e jashtëm (SMS, Google Maps, FCM, SNS) zëvendësohen me variantet "devlog/devestimate",
+# të cilat backend-i i pranon VETËM me APP_ENV=development.
 services:
   postgres:
     image: postgres:16-alpine
@@ -25,35 +27,54 @@ services:
       timeout: 3s
       retries: 20
 
+  centrifugo:
+    image: centrifugo/centrifugo:v5
+    command: ["centrifugo", "--health", "--admin=false"]
+    environment:
+      CENTRIFUGO_TOKEN_HMAC_SECRET_KEY: krejt_dev_only_hmac_secret_32chars
+      CENTRIFUGO_API_KEY: krejt_dev_only_api_key
+      CENTRIFUGO_ALLOWED_ORIGINS: "*"
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   api:
     build:
       context: ./backend
       args: { CMD: api }
-    environment:
+    environment: &app_env
       APP_ENV: development
       HTTP_PORT: "8080"
       DATABASE_URL: postgres://krejt:krejt_dev_only@postgres:5432/krejt?sslmode=disable
       REDIS_HOST: redis:6379
       REDIS_AUTH: krejt_dev_only
       REDIS_TLS: "false"
+      SMS_PROVIDER: devlog
+      EVENTS_PUBLISHER: devlog
+      MAPS_PROVIDER: devestimate
+      PUSH_PROVIDER: devlog
+      REALTIME_PROVIDER: centrifugo
+      CENTRIFUGO_API_URL: http://centrifugo:8000/api
+      CENTRIFUGO_API_KEY: krejt_dev_only_api_key
+      CENTRIFUGO_TOKEN_HMAC_SECRET: krejt_dev_only_hmac_secret_32chars
     ports: ["8080:8080"]
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      centrifugo: { condition: service_healthy }
 
   worker:
     build:
       context: ./backend
       args: { CMD: worker }
-    environment:
-      APP_ENV: development
-      DATABASE_URL: postgres://krejt:krejt_dev_only@postgres:5432/krejt?sslmode=disable
-      REDIS_HOST: redis:6379
-      REDIS_AUTH: krejt_dev_only
-      REDIS_TLS: "false"
+    environment: *app_env
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      centrifugo: { condition: service_healthy }
 
 volumes:
   pgdata:
