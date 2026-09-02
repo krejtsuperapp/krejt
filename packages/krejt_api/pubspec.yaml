@@ -1,0 +1,20 @@
+name: krejt_api
+description: Klienti i API-së së KREJT — modelet, thirrjet dhe zarfi i vetëm i gabimeve (nga openapi.yaml).
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  dio: ^5.7.0
+  flutter_secure_storage: ^9.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:

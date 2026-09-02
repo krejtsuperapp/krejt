@@ -29,3 +29,19 @@ bin/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# flutter / dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+**/*.iml
+apps/*/.gradle/
+apps/*/android/.gradle/
+apps/*/android/local.properties
+apps/*/ios/Pods/
+apps/*/ios/Flutter/Flutter.framework
+apps/*/ios/Flutter/ephemeral/
+apps/*/macos/Flutter/ephemeral/
+apps/*/windows/flutter/ephemeral/
+apps/*/linux/flutter/ephemeral/

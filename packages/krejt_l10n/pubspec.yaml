@@ -1,0 +1,20 @@
+name: krejt_l10n
+description: Përkthimet e KREJT — shqip, anglisht, gjermanisht (§2).
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:

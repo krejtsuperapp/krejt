@@ -1,0 +1,106 @@
+# KREJT — CI e aplikacioneve Flutter (§70): formatim, analizë, teste dhe APK i shkarkueshëm.
+# Aplikacionet ndërtohen kundrejt të njëjtit API që përshkruan openapi.yaml.
+name: apps
+
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - '.github/workflows/apps.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - '.github/workflows/apps.yml'
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: '3.47.2'
+
+jobs:
+  analyze:
+    name: analyze & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: pub get
+        run: |
+          set -euo pipefail
+          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n apps/customer apps/driver; do
+            (cd "$d" && flutter pub get)
+          done
+
+      - name: format
+        run: dart format --output=none --set-exit-if-changed --line-length 100 apps packages
+
+      - name: analyze
+        run: |
+          set -euo pipefail
+          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n apps/customer apps/driver; do
+            echo "== $d"
+            (cd "$d" && flutter analyze)
+          done
+
+      - name: test
+        run: |
+          set -euo pipefail
+          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n apps/customer apps/driver; do
+            echo "== $d"
+            (cd "$d" && flutter test)
+          done
+
+  apk:
+    name: apk (${{ matrix.app }})
+    needs: analyze
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [customer, driver]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: pub get
+        run: |
+          set -euo pipefail
+          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n apps/${{ matrix.app }}; do
+            (cd "$d" && flutter pub get)
+          done
+
+      # APK-ja e testimit ndërtohet në debug: nuk kërkon çelës nënshkrimi dhe asnjë sekret
+      # nuk hyn në repo. Ndërtimi i nënshkruar për dyqan bëhet veçmas, jashtë kësaj rrjedhe.
+      - name: build apk
+        working-directory: apps/${{ matrix.app }}
+        run: |
+          set -euo pipefail
+          # Versioni duhet të mbetet semver: serveri e krahason me min_version (§48).
+          version="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)"
+          flutter build apk --debug \
+            --dart-define=KREJT_API_BASE_URL=${{ vars.KREJT_API_BASE_URL || 'http://10.0.2.2:8080' }} \
+            --dart-define=KREJT_APP_VERSION="$version"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: krejt-${{ matrix.app }}-debug-apk
+          path: apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
