@@ -138,7 +138,8 @@ func TestUsersModuleEndToEnd(t *testing.T) {
 	var audits, evs int
 	pool.QueryRow(ctx, `SELECT count(*) FROM audit_log WHERE actor_id = $1`, a.UserID).Scan(&audits)
 	pool.QueryRow(ctx, `SELECT count(*) FROM outbox_events WHERE aggregate_id = $1`, a.UserID.String()).Scan(&evs)
-	if audits < 7 || evs < 4 {
+	// profile_updated, address_added ×2, address_deleted, preferences_updated, user.deleted = 6
+	if audits < 6 || evs < 4 {
 		t.Fatalf("audit=%d outbox=%d", audits, evs)
 	}
 }
