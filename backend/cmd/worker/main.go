@@ -88,7 +88,7 @@ func main() {
 	}
 
 	// --- ofruesit -----------------------------------------------------------------
-	mapsProvider, err := maps.NewFromEnv(cfg.Env, cfg.MapsProvider, cfg.GoogleMapsKey, log)
+	mapsProvider, err := maps.NewFromEnv(cfg.Env, cfg.MapsProvider, cfg.GoogleMapsKey, cfg.MapboxToken, log)
 	fatal(log, "maps provider", err)
 	pushProvider, err := push.NewFromEnv(cfg.Env, cfg.PushProvider, cfg.FCMServiceAccountJSON, log)
 	fatal(log, "push provider", err)

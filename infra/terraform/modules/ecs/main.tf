@@ -372,13 +372,15 @@ locals {
 
   # Sekretet e aplikacionit (vlerat futen me dorë në Secrets Manager; task-et nuk nisen pa to):
   #  - krejt-<env>/jwt: JSON { "private_key_pem": "...", "otp_pepper": "..." }
-  #  - krejt-<env>/google-maps, krejt-<env>/infobip: vlera e thjeshtë (çelësi); krejt-<env>/fcm: JSON-i i llogarisë së shërbimit
+  #  - krejt-<env>/google-maps, krejt-<env>/mapbox-token, krejt-<env>/infobip: vlera e thjeshtë (çelësi); krejt-<env>/fcm: JSON-i i llogarisë së shërbimit
   common_secrets = [
     { name = "DB_CREDENTIALS_JSON", valueFrom = var.aurora_master_secret_arn },
     { name = "REDIS_AUTH", valueFrom = var.redis_auth_secret_arn },
     { name = "JWT_PRIVATE_KEY", valueFrom = "${var.app_secret_arns["jwt"]}:private_key_pem::" },
     { name = "OTP_PEPPER", valueFrom = "${var.app_secret_arns["jwt"]}:otp_pepper::" },
+    # Të dy ofruesit e hartave janë të lidhur; MAPS_PROVIDER vendos cili përdoret (§46).
     { name = "GOOGLE_MAPS_KEY", valueFrom = var.app_secret_arns["google-maps"] },
+    { name = "MAPBOX_TOKEN", valueFrom = var.app_secret_arns["mapbox-token"] },
     { name = "INFOBIP_API_KEY", valueFrom = var.app_secret_arns["infobip"] },
     { name = "FCM_SERVICE_ACCOUNT_JSON", valueFrom = var.app_secret_arns["fcm"] },
     { name = "STRIPE_SECRET_KEY", valueFrom = "${var.app_secret_arns["payment-provider"]}:secret_key::" },
