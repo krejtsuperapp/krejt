@@ -272,3 +272,10 @@ miratuar me IBAN dhe bilanc ≥ 5,00 € debitohet wallet → `krejt:payout_clea
 `GET …/items`, `GET …/export.csv` (skedari për Raiffeisen derisa të ketë API; IBAN i plotë vetëm këtu, auditohet),
 `PATCH /admin/payouts/items/{id}` paid/failed (dështimi i kthen paratë në wallet; grupi mbyllet kur asnjë zë s'është pending).
 Bilanci negativ nuk paguhet — kompensohet nga udhëtimet e ardhshme (prag bllokimi i cash-it: vjen me flotat).
+
+## Kodi i marrjes dhe QR (§25, §60)
+
+Çdo udhëtim ka një kod 4-shifror (`pickup_code`, vetëm në pamjen e klientit) dhe `GET /rides/{id}/qr` kthen një QR të
+nënshkruar jetëshkurtër (HS256, 5 min, pa sekrete brenda). Shoferi mund të nisë udhëtimin vetëm me kodin e saktë ose
+QR-in e skanuar (`POST /driver/rides/{id}/start {code | qr_token}` → `PICKUP_CODE_INVALID`): klienti i duhur hip në
+makinën e duhur, para se të fillojë matja e udhëtimit.

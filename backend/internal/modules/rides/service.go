@@ -2,13 +2,17 @@ package rides
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -47,7 +51,19 @@ type Service struct {
 	pricing  *pricing.Service
 	flags    Flags
 	velocity Velocity
+	qr       QRSigner
 	now      func() time.Time
+}
+
+// QRSigner — nënshkruan/lexon QR-in e marrjes (HS256; i njëjti lëshues si token-at e realtime-it).
+type QRSigner interface {
+	SignClaims(purpose string, claims map[string]any, ttl time.Duration) (string, time.Time, error)
+	Parse(token string) (jwt.MapClaims, error)
+}
+
+func (s *Service) WithQR(q QRSigner) *Service {
+	s.qr = q
+	return s
 }
 
 func New(pool *pgxpool.Pool, loc *location.Service, led *ledger.Service, drv *drivers.Service, pr *pricing.Service) *Service {
@@ -101,6 +117,7 @@ type Ride struct {
 	CompletedAt          *time.Time  `json:"completed_at"`
 	CancelledAt          *time.Time  `json:"cancelled_at"`
 	QuoteID              uuid.UUID   `json:"-"`
+	PickupCode           *string     `json:"pickup_code,omitempty"` // vetëm për klientin (§25)
 	Driver               *DriverCard `json:"driver,omitempty"`
 }
 
@@ -120,14 +137,14 @@ type DriverCard struct {
 const rideCols = `id, customer_id, driver_id, category_id, state, payment_method, payment_status,
 	pickup_lat, pickup_lng, pickup_address, dropoff_lat, dropoff_lng, dropoff_address, distance_m, duration_s,
 	price_quoted_minor, price_final_minor, commission_minor, cancellation_fee_minor, currency, note, matching_attempts,
-	cancelled_by, cancellation_reason, requested_at, assigned_at, arrived_at, started_at, completed_at, cancelled_at, quote_id`
+	cancelled_by, cancellation_reason, requested_at, assigned_at, arrived_at, started_at, completed_at, cancelled_at, quote_id, pickup_code`
 
 func scanRide(row pgx.Row) (*Ride, error) {
 	var r Ride
 	if err := row.Scan(&r.ID, &r.CustomerID, &r.DriverID, &r.CategoryID, &r.State, &r.PaymentMethod, &r.PaymentStatus,
 		&r.Pickup.Lat, &r.Pickup.Lng, &r.PickupAddress, &r.Dropoff.Lat, &r.Dropoff.Lng, &r.DropoffAddress, &r.DistanceM, &r.DurationS,
 		&r.PriceQuotedMinor, &r.PriceFinalMinor, &r.CommissionMinor, &r.CancellationFeeMinor, &r.Currency, &r.Note, &r.MatchingAttempts,
-		&r.CancelledBy, &r.CancellationReason, &r.RequestedAt, &r.AssignedAt, &r.ArrivedAt, &r.StartedAt, &r.CompletedAt, &r.CancelledAt, &r.QuoteID); err != nil {
+		&r.CancelledBy, &r.CancellationReason, &r.RequestedAt, &r.AssignedAt, &r.ArrivedAt, &r.StartedAt, &r.CompletedAt, &r.CancelledAt, &r.QuoteID, &r.PickupCode); err != nil {
 		return nil, err
 	}
 	r.Currency = strings.TrimSpace(r.Currency)
@@ -203,11 +220,11 @@ func (s *Service) Request(ctx context.Context, a principal.Actor, idemKey string
 		r, err := scanRide(tx.QueryRow(ctx, `
 			INSERT INTO rides (customer_id, quote_id, service_area_id, category_id, state, payment_method,
 			  pickup_lat, pickup_lng, pickup_address, dropoff_lat, dropoff_lng, dropoff_address,
-			  distance_m, duration_s, price_quoted_minor, currency, note, idempotency_key)
-			VALUES ($1,$2,$3,$4,'matching',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING `+rideCols,
+			  distance_m, duration_s, price_quoted_minor, currency, note, idempotency_key, pickup_code)
+			VALUES ($1,$2,$3,$4,'matching',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING `+rideCols,
 			a.UserID, q.ID, q.AreaID, q.CategoryID, in.PaymentMethod,
 			q.Pickup.Lat, q.Pickup.Lng, q.PickupAddress, q.Dropoff.Lat, q.Dropoff.Lng, q.DropoffAddress,
-			q.DistanceM, q.DurationS, q.PriceMinor, q.Currency, nullable(in.Note), idemKey))
+			q.DistanceM, q.DurationS, q.PriceMinor, q.Currency, nullable(in.Note), idemKey, newPickupCode()))
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -237,7 +254,7 @@ func (s *Service) Get(ctx context.Context, a principal.Actor, rideID uuid.UUID) 
 	if err != nil {
 		return nil, err
 	}
-	return s.decorate(ctx, r)
+	return s.decorate(ctx, forActor(r, a))
 }
 
 // History — udhëtimet e klientit, nga më i riu (cursor: before = requested_at).
@@ -328,6 +345,40 @@ func (s *Service) CancelByCustomer(ctx context.Context, a principal.Actor, rideI
 		out, _ = scanRide(s.pool.QueryRow(ctx, `SELECT `+rideCols+` FROM rides WHERE id = $1`, rideID))
 	}
 	return s.decorate(ctx, out)
+}
+
+// newPickupCode — 4 shifra (crypto/rand): klienti ia tregon/skanon shoferit para nisjes.
+func newPickupCode() string {
+	b := make([]byte, 2)
+	_, _ = rand.Read(b)
+	n := int(binary.BigEndian.Uint16(b)) % 10000
+	return fmt.Sprintf("%04d", n)
+}
+
+// forActor — kodi i marrjes shfaqet vetëm te klienti; shoferi e verifikon, nuk e sheh.
+func forActor(r *Ride, a principal.Actor) *Ride {
+	if r != nil && r.CustomerID != a.UserID {
+		r.PickupCode = nil
+	}
+	return r
+}
+
+// QRToken — QR i nënshkruar, jetëshkurtër (5 min), me kodin e marrjes brenda (§25: pa sekrete, referencë e nënshkruar).
+func (s *Service) QRToken(ctx context.Context, a principal.Actor, rideID uuid.UUID) (string, time.Time, error) {
+	if s.qr == nil {
+		return "", time.Time{}, httpx.ErrUnavailable
+	}
+	r, err := scanRide(s.pool.QueryRow(ctx, `SELECT `+rideCols+` FROM rides WHERE id = $1 AND customer_id = $2`, rideID, a.UserID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", time.Time{}, httpx.ErrNotFound
+	}
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	if r.PickupCode == nil || !IsActive(r.State) {
+		return "", time.Time{}, ErrInvalidState
+	}
+	return s.qr.SignClaims("ride_pickup", map[string]any{"ride": rideID.String(), "code": *r.PickupCode}, 5*time.Minute)
 }
 
 // decorate — shton kartën e shoferit dhe lokacionin e gjallë kur ka kuptim.

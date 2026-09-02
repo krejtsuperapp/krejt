@@ -167,7 +167,7 @@ func main() {
 	driversSvc := drivers.New(pool, locSvc).WithEligibility(docsSvc)
 	appCfg := appconfig.New(pool)
 	fraudSvc := fraud.New(pool, rdb)
-	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricingSvc).WithFlags(appCfg).WithVelocity(fraudSvc)
+	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricingSvc).WithFlags(appCfg).WithVelocity(fraudSvc).WithQR(rtTokens)
 	limiter := ratelimit.New(rdb, log)
 	perUser := limiter.PerUser(600, time.Minute) // §51: kufi për përdorues të kyçur
 	requireAuth := func(next http.Handler) http.Handler { return authSvc.RequireAuth("")(perUser(next)) }

@@ -135,6 +135,17 @@ func (t *TokenIssuer) SubscriptionToken(userID, channel string, ttl time.Duratio
 	return tok, exp, err
 }
 
+// SignClaims — token i përgjithshëm i nënshkruar (p.sh. QR i udhëtimit): purpose + pretendime + skadim.
+func (t *TokenIssuer) SignClaims(purpose string, claims map[string]any, ttl time.Duration) (string, time.Time, error) {
+	exp := time.Now().Add(ttl)
+	mc := jwt.MapClaims{"purpose": purpose, "exp": exp.Unix(), "iat": time.Now().Unix()}
+	for k, v := range claims {
+		mc[k] = v
+	}
+	tok, err := jwt.NewWithClaims(jwt.SigningMethodHS256, mc).SignedString(t.secret)
+	return tok, exp, err
+}
+
 // Parse — për teste dhe diagnostikë: verifikon nënshkrimin dhe kthen pretendimet.
 func (t *TokenIssuer) Parse(token string) (jwt.MapClaims, error) {
 	claims := jwt.MapClaims{}

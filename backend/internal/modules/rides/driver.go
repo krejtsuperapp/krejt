@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -128,6 +130,7 @@ func (s *Service) AcceptOffer(ctx context.Context, a principal.Actor, offerID uu
 		return nil, err
 	}
 	_ = s.loc.SetBusy(ctx, a.UserID, out.ID)
+	out = forActor(out, a)
 	return s.decorate(ctx, out)
 }
 
@@ -157,7 +160,7 @@ func (s *Service) ActiveForDriver(ctx context.Context, a principal.Actor) (*Ride
 	if err != nil {
 		return nil, err
 	}
-	return s.decorate(ctx, r)
+	return s.decorate(ctx, forActor(r, a))
 }
 
 // Arrived / Start / Complete — hapat e shoferit. Complete mbyll udhëtimin me çmimin e paracaktuar
@@ -166,7 +169,29 @@ func (s *Service) Arrived(ctx context.Context, a principal.Actor, rideID uuid.UU
 	return s.driverTransition(ctx, a, rideID, StateArrived)
 }
 
-func (s *Service) Start(ctx context.Context, a principal.Actor, rideID uuid.UUID) (*Ride, error) {
+var ErrPickupCode = &httpx.APIError{Code: "PICKUP_CODE_INVALID", MessageKey: "errors.rides.pickup_code_invalid", HTTPStatus: http.StatusUnprocessableEntity}
+
+// Start — nisja kërkon kodin e marrjes së klientit (4 shifra) ose QR-in e nënshkruar (§25, §60).
+func (s *Service) Start(ctx context.Context, a principal.Actor, rideID uuid.UUID, code, qrToken string) (*Ride, error) {
+	if qrToken != "" && s.qr != nil {
+		claims, err := s.qr.Parse(qrToken)
+		if err != nil || claims["purpose"] != "ride_pickup" || claims["ride"] != rideID.String() {
+			return nil, ErrPickupCode
+		}
+		code, _ = claims["code"].(string)
+	}
+	code = strings.TrimSpace(code)
+	var expected *string
+	err := s.pool.QueryRow(ctx, `SELECT pickup_code FROM rides WHERE id = $1 AND driver_id = $2`, rideID, a.UserID).Scan(&expected)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, httpx.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if expected != nil && code != *expected {
+		return nil, ErrPickupCode
+	}
 	return s.driverTransition(ctx, a, rideID, StateInProgress)
 }
 
@@ -181,7 +206,7 @@ func (s *Service) Complete(ctx context.Context, a principal.Actor, rideID uuid.U
 	if err != nil {
 		return nil, err
 	}
-	return s.decorate(ctx, r)
+	return s.decorate(ctx, forActor(r, a))
 }
 
 func (s *Service) driverTransition(ctx context.Context, a principal.Actor, rideID uuid.UUID, to string) (*Ride, error) {
@@ -231,7 +256,7 @@ func (s *Service) driverTransition(ctx context.Context, a principal.Actor, rideI
 	if err != nil {
 		return nil, err
 	}
-	return s.decorate(ctx, out)
+	return s.decorate(ctx, forActor(out, a))
 }
 
 // CancelByDriver — shoferi heq dorë pas caktimit: udhëtimi kthehet në kërkim (ricaktim §18) pa e prekur
@@ -276,7 +301,7 @@ func (s *Service) CancelByDriver(ctx context.Context, a principal.Actor, rideID 
 		return nil, err
 	}
 	_ = s.loc.SetAvailable(ctx, a.UserID)
-	return out, nil
+	return forActor(out, a), nil
 }
 
 // settle — shlyerja në ledger (idempotente me çelës për udhëtim):
