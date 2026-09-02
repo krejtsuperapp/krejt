@@ -1,0 +1,642 @@
+openapi: 3.1.0
+info:
+  title: KREJT API
+  version: "1.0"
+  description: |
+    API-ja e KREJT Super App (Kosovë, V1). Serveri është autoritar: klienti nuk dërgon kurrë çmim, bilanc,
+    rol apo status. Të gjitha shumat janë numra të plotë në cent (`*_minor`) me `currency` (EUR).
+    Gabimet kthehen gjithmonë në zarfin `Error` (code, message_key, http_status, request_id, trace_id, retryable, fields).
+    Header-at e klientit: `X-App-Id` (customer|driver|partner|pro|business|admin), `X-App-Platform` (ios|android|web),
+    `X-App-Version` (semver) — porta e versionit kthen 426 UPDATE_REQUIRED ose 503 MAINTENANCE.
+    Kufizim shpejtësie: 300/min për IP, 600/min për përdorues (429 me Retry-After).
+servers:
+  - url: https://api.krejt.app
+  - url: http://localhost:8080
+security:
+  - bearerAuth: []
+tags:
+  - name: system
+  - name: config
+  - name: auth
+  - name: users
+  - name: notifications
+  - name: realtime
+  - name: rides
+  - name: chat
+  - name: reviews
+  - name: driver
+  - name: documents
+  - name: wallet
+  - name: payments
+  - name: support
+  - name: admin
+paths:
+  /healthz:
+    get: { tags: [system], security: [], summary: Liveness, responses: { "200": { description: OK } } }
+  /readyz:
+    get: { tags: [system], security: [], summary: Readiness (DB + Redis), responses: { "200": { description: OK }, "503": { $ref: "#/components/responses/Err" } } }
+  /api/v1/version:
+    get:
+      tags: [system]
+      security: []
+      summary: Versioni i shërbimit
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { service: { type: string }, env: { type: string }, version: { type: string }, region: { type: string } } } } } }
+  /api/v1/openapi.yaml:
+    get: { tags: [system], security: [], summary: Ky specifikim (YAML), responses: { "200": { description: OK } } }
+  /api/v1/config:
+    get:
+      tags: [config]
+      security: [{}, { bearerAuth: [] }]
+      summary: Konfigurimi i klientit (versionet, mirëmbajtja, flag-et publike)
+      parameters: [{ $ref: "#/components/parameters/XAppId" }, { $ref: "#/components/parameters/XAppPlatform" }, { $ref: "#/components/parameters/XAppVersion" }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/PublicConfig" } } } }
+
+  /api/v1/auth/otp/request:
+    post:
+      tags: [auth]
+      security: []
+      summary: Kërko kod OTP (SMS)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [phone], properties: { phone: { type: string, example: "+38344123456" }, locale: { $ref: "#/components/schemas/Locale" } } } } } }
+      responses: { "204": { description: Kodi u dërgua }, "422": { $ref: "#/components/responses/Err" }, "429": { $ref: "#/components/responses/Err" } }
+  /api/v1/auth/otp/verify:
+    post:
+      tags: [auth]
+      security: []
+      summary: Verifiko OTP → access + refresh token (krijon përdoruesin nëse s'ekziston)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [phone, code, device], properties: { phone: { type: string }, code: { type: string }, locale: { $ref: "#/components/schemas/Locale" }, device: { type: object, required: [id, platform], properties: { id: { type: string }, name: { type: string }, platform: { type: string, enum: [ios, android, web] } } } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TokenPair" } } } }, "401": { $ref: "#/components/responses/Err" } }
+  /api/v1/auth/token/refresh:
+    post:
+      tags: [auth]
+      security: []
+      summary: Rotacion i refresh token-it (i vjetri bëhet i pavlefshëm)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [refresh_token], properties: { refresh_token: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TokenPair" } } } }, "401": { $ref: "#/components/responses/Err" } }
+  /api/v1/auth/logout:
+    post: { tags: [auth], summary: Shkyçje e sesionit aktual, responses: { "204": { description: OK } } }
+  /api/v1/auth/logout-all:
+    post: { tags: [auth], summary: Shkyçje e të gjitha sesioneve, responses: { "204": { description: OK } } }
+
+  /api/v1/users/me:
+    get:
+      tags: [users]
+      summary: Profili + kapacitetet + wallet-i
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } } }
+    patch:
+      tags: [users]
+      summary: Ndrysho emrin / emailin / gjuhën ("" pastron emrin ose emailin)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { full_name: { type: string }, email: { type: string }, locale: { $ref: "#/components/schemas/Locale" } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Profile" } } } }, "409": { $ref: "#/components/responses/Err" }, "422": { $ref: "#/components/responses/Err" } }
+    delete:
+      tags: [users]
+      summary: Fshi llogarinë (anonimizim; wallet-i duhet 0 — WALLET_NOT_EMPTY)
+      responses: { "204": { description: OK }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/users/me/addresses:
+    get: { tags: [users], summary: Adresat e ruajtura, responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Address" } }, max: { type: integer } } } } } } } }
+    post:
+      tags: [users]
+      summary: Shto adresë (vetëm brenda Kosovës — ADDRESS_OUTSIDE_KOSOVO)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AddressInput" } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Address" } } } }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/users/me/addresses/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    put:
+      tags: [users]
+      summary: Ndrysho adresën
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AddressInput" } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Address" } } } }, "404": { $ref: "#/components/responses/Err" } }
+    delete: { tags: [users], summary: Fshi adresën, responses: { "204": { description: OK }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/users/me/notification-preferences:
+    get: { tags: [users], summary: Preferencat e njoftimeve (8 kategori), responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Preference" } } } } } } } } }
+    put:
+      tags: [users]
+      summary: Ruaj preferencat (security.push nuk çaktivizohet)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/Preference" } } } } } } }
+      responses: { "200": { description: OK }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/users/me/sessions:
+    get: { tags: [users], summary: Pajisjet e kyçura, responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Session" } } } } } } } } }
+  /api/v1/users/me/sessions/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    delete: { tags: [users], summary: Shkyç një pajisje, responses: { "204": { description: OK }, "404": { $ref: "#/components/responses/Err" } } }
+
+  /api/v1/notifications:
+    get:
+      tags: [notifications]
+      summary: Kutia e njoftimeve
+      parameters: [{ $ref: "#/components/parameters/Before" }, { $ref: "#/components/parameters/Limit" }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Notification" } }, unread: { type: integer } } } } } } }
+  /api/v1/notifications/read-all:
+    post: { tags: [notifications], summary: Shëno të gjitha si të lexuara, responses: { "204": { description: OK } } }
+  /api/v1/notifications/{id}/read:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post: { tags: [notifications], summary: Shëno një njoftim si të lexuar, responses: { "204": { description: OK }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/notifications/push-token:
+    post:
+      tags: [notifications]
+      summary: Regjistro / rifresko token-in FCM të pajisjes
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [platform, token], properties: { platform: { type: string, enum: [ios, android, web] }, token: { type: string }, locale: { $ref: "#/components/schemas/Locale" } } } } } }
+      responses: { "204": { description: OK }, "422": { $ref: "#/components/responses/Err" } }
+    delete:
+      tags: [notifications]
+      summary: Çregjistro token-in (dalje nga pajisja)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [token], properties: { token: { type: string } } } } } }
+      responses: { "204": { description: OK } }
+
+  /api/v1/realtime/token:
+    post: { tags: [realtime], summary: Token lidhjeje për Centrifugo (1 h), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RealtimeToken" } } } } } }
+  /api/v1/realtime/subscribe:
+    post:
+      tags: [realtime]
+      summary: Token abonimi për kanal (ride:{id} | driver:{id} | user:{id} | ops:{id} — autorizim server-side)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [channel], properties: { channel: { type: string, example: "ride:6f1c…" } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RealtimeToken" } } } }, "403": { $ref: "#/components/responses/Err" } }
+
+  /api/v1/rides/quote:
+    post:
+      tags: [rides]
+      summary: Ofertë çmimi për të gjitha kategoritë (server-side, afat 2 min)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [pickup, dropoff], properties: { pickup: { $ref: "#/components/schemas/Point" }, dropoff: { $ref: "#/components/schemas/Point" }, pickup_address: { type: string }, dropoff_address: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/QuoteResult" } } } }, "422": { $ref: "#/components/responses/Err" }, "503": { $ref: "#/components/responses/Err" } }
+  /api/v1/rides:
+    post:
+      tags: [rides]
+      summary: Krijo kërkesë udhëtimi nga një quote (Idempotency-Key i detyrueshëm)
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [quote_id, payment_method], properties: { quote_id: { type: string, format: uuid }, payment_method: { type: string, enum: [cash, wallet] }, note: { type: string, maxLength: 200 } } } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "402": { $ref: "#/components/responses/Err" }, "409": { $ref: "#/components/responses/Err" }, "422": { $ref: "#/components/responses/Err" }, "503": { $ref: "#/components/responses/Err" } }
+    get:
+      tags: [rides]
+      summary: Historiku i udhëtimeve
+      parameters: [{ $ref: "#/components/parameters/Before" }, { $ref: "#/components/parameters/Limit" }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Ride" } } } } } } } }
+  /api/v1/rides/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [rides], summary: Gjendja e udhëtimit (klienti ose shoferi i tij), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/rides/{id}/cancel:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [rides]
+      summary: Anulim nga klienti (tarifë pas periudhës së hirit; jo gjatë udhëtimit)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { reason: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/rides/{id}/chat:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [chat]
+      summary: Mesazhet e udhëtimit (shënon të lexuara ato të palës tjetër)
+      parameters: [{ name: after, in: query, schema: { type: string, format: date-time } }, { $ref: "#/components/parameters/Limit" }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/ChatMessage" } }, max_body: { type: integer } } } } } } }
+    post:
+      tags: [chat]
+      summary: Dërgo mesazh (nga caktimi deri 24 h pas përfundimit)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [body], properties: { body: { type: string, maxLength: 500 } } } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ChatMessage" } } } }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/rides/{id}/review:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [reviews]
+      summary: Vlerëso palën tjetër (pas përfundimit, 7 ditë, një herë)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [rating], properties: { rating: { type: integer, minimum: 1, maximum: 5 }, tags: { type: array, items: { type: string } }, comment: { type: string, maxLength: 300 } } } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Review" } } } }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/rides/{id}/reviews:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [reviews], summary: Vlerësimet e udhëtimit + etiketat e lejuara, responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Review" } }, customer_tags: { type: array, items: { type: string } }, driver_tags: { type: array, items: { type: string } } } } } } } } }
+  /api/v1/reviews/{id}/report:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [reviews]
+      summary: Raporto një vlerësim (pala e vlerësuar) → moderim
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [reason], properties: { reason: { type: string } } } } } }
+      responses: { "204": { description: OK }, "404": { $ref: "#/components/responses/Err" } }
+
+  /api/v1/driver/profile:
+    post:
+      tags: [driver]
+      summary: Apliko / ndrysho profilin e shoferit (vetëm sa është pending)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/DriverApply" } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DriverProfile" } } } }, "409": { $ref: "#/components/responses/Err" } }
+    get: { tags: [driver], summary: Profili i shoferit, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DriverProfile" } } } }, "403": { $ref: "#/components/responses/Err" } } }
+  /api/v1/driver/online:
+    post: { tags: [driver], summary: Dil online (RIDE_DRIVER | TAXI_DRIVER), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DriverState" } } } }, "403": { $ref: "#/components/responses/Err" } } }
+  /api/v1/driver/offline:
+    post: { tags: [driver], summary: Dil offline, responses: { "204": { description: OK } } }
+  /api/v1/driver/location:
+    post:
+      tags: [driver]
+      summary: Mostra GPS (grup, të renditura sipas ts; max 50)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [samples], properties: { samples: { type: array, items: { $ref: "#/components/schemas/LocationSample" } } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { accepted: { type: integer } } } } } }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/driver/offers:
+    get: { tags: [driver], summary: "Ofertat e hapura të dispatch-it (TTL 20 s; edhe përmes kanalit driver:{id})", responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Offer" } } } } } } } } }
+  /api/v1/driver/offers/{id}/accept:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post: { tags: [driver], summary: Prano ofertën → udhëtimi caktohet, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "409": { $ref: "#/components/responses/Err" } } }
+  /api/v1/driver/offers/{id}/decline:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post: { tags: [driver], summary: Refuzo ofertën, responses: { "204": { description: OK }, "409": { $ref: "#/components/responses/Err" } } }
+  /api/v1/driver/rides/active:
+    get: { tags: [driver], summary: Udhëtimi aktual i shoferit (null nëse s'ka), responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { ride: { oneOf: [{ $ref: "#/components/schemas/Ride" }, { type: "null" }] } } } } } } } }
+  /api/v1/driver/rides/{id}/arrived:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post: { tags: [driver], summary: Mbërrita te pika e marrjes, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "409": { $ref: "#/components/responses/Err" } } }
+  /api/v1/driver/rides/{id}/start:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post: { tags: [driver], summary: Fillo udhëtimin, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "409": { $ref: "#/components/responses/Err" } } }
+  /api/v1/driver/rides/{id}/complete:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post: { tags: [driver], summary: Përfundo (çmimi i paracaktuar shlyhet në ledger), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "409": { $ref: "#/components/responses/Err" } } }
+  /api/v1/driver/rides/{id}/cancel:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [driver]
+      summary: Shoferi heq dorë → ricaktim (udhëtimi kthehet në kërkim)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { reason: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/driver/documents/upload-url:
+    post:
+      tags: [documents]
+      summary: URL e nënshkruar (PUT) për ngarkim dokumenti (jpeg/png/pdf, ≤ 10 MB)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [type, content_type, size_bytes], properties: { type: { $ref: "#/components/schemas/DocumentType" }, content_type: { type: string, enum: [image/jpeg, image/png, application/pdf] }, size_bytes: { type: integer } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { object_key: { type: string }, upload: { type: object, properties: { url: { type: string }, method: { type: string }, headers: { type: object, additionalProperties: { type: string } }, expires_at: { type: string, format: date-time } } } } } } } }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/driver/documents:
+    post:
+      tags: [documents]
+      summary: Konfirmo dokumentin e ngarkuar (verifikim lloji/madhësie/skadimi)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [type, object_key], properties: { type: { $ref: "#/components/schemas/DocumentType" }, object_key: { type: string }, expires_on: { type: string, format: date } } } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Document" } } } }, "422": { $ref: "#/components/responses/Err" } }
+    get: { tags: [documents], summary: Dokumentet e mia + pranueshmëria, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DocumentsOverview" } } } } } }
+
+  /api/v1/wallet:
+    get: { tags: [wallet], summary: Bilanci (nga ledger-i), limitet; closed_loop gjithmonë true, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/WalletOverview" } } } } } }
+  /api/v1/wallet/transactions:
+    get:
+      tags: [wallet]
+      summary: Historiku i wallet-it
+      parameters: [{ $ref: "#/components/parameters/Before" }, { $ref: "#/components/parameters/Limit" }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/WalletTransaction" } } } } } } } }
+  /api/v1/wallet/topup:
+    post:
+      tags: [wallet]
+      summary: Mbush wallet-in me kartë (1,00–500,00 €, shumëfish i 0,50 €, ≤ 1.000 €/24 h)
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [amount_minor], properties: { amount_minor: { type: integer } } } } } }
+      responses: { "201": { description: Qëllimi i pagesës me client_secret (konfirmohet me SDK-në e ofruesit; suksesi vjen nga webhook-u), content: { application/json: { schema: { $ref: "#/components/schemas/PaymentIntent" } } } }, "422": { $ref: "#/components/responses/Err" }, "503": { $ref: "#/components/responses/Err" } }
+  /api/v1/payments/intents/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [payments], summary: Statusi i qëllimit të pagesës, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/PaymentIntent" } } } }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/payments/webhook/{provider}:
+    post:
+      tags: [payments]
+      security: []
+      summary: Webhook i ofruesit (nënshkrim HMAC; ngjarja përpunohet një herë)
+      parameters: [{ name: provider, in: path, required: true, schema: { type: string, enum: [stripe] } }, { name: Stripe-Signature, in: header, schema: { type: string } }]
+      responses: { "200": { description: E pranuar }, "400": { $ref: "#/components/responses/Err" } }
+
+  /api/v1/support/tickets:
+    post:
+      tags: [support]
+      summary: Hap tiketë
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [category, subject, body], properties: { category: { type: string, enum: [ride, order, payment, refund, account, safety, other] }, subject: { type: string }, body: { type: string }, ride_id: { type: string, format: uuid } } } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ticket" } } } }, "422": { $ref: "#/components/responses/Err" } }
+    get: { tags: [support], summary: Tiketat e mia, responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Ticket" } }, categories: { type: array, items: { type: string } } } } } } } } }
+  /api/v1/support/tickets/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [support], summary: Tiketa me mesazhet, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ticket" } } } }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/support/tickets/{id}/messages:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [support]
+      summary: Mesazh i ri në tiketë
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/BodyInput" } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TicketMessage" } } } }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/support/tickets/{id}/close:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post: { tags: [support], summary: Mbyll tiketën, responses: { "204": { description: OK }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/safety/reports:
+    post:
+      tags: [support]
+      summary: Raport sigurie / SOS → tiketë urgjente
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [kind], properties: { kind: { type: string, enum: [sos, unsafe_driving, harassment, accident, vehicle_issue, other] }, ride_id: { type: string, format: uuid }, lat: { type: number }, lng: { type: number }, description: { type: string } } } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { type: object, properties: { id: { type: string, format: uuid }, ticket_id: { type: string, format: uuid }, kind: { type: string }, status: { type: string }, created_at: { type: string, format: date-time } } } } } }, "422": { $ref: "#/components/responses/Err" } }
+
+  /api/v1/admin/users:
+    get:
+      tags: [admin]
+      summary: Kërko përdorues (stafi)
+      parameters: [{ name: q, in: query, schema: { type: string } }, { $ref: "#/components/parameters/Limit" }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/AdminUser" } } } } } } } }
+  /api/v1/admin/users/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [admin], summary: Detajet e përdoruesit (qasja auditohet), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AdminUserDetail" } } } }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/admin/rides:
+    get:
+      tags: [admin]
+      summary: Udhëtimet (filtra)
+      parameters: [{ name: state, in: query, schema: { $ref: "#/components/schemas/RideState" } }, { name: customer_id, in: query, schema: { type: string, format: uuid } }, { name: driver_id, in: query, schema: { type: string, format: uuid } }, { $ref: "#/components/parameters/Before" }, { $ref: "#/components/parameters/Limit" }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/AdminRide" } } } } } } } }
+  /api/v1/admin/rides/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [admin], summary: Udhëtimi me ngjarjet dhe ofertat, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AdminRideDetail" } } } }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/admin/dispatch/live:
+    get: { tags: [admin], summary: Dispatch live (udhëtimet aktive, ofertat, shoferët online, SOS), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DispatchLive" } } } } } }
+  /api/v1/admin/audit:
+    get:
+      tags: [admin]
+      summary: Audit log (ADMIN)
+      parameters: [{ name: actor_id, in: query, schema: { type: string, format: uuid } }, { name: target_id, in: query, schema: { type: string } }, { name: action, in: query, schema: { type: string } }, { $ref: "#/components/parameters/Before" }, { $ref: "#/components/parameters/Limit" }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/AuditRow" } } } } } } } }
+  /api/v1/admin/drivers:
+    get: { tags: [admin], summary: Aplikimet e shoferëve në pritje (OPERATIONS), responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/DriverProfile" } } } } } } } } }
+  /api/v1/admin/drivers/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    patch:
+      tags: [admin]
+      summary: Mirato (kërkon dokumentet) ose pezullo shoferin (OPERATIONS)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [action], properties: { action: { type: string, enum: [approve, suspend] }, categories: { type: array, items: { $ref: "#/components/schemas/RideCategory" } }, reason: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DriverProfile" } } } }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/admin/drivers/{id}/documents:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [admin], summary: Dokumentet e shoferit me URL leximi (5 min), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DocumentsOverview" } } } } } }
+  /api/v1/admin/driver-documents:
+    get: { tags: [admin], summary: Dokumentet në pritje (OPERATIONS), responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Document" } } } } } } } } }
+  /api/v1/admin/driver-documents/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    patch:
+      tags: [admin]
+      summary: Approve / reject dokumentin
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [action], properties: { action: { type: string, enum: [approve, reject] }, reason: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Document" } } } }, "404": { $ref: "#/components/responses/Err" } }
+  /api/v1/admin/support/tickets:
+    get:
+      tags: [admin]
+      summary: Radha e mbështetjes (SUPPORT/ADMIN)
+      parameters: [{ name: status, in: query, schema: { type: string, enum: [open, pending_user, resolved, closed, all] } }, { name: priority, in: query, schema: { type: string, enum: [normal, high, urgent] } }, { name: assigned, in: query, schema: { type: string, enum: [me] } }, { $ref: "#/components/parameters/Limit" }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Ticket" } } } } } } } }
+  /api/v1/admin/support/tickets/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [admin], summary: Tiketa me mesazhet dhe kontekstin (auditohet), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ticket" } } } } } }
+    patch:
+      tags: [admin]
+      summary: Status / prioritet / caktim
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { status: { type: string, enum: [open, pending_user, resolved, closed] }, priority: { type: string, enum: [normal, high, urgent] }, assigned_to: { type: string, format: uuid } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ticket" } } } } }
+  /api/v1/admin/support/tickets/{id}/messages:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [admin]
+      summary: Përgjigje nga Support-i (→ pending_user, push te përdoruesi)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/BodyInput" } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TicketMessage" } } } } }
+  /api/v1/admin/payments/intents/{id}/refund:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [admin]
+      summary: Rimbursim i një mbushjeje (FINANCE; wallet-i duhet të ketë mjaftueshëm)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [amount_minor, reason], properties: { amount_minor: { type: integer }, reason: { type: string } } } } } }
+      responses: { "202": { description: OK, content: { application/json: { schema: { type: object, properties: { refund_id: { type: string, format: uuid } } } } } }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/admin/flags:
+    get: { tags: [admin], summary: Feature flags (OPERATIONS), responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Flag" } } } } } } } } }
+  /api/v1/admin/flags/{key}:
+    parameters: [{ name: key, in: path, required: true, schema: { type: string } }]
+    patch:
+      tags: [admin]
+      summary: Ndrysho një flag (enabled, rollout_percent, public)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { enabled: { type: boolean }, rollout_percent: { type: integer, minimum: 0, maximum: 100 }, public: { type: boolean } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Flag" } } } }, "404": { $ref: "#/components/responses/Err" } }
+  /api/v1/admin/app-versions:
+    get: { tags: [admin], summary: Versionet e aplikacioneve, responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/AppVersion" } } } } } } } } }
+  /api/v1/admin/app-versions/{app}/{platform}:
+    parameters: [{ name: app, in: path, required: true, schema: { type: string } }, { name: platform, in: path, required: true, schema: { type: string, enum: [ios, android, web] } }]
+    put:
+      tags: [admin]
+      summary: Versioni minimal / i rekomanduar, mirëmbajtja
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { min_version: { type: string }, recommended_version: { type: string }, maintenance: { type: boolean }, maintenance_message: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AppVersion" } } } } }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Id: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    Before: { name: before, in: query, schema: { type: string, format: date-time }, description: Cursor — vetëm rreshtat para kësaj kohe }
+    Limit: { name: limit, in: query, schema: { type: integer } }
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 100 } }
+    XAppId: { name: X-App-Id, in: header, schema: { type: string, enum: [customer, driver, partner, pro, business, admin] } }
+    XAppPlatform: { name: X-App-Platform, in: header, schema: { type: string, enum: [ios, android, web] } }
+    XAppVersion: { name: X-App-Version, in: header, schema: { type: string, example: "1.2.3" } }
+  responses:
+    Err:
+      description: Gabim në zarfin e vetëm
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          required: [code, message_key, http_status, retryable]
+          properties:
+            code: { type: string, example: VALIDATION_FAILED }
+            message_key: { type: string, example: errors.validation }
+            http_status: { type: integer }
+            request_id: { type: string }
+            trace_id: { type: string }
+            retryable: { type: boolean }
+            fields: { type: object, additionalProperties: { type: string }, description: "Gabime për fushë (§57): {\"email\": \"invalid\"}" }
+    Locale: { type: string, enum: [sq, en, de] }
+    Point: { type: object, required: [lat, lng], properties: { lat: { type: number }, lng: { type: number } } }
+    RideCategory: { type: string, enum: [economy, comfort, xl, taxi] }
+    RideState: { type: string, enum: [matching, assigned, arrived, in_progress, completed, cancelled, no_driver] }
+    TokenPair:
+      type: object
+      properties: { access_token: { type: string }, refresh_token: { type: string }, expires_at: { type: string, format: date-time }, user_id: { type: string, format: uuid }, is_new_user: { type: boolean } }
+    Me:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        phone: { type: string }
+        email: { type: [string, "null"] }
+        full_name: { type: [string, "null"] }
+        locale: { $ref: "#/components/schemas/Locale" }
+        capabilities: { type: array, items: { type: string } }
+        wallet: { type: object, properties: { balance_minor: { type: integer }, currency: { type: string }, closed_loop: { type: boolean } } }
+        created_at: { type: string, format: date-time }
+    Profile:
+      type: object
+      properties: { id: { type: string, format: uuid }, phone: { type: [string, "null"] }, email: { type: [string, "null"] }, full_name: { type: [string, "null"] }, locale: { $ref: "#/components/schemas/Locale" }, updated_at: { type: string, format: date-time } }
+    AddressInput:
+      type: object
+      required: [label, line1, city, lat, lng]
+      properties:
+        label: { type: string, enum: [home, work, other] }
+        name: { type: string, maxLength: 40 }
+        line1: { type: string }
+        line2: { type: string }
+        city: { type: string }
+        postal_code: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        place_id: { type: string }
+        instructions: { type: string, maxLength: 200 }
+        is_default: { type: boolean }
+    Address:
+      allOf:
+        - $ref: "#/components/schemas/AddressInput"
+        - type: object
+          properties: { id: { type: string, format: uuid }, created_at: { type: string, format: date-time }, updated_at: { type: string, format: date-time } }
+    Preference:
+      type: object
+      required: [category]
+      properties: { category: { type: string, enum: [security, rides, orders, payments, wallet, loyalty, promotions, support] }, push: { type: boolean }, email: { type: boolean }, sms: { type: boolean } }
+    Session:
+      type: object
+      properties: { id: { type: string, format: uuid }, device_name: { type: [string, "null"] }, platform: { type: [string, "null"] }, ip: { type: [string, "null"] }, last_seen_at: { type: string, format: date-time }, created_at: { type: string, format: date-time }, current: { type: boolean } }
+    Notification:
+      type: object
+      properties: { id: { type: string, format: uuid }, category: { type: string }, title_key: { type: string }, body_key: { type: string }, params: { type: object, additionalProperties: { type: string } }, deep_link: { type: [string, "null"] }, read_at: { type: [string, "null"], format: date-time }, created_at: { type: string, format: date-time } }
+    RealtimeToken:
+      type: object
+      properties: { token: { type: string }, expires_at: { type: string, format: date-time }, channel: { type: string } }
+    QuoteResult:
+      type: object
+      properties:
+        area: { type: object, properties: { id: { type: string }, name: { type: string }, center: { $ref: "#/components/schemas/Point" }, radius_km: { type: number } } }
+        distance_m: { type: integer }
+        duration_s: { type: integer }
+        quotes:
+          type: array
+          items:
+            type: object
+            properties: { id: { type: string, format: uuid }, category: { $ref: "#/components/schemas/RideCategory" }, seats: { type: integer }, price_minor: { type: integer }, currency: { type: string }, surge_bp: { type: integer }, pickup_eta_s: { type: [integer, "null"] }, expires_at: { type: string, format: date-time } }
+    DriverCard:
+      type: object
+      properties: { id: { type: string, format: uuid }, name: { type: [string, "null"] }, vehicle_make: { type: string }, vehicle_model: { type: string }, vehicle_plate: { type: string }, vehicle_color: { type: string }, rating: { type: [number, "null"] }, location: { $ref: "#/components/schemas/Point" }, location_at: { type: string, format: date-time } }
+    Ride:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        customer_id: { type: string, format: uuid }
+        driver_id: { type: [string, "null"], format: uuid }
+        category: { $ref: "#/components/schemas/RideCategory" }
+        state: { $ref: "#/components/schemas/RideState" }
+        payment_method: { type: string, enum: [cash, wallet, card] }
+        payment_status: { type: string, enum: [pending, paid, failed, cash, none] }
+        pickup: { $ref: "#/components/schemas/Point" }
+        pickup_address: { type: [string, "null"] }
+        dropoff: { $ref: "#/components/schemas/Point" }
+        dropoff_address: { type: [string, "null"] }
+        distance_m: { type: integer }
+        duration_s: { type: integer }
+        price_quoted_minor: { type: integer }
+        price_final_minor: { type: [integer, "null"] }
+        cancellation_fee_minor: { type: integer }
+        currency: { type: string }
+        note: { type: [string, "null"] }
+        cancelled_by: { type: [string, "null"] }
+        cancellation_reason: { type: [string, "null"] }
+        requested_at: { type: string, format: date-time }
+        assigned_at: { type: [string, "null"], format: date-time }
+        arrived_at: { type: [string, "null"], format: date-time }
+        started_at: { type: [string, "null"], format: date-time }
+        completed_at: { type: [string, "null"], format: date-time }
+        cancelled_at: { type: [string, "null"], format: date-time }
+        driver: { $ref: "#/components/schemas/DriverCard" }
+    ChatMessage:
+      type: object
+      properties: { id: { type: string, format: uuid }, ride_id: { type: string, format: uuid }, sender_id: { type: string, format: uuid }, sender_role: { type: string, enum: [customer, driver] }, body: { type: string }, created_at: { type: string, format: date-time }, read_at: { type: [string, "null"], format: date-time }, mine: { type: boolean } }
+    Review:
+      type: object
+      properties: { id: { type: string, format: uuid }, ride_id: { type: string, format: uuid }, reviewer_role: { type: string }, rating: { type: integer }, tags: { type: array, items: { type: string } }, comment: { type: [string, "null"] }, created_at: { type: string, format: date-time } }
+    DriverApply:
+      type: object
+      required: [vehicle_make, vehicle_model, vehicle_plate, vehicle_color, categories]
+      properties: { vehicle_make: { type: string }, vehicle_model: { type: string }, vehicle_plate: { type: string }, vehicle_color: { type: string }, categories: { type: array, items: { $ref: "#/components/schemas/RideCategory" } } }
+    DriverProfile:
+      allOf:
+        - $ref: "#/components/schemas/DriverApply"
+        - type: object
+          properties: { user_id: { type: string, format: uuid }, status: { type: string, enum: [pending, approved, suspended] }, rating: { type: [number, "null"] }, rating_count: { type: integer }, approved_at: { type: [string, "null"], format: date-time }, suspended_reason: { type: [string, "null"] }, created_at: { type: string, format: date-time }, updated_at: { type: string, format: date-time } }
+    DriverState:
+      type: object
+      properties: { driver_id: { type: string, format: uuid }, status: { type: string, enum: [available, busy] }, categories: { type: array, items: { type: string } }, point: { $ref: "#/components/schemas/Point" }, recorded_at: { type: string, format: date-time }, ride_id: { type: string } }
+    LocationSample:
+      type: object
+      required: [lat, lng, ts]
+      properties: { lat: { type: number }, lng: { type: number }, heading: { type: number }, speed_mps: { type: number }, ts: { type: integer, description: ms Unix (koha e pajisjes) } }
+    Offer:
+      type: object
+      properties: { id: { type: string, format: uuid }, ride_id: { type: string, format: uuid }, round: { type: integer }, expires_at: { type: string, format: date-time }, distance_m: { type: integer }, eta_s: { type: integer }, category: { $ref: "#/components/schemas/RideCategory" }, pickup: { $ref: "#/components/schemas/Point" }, pickup_address: { type: [string, "null"] }, dropoff: { $ref: "#/components/schemas/Point" }, dropoff_address: { type: [string, "null"] }, ride_distance_m: { type: integer }, ride_duration_s: { type: integer }, price_minor: { type: integer }, earnings_minor: { type: integer }, currency: { type: string }, payment_method: { type: string } }
+    DocumentType: { type: string, enum: [driving_license, id_card, vehicle_registration, insurance, criminal_record, profile_photo, taxi_permit] }
+    Document:
+      type: object
+      properties: { id: { type: string, format: uuid }, type: { $ref: "#/components/schemas/DocumentType" }, status: { type: string, enum: [pending, approved, rejected, expired, replaced] }, content_type: { type: string }, size_bytes: { type: integer }, expires_on: { type: [string, "null"], format: date }, rejection_reason: { type: [string, "null"] }, reviewed_at: { type: [string, "null"], format: date-time }, created_at: { type: string, format: date-time }, download_url: { type: string }, driver_id: { type: string, format: uuid } }
+    DocumentsOverview:
+      type: object
+      properties: { documents: { type: array, items: { $ref: "#/components/schemas/Document" } }, missing: { type: array, items: { type: string } }, expiring: { type: array, items: { type: string } }, eligible: { type: boolean } }
+    WalletOverview:
+      type: object
+      properties: { balance_minor: { type: integer }, currency: { type: string }, closed_loop: { type: boolean }, limits: { type: object, properties: { min_topup_minor: { type: integer }, max_topup_minor: { type: integer }, daily_topup_minor: { type: integer } } } }
+    WalletTransaction:
+      type: object
+      properties: { id: { type: string, format: uuid }, kind: { type: string }, reference: { type: string }, amount_minor: { type: integer, description: "+ hyrje, − dalje" }, currency: { type: string }, created_at: { type: string, format: date-time } }
+    PaymentIntent:
+      type: object
+      properties: { id: { type: string, format: uuid }, purpose: { type: string }, amount_minor: { type: integer }, currency: { type: string }, provider: { type: string }, status: { type: string, enum: [created, requires_action, processing, succeeded, failed, canceled] }, failure_code: { type: [string, "null"] }, client_secret: { type: string }, created_at: { type: string, format: date-time }, succeeded_at: { type: [string, "null"], format: date-time } }
+    BodyInput: { type: object, required: [body], properties: { body: { type: string, maxLength: 2000 } } }
+    TicketMessage:
+      type: object
+      properties: { id: { type: string, format: uuid }, author_role: { type: string, enum: [user, support, system] }, body: { type: string }, created_at: { type: string, format: date-time } }
+    Ticket:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        category: { type: string }
+        subject: { type: string }
+        status: { type: string, enum: [open, pending_user, resolved, closed] }
+        priority: { type: string, enum: [normal, high, urgent] }
+        ride_id: { type: [string, "null"], format: uuid }
+        assigned_to: { type: string, format: uuid }
+        last_message_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        resolved_at: { type: [string, "null"], format: date-time }
+        messages: { type: array, items: { $ref: "#/components/schemas/TicketMessage" } }
+        context: { type: object, description: Vetëm për agjentët }
+    PublicConfig:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/AppVersion" }
+        update_state: { type: string, enum: [ok, recommended, required, maintenance, unknown] }
+        flags: { type: object, additionalProperties: { type: boolean } }
+        server_time: { type: string, format: date-time }
+        config_ttl_s: { type: integer }
+    AppVersion:
+      type: object
+      properties: { app: { type: string }, platform: { type: string }, min_version: { type: string }, recommended_version: { type: string }, maintenance: { type: boolean }, maintenance_message: { type: [string, "null"] } }
+    Flag:
+      type: object
+      properties: { key: { type: string }, enabled: { type: boolean }, rollout_percent: { type: integer }, public: { type: boolean }, description: { type: [string, "null"] } }
+    AdminUser:
+      type: object
+      properties: { id: { type: string, format: uuid }, phone: { type: [string, "null"] }, email: { type: [string, "null"] }, full_name: { type: [string, "null"] }, locale: { type: string }, status: { type: string }, capabilities: { type: array, items: { type: string } }, created_at: { type: string, format: date-time } }
+    AdminUserDetail:
+      allOf:
+        - $ref: "#/components/schemas/AdminUser"
+        - type: object
+          properties: { wallet_balance_minor: { type: integer }, rides_total: { type: integer }, rides_completed: { type: integer }, active_sessions: { type: integer }, driver: { type: object }, recent_audit: { type: array, items: { $ref: "#/components/schemas/AuditRow" } } }
+    AdminRide:
+      type: object
+      properties: { id: { type: string, format: uuid }, state: { $ref: "#/components/schemas/RideState" }, category: { type: string }, customer_id: { type: string, format: uuid }, driver_id: { type: [string, "null"], format: uuid }, payment_method: { type: string }, payment_status: { type: string }, price_quoted_minor: { type: integer }, price_final_minor: { type: [integer, "null"] }, pickup_address: { type: [string, "null"] }, dropoff_address: { type: [string, "null"] }, requested_at: { type: string, format: date-time }, completed_at: { type: [string, "null"], format: date-time }, cancelled_by: { type: [string, "null"] } }
+    AdminRideDetail:
+      allOf:
+        - $ref: "#/components/schemas/AdminRide"
+        - type: object
+          properties: { events: { type: array, items: { type: object } }, offers: { type: array, items: { type: object } } }
+    DispatchLive:
+      type: object
+      properties: { rides: { type: array, items: { $ref: "#/components/schemas/AdminRide" } }, counts: { type: object, additionalProperties: { type: integer } }, online_drivers: { type: object, additionalProperties: { type: integer } }, open_offers: { type: integer }, safety_open: { type: integer }, generated_at: { type: string, format: date-time } }
+    AuditRow:
+      type: object
+      properties: { id: { type: integer }, actor_id: { type: [string, "null"], format: uuid }, actor_type: { type: string }, action: { type: string }, target_type: { type: [string, "null"] }, target_id: { type: [string, "null"] }, ip: { type: [string, "null"] }, request_id: { type: [string, "null"] }, metadata: { type: object }, created_at: { type: string, format: date-time } }

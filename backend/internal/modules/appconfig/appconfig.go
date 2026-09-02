@@ -200,7 +200,7 @@ func (s *Service) Gate() httpx.Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			p := r.URL.Path
-			if p == "/healthz" || p == "/readyz" || p == "/api/v1/config" || strings.HasPrefix(p, "/api/v1/payments/webhook/") {
+			if p == "/healthz" || p == "/readyz" || p == "/api/v1/config" || p == "/api/v1/openapi.yaml" || strings.HasPrefix(p, "/api/v1/payments/webhook/") {
 				next.ServeHTTP(w, r)
 				return
 			}
