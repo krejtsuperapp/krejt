@@ -93,3 +93,9 @@ variable "app_secret_arns" {
   description = "Sekretet e ofruesve sipas emrit (nga moduli security): jwt, google-maps, infobip, …"
   type        = map(string)
 }
+
+variable "otlp_endpoint" {
+  description = "Endpoint-i OTLP i Grafana Cloud (bosh = pa eksport gjurmësh/metrikash)."
+  type        = string
+  default     = ""
+}

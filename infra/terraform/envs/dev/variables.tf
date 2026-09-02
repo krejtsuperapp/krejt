@@ -37,3 +37,9 @@ variable "monthly_budget_usd" {
 variable "alert_email" {
   type = string
 }
+
+variable "otlp_endpoint" {
+  description = "Grafana Cloud OTLP gateway (p.sh. https://otlp-gateway-prod-eu-west-2.grafana.net/otlp); bosh = pa eksport."
+  type        = string
+  default     = ""
+}

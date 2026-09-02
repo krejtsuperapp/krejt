@@ -68,6 +68,12 @@ type Config struct {
 	PaymentProvider     string
 	StripeSecretKey     string
 	StripeWebhookSecret string
+
+	// observability (§50) dhe analitika (§66)
+	SentryDSN         string
+	AnalyticsProvider string // posthog | devlog (vetëm development)
+	PostHogKey        string
+	PostHogHost       string
 }
 
 func Load() (*Config, error) {
@@ -109,6 +115,10 @@ func Load() (*Config, error) {
 		PaymentProvider:           getenv("PAYMENT_PROVIDER", "stripe"),
 		StripeSecretKey:           os.Getenv("STRIPE_SECRET_KEY"),
 		StripeWebhookSecret:       os.Getenv("STRIPE_WEBHOOK_SECRET"),
+		SentryDSN:                 os.Getenv("SENTRY_DSN"),
+		AnalyticsProvider:         getenv("ANALYTICS_PROVIDER", "posthog"),
+		PostHogKey:                os.Getenv("POSTHOG_KEY"),
+		PostHogHost:               getenv("POSTHOG_HOST", "https://eu.i.posthog.com"),
 	}
 	for _, kv := range os.Environ() {
 		if strings.HasPrefix(kv, "SQS_") && strings.Contains(kv, "_QUEUE_URL=") {

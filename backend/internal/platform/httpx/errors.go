@@ -5,6 +5,7 @@
 package httpx
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -76,11 +77,25 @@ type errorEnvelope struct {
 	} `json:"error"`
 }
 
+// ErrorReporter — gjurmuesi i gabimeve (Sentry); merr paniqet dhe gabimet e brendshme (5xx me shkak).
+var reporter func(ctx context.Context, err error)
+
+func SetErrorReporter(f func(ctx context.Context, err error)) { reporter = f }
+
+func report(ctx context.Context, err error) {
+	if reporter != nil && err != nil {
+		reporter(ctx, err)
+	}
+}
+
 // WriteError shkruan gabimin në formatin e vetëm. Gabimet e panjohura bëhen INTERNAL (pa detaje).
 func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	var api *APIError
 	if !errors.As(err, &api) {
 		api = ErrInternal.With(err)
+	}
+	if api.HTTPStatus >= 500 && api.Err != nil {
+		report(r.Context(), api.Err)
 	}
 	var env errorEnvelope
 	env.Error.Code = api.Code
