@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Shoferi ndan pozicionin gjate punes; lejet e sfondit hyjne me sherbimin e pare-planit. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="krejt_driver"
+        android:label="KREJT Driver"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

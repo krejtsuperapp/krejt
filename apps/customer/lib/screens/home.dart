@@ -5,6 +5,10 @@ import 'package:krejt_l10n/krejt_l10n.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
+import 'food/discover.dart';
+import 'food/order_tracking.dart';
+import 'ride/destination.dart';
+import 'ride/tracking.dart';
 
 /// Çelësi i përkthimit për një gjendje udhëtimi, i mbajtur në një vend të vetëm
 /// që asnjë ekran të mos shpikë etiketat e veta.
@@ -38,6 +42,7 @@ class HomeScreen extends StatelessWidget {
     final me = state.me;
     final locale = state.locale;
     final active = state.activeRide;
+    final activeOrder = state.activeOrder;
     final past = state.recentRides.where((r) => r.isFinished).take(4).toList();
 
     return SafeArea(
@@ -58,6 +63,22 @@ class HomeScreen extends StatelessWidget {
                 icon: Icons.local_taxi,
                 title: context.t('home.active.ride'),
                 subtitle: context.t(rideStateKey(active.state)),
+                onTap: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute<void>(builder: (_) => TrackingScreen(rideId: active.id))),
+              ),
+              const SizedBox(height: K.s4),
+            ],
+            if (activeOrder != null) ...[
+              KActiveBanner(
+                icon: Icons.restaurant,
+                title: context.t('home.active.order'),
+                subtitle: context.t(orderStateKey(activeOrder.state)),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => OrderTrackingScreen(orderId: activeOrder.id),
+                  ),
+                ),
               ),
               const SizedBox(height: K.s4),
             ],
@@ -72,6 +93,14 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.local_taxi_outlined,
                     label: context.t('home.services.ride'),
                     ready: state.config.flag('rides', fallback: true),
+                    // Një udhëtim në rrjedhë e çon te ndjekja; përndryshe nis një të ri (§18).
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => active == null
+                            ? const DestinationScreen()
+                            : TrackingScreen(rideId: active.id),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: K.s3),
@@ -80,6 +109,9 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.restaurant_outlined,
                     label: context.t('home.services.food'),
                     ready: state.config.flag('food'),
+                    onTap: () =>
+                        Navigator.of(context)
+                            .push(MaterialPageRoute<void>(builder: (_) => const DiscoverScreen())),
                   ),
                 ),
               ],
@@ -154,14 +186,16 @@ class _WalletCard extends StatelessWidget {
 }
 
 class _ServiceTile extends StatelessWidget {
-  const _ServiceTile({required this.icon, required this.label, required this.ready});
+  const _ServiceTile({required this.icon, required this.label, required this.ready, this.onTap});
 
   final IconData icon;
   final String label;
   final bool ready;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => KCard(
+    onTap: ready ? onTap : null,
     padding: const EdgeInsets.all(K.s4),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,

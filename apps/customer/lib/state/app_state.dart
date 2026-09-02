@@ -35,6 +35,7 @@ class AppState extends ChangeNotifier {
   PublicConfig config = PublicConfig.fallback();
   Me? me;
   Ride? activeRide;
+  Order? activeOrder;
   List<Ride> recentRides = const [];
   String locale = 'sq';
   ApiError? bootError;
@@ -162,8 +163,26 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Porosia aktive vjen nga historiku njësoj si udhëtimi: serveri i rendit nga më i riu.
+  Future<void> refreshOrders() async {
+    try {
+      final orders = await api.orderHistory(limit: 5);
+      Order? active;
+      for (final o in orders) {
+        if (o.isActive) {
+          active = o;
+          break;
+        }
+      }
+      activeOrder = active;
+      notifyListeners();
+    } on ApiError {
+      // Pamja e vjetër mbetet; rifreskohet në veprimin e radhës.
+    }
+  }
+
   Future<void> refreshHome() async {
-    await Future.wait([refreshMe(), refreshRides()]);
+    await Future.wait([refreshMe(), refreshRides(), refreshOrders()]);
   }
 
   /// Ruajtja e profilit kthen përdoruesin e ri nga serveri; ekranet e shohin menjëherë.
@@ -185,6 +204,7 @@ class AppState extends ChangeNotifier {
     await api.logout();
     me = null;
     activeRide = null;
+    activeOrder = null;
     recentRides = const [];
     phase = BootPhase.signedOut;
     notifyListeners();
@@ -193,6 +213,7 @@ class AppState extends ChangeNotifier {
   void _onSessionExpired() {
     me = null;
     activeRide = null;
+    activeOrder = null;
     recentRides = const [];
     phase = BootPhase.signedOut;
     notifyListeners();
