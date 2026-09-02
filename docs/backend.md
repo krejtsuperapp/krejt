@@ -298,3 +298,26 @@ e një rreshti (produkt + opsione × sasi) duke verifikuar merchant-in, disponue
 orders (hapi tjetër) e përdor këtë; klienti nuk dërgon kurrë çmime.
 
 Ende jo: porositë (checkout, makina e gjendjeve, korrieri), promocionet, analitika e merchant-it, tableti i kuzhinës.
+
+## Porositë (§19, §21) — checkout, merchant, korrier
+
+Rrjedha: `POST /orders/quote` (çmimi i shportës nga `catalog.Price`, tarifa e dërgesës, minimumi, `open_now`) →
+`POST /orders` me `Idempotency-Key` (çmimi rillogaritet, wallet-i kontrollohet, adresa brenda Kosovës për dërgesë,
+merchant-i duhet aktiv/hapur) → `pending_merchant`. Kodi 6-shkronjor i porosisë (pa 0/O/1/I) shërben për marrjen nga korrieri.
+
+Makina e gjendjeve: `pending_merchant → accepted → preparing → ready → courier_assigned → picked_up → delivered`;
+`cancelled` (klienti vetëm para përgatitjes, pa tarifë në V1; merchant-i me arsye), `rejected`. Për `pickup` dhe
+`merchant_delivers`, merchant-i kalon nga `ready` direkt në `delivered`.
+
+Merchant-i: `GET /merchant/{id}/orders` (radha), `POST /merchant/orders/{id}/transition` (accepted me `prep_time_min`,
+preparing, ready, delivered, cancelled/rejected me arsye). Korrieri: `GET /courier/offers`, accept/decline,
+`POST /courier/orders/{id}/pickup` (kërkon kodin), `/deliver`, `/release` (kthen porosinë në `ready`).
+Dispatch-i i korrierëve: worker çdo sekondë (oferta 25 s, rreze 5 km, korrierë të lirë pa udhëtim/porosi aktive);
+pa korrier brenda 10 min → `OrderNoCourier` për Operacionet.
+
+Shlyerja (idempotente): **wallet** → debit klienti (total), kredit merchant-i (artikujt − komision), kredit
+`krejt:commission`, kredit `krejt:delivery_fees`; **cash** → merchant-i mban paratë, i debitohet komisioni + tarifa e
+dërgesës (borxh ndaj platformës). Riprovohet nga worker-i si te udhëtimet.
+
+Ende jo: promocionet/kuponat, rimbursim i pjesshëm i porosisë, batching i dorëzimeve, tableti i kuzhinës, korrierë me
+kategori të vetën (tani përdoren shoferët `economy`).
