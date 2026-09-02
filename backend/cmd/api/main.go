@@ -18,17 +18,20 @@ import (
 	"krejt.app/backend/internal/modules/ledger"
 	"krejt.app/backend/internal/modules/location"
 	"krejt.app/backend/internal/modules/notifications"
+	"krejt.app/backend/internal/modules/payments"
 	"krejt.app/backend/internal/modules/pricing"
 	"krejt.app/backend/internal/modules/realtime"
 	"krejt.app/backend/internal/modules/reviews"
 	"krejt.app/backend/internal/modules/rides"
 	"krejt.app/backend/internal/modules/users"
+	"krejt.app/backend/internal/modules/wallet"
 	"krejt.app/backend/internal/platform/cache"
 	"krejt.app/backend/internal/platform/config"
 	"krejt.app/backend/internal/platform/db"
 	"krejt.app/backend/internal/platform/httpx"
 	"krejt.app/backend/internal/platform/logx"
 	"krejt.app/backend/internal/platform/providers/maps"
+	"krejt.app/backend/internal/platform/providers/payment"
 	rtprovider "krejt.app/backend/internal/platform/providers/realtime"
 	"krejt.app/backend/internal/platform/providers/sms"
 	"krejt.app/backend/internal/platform/providers/storage"
@@ -96,6 +99,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	payProvider, err := payment.NewFromEnv(cfg.Env, cfg.PaymentProvider, cfg.StripeSecretKey, cfg.StripeWebhookSecret, log)
+	if err != nil {
+		log.Error("payment provider", "err", err)
+		os.Exit(1)
+	}
+
 	var signer *auth.Signer
 	if cfg.JWTPrivateKeyPEM != "" {
 		signer, err = auth.LoadSigner([]byte(cfg.JWTPrivateKeyPEM))
@@ -129,6 +138,7 @@ func main() {
 	requireAuth := authSvc.RequireAuth("")
 	requireDriver := authSvc.RequireAnyCapability("RIDE_DRIVER", "TAXI_DRIVER")
 	requireOps := authSvc.RequireAuth("OPERATIONS")
+	requireFinance := authSvc.RequireAuth("FINANCE")
 
 	// --- router ----------------------------------------------------------------
 	mux := http.NewServeMux()
@@ -148,6 +158,12 @@ func main() {
 	realtime.New(pool, rtPub, rtTokens).Routes(mux, requireAuth)
 	reviews.New(pool).Routes(mux, requireAuth)
 	docsSvc.Routes(mux, requireAuth, requireOps)
+	paymentsSvc := payments.New(pool, ledgerSvc, payProvider)
+	paymentsSvc.Routes(mux, requireAuth, requireFinance)
+	wallet.New(pool, ledgerSvc, wallet.Limits{MinTopUpMinor: payments.MinTopUpMinor, MaxTopUpMinor: payments.MaxTopUpMinor, DailyTopUpMinor: payments.DailyTopUpMinor}).Routes(mux, requireAuth)
+	if dev, ok := payProvider.(*payment.DevLog); ok {
+		paymentsSvc.DevRoutes(mux, dev) // vetëm development (devlog)
+	}
 	if fs, ok := store.(*storage.DevFS); ok {
 		documents.DevRoutes(mux, fs) // vetëm development (devfs)
 	}

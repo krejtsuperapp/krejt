@@ -379,6 +379,8 @@ locals {
     { name = "GOOGLE_MAPS_KEY", valueFrom = var.app_secret_arns["google-maps"] },
     { name = "INFOBIP_API_KEY", valueFrom = var.app_secret_arns["infobip"] },
     { name = "FCM_SERVICE_ACCOUNT_JSON", valueFrom = var.app_secret_arns["fcm"] },
+    { name = "STRIPE_SECRET_KEY", valueFrom = "${var.app_secret_arns["payment-provider"]}:secret_key::" },
+    { name = "STRIPE_WEBHOOK_SECRET", valueFrom = "${var.app_secret_arns["payment-provider"]}:webhook_secret::" },
     { name = "CENTRIFUGO_API_KEY", valueFrom = "${var.centrifugo_secret_arn}:api_key::" },
     { name = "CENTRIFUGO_TOKEN_HMAC_SECRET", valueFrom = "${var.centrifugo_secret_arn}:token_hmac_secret_key::" },
   ]

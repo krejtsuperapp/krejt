@@ -158,3 +158,24 @@ Worker-i (çdo orë) skadon dokumentet e miratuara me datë të kaluar dhe **pez
 njoftim) derisa ta rinovojë.
 
 Ende jo: skanim malware i skedarëve (§51), OCR/lexim automatik, rikthim automatik i shoferit pas rinovimit (bëhet nga ops).
+
+## Pagesat me kartë dhe mbushja e wallet-it (§5, §24)
+
+`PaymentProvider` — Stripe (entiteti në BE): `payment_intents` me `automatic_payment_methods`, çelës idempotence,
+rimbursime, webhook me nënshkrim (`Stripe-Signature`, HMAC-SHA256, tolerancë 5 min). Raiffeisen (gateway lokal) vjen pas
+së njëjtës ndërfaqe kur të ketë kontratë. `PAYMENT_PROVIDER=devlog` vetëm në development: qëllimet krijohen, por **asnjë
+pagesë nuk kalon vetvetiu** — suksesi/dështimi simulohet me `POST /api/v1/dev/payments/{id}/succeed|fail` (webhook i
+nënshkruar me sekretin dev).
+
+Rrjedha: `POST /wallet/topup` (Idempotency-Key, 1,00–500,00 €, shumëfish i 0,50 €, ≤ 1.000 € / 24 h) → rresht `created`
+→ ofruesi → `client_secret` te aplikacioni → klienti konfirmon me SDK-në e ofruesit → **webhook** (`POST
+/payments/webhook/stripe`): nënshkrimi verifikohet, ngjarja regjistrohet një herë (`payment_webhook_events`), shuma
+krahasohet me tonën (mospërputhje → `failed/amount_mismatch`, pa kreditim), kreditimi në ledger me çelës
+`topup:{intent}` (debit `krejt:card_clearing`, kredit wallet-i), ngjarje `WalletToppedUp` → njoftim. `GET
+/payments/intents/{id}` për statusin. Finance: `POST /admin/payments/intents/{id}/refund` (pjesërisht/plotësisht; wallet-i
+duhet të ketë mjaftueshëm — paratë e shpenzuara nuk kthehen dot).
+
+Wallet (§5): `GET /wallet` (bilanci nga ledger-i, `closed_loop: true`, limitet), `GET /wallet/transactions` (hyrjet e
+ledger-it të përdoruesit: mbushje, udhëtime, tarifa anulimi, rimbursime). Asnjë transfer mes përdoruesve, asnjë tërheqje.
+Tarifa e kartës absorbohet nga KREJT në V1. Ende jo: rakordim automatik me raportet e ofruesit, 3-D Secure si kërkesë e
+detyruar (varet nga ofruesi/karta), Raiffeisen.

@@ -63,6 +63,7 @@ services:
       STORAGE_PROVIDER: devfs
       DEVFS_DIR: /tmp/krejt-devfs
       PUBLIC_BASE_URL: http://localhost:8080
+      PAYMENT_PROVIDER: devlog
     ports: ["8080:8080"]
     depends_on:
       postgres: { condition: service_healthy }
