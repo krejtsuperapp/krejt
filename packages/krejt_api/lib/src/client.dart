@@ -505,15 +505,55 @@ class KrejtApi {
   Future<DocumentsOverview> driverDocuments() async =>
       DocumentsOverview.fromJson(await _get('/api/v1/driver/documents'));
 
-  /// Kthen `{upload_url, document_id}`; skedari ngarkohet drejt në S3 me PUT.
-  Future<Map<String, dynamic>> documentUploadUrl({
+  /// Ngarkimi i një dokumenti në tri hapa (§31): serveri nënshkruan URL-në, skedari shkon
+  /// drejt në S3 pa kaluar nga API-ja, dhe pastaj serveri e konfirmon dhe e vë në radhë për shqyrtim.
+  /// Bajtët nuk kalojnë kurrë nëpër log-e dhe URL-ja e nënshkruar skadon vetë.
+  Future<DriverDocument> uploadDriverDocument({
     required String type,
+    required List<int> bytes,
     required String contentType,
-    required int sizeBytes,
-  }) => _post(
-    '/api/v1/driver/documents/upload-url',
-    body: {'type': type, 'content_type': contentType, 'size_bytes': sizeBytes},
-  );
+    DateTime? expiresOn,
+  }) async {
+    final signed = await _post(
+      '/api/v1/driver/documents/upload-url',
+      body: {'type': type, 'content_type': contentType, 'size_bytes': bytes.length},
+    );
+    final objectKey = signed['object_key']?.toString();
+    final upload = signed['upload'];
+    if (objectKey == null || upload is! Map) {
+      throw ApiError(code: 'INTERNAL', messageKey: 'errors.internal', status: 0);
+    }
+    final headers = <String, String>{'Content-Type': contentType};
+    final extra = upload['headers'];
+    if (extra is Map) {
+      extra.forEach((k, v) => headers[k.toString()] = v.toString());
+    }
+
+    // Ngarkimi shkon te S3, jo te API-ja, ndaj përdor një Dio pa interceptorët tanë:
+    // token-i i sesionit nuk ka pse t'i dërgohet një hosti tjetër.
+    try {
+      await Dio().putUri<dynamic>(
+        Uri.parse(upload['url'].toString()),
+        data: Stream<List<int>>.fromIterable([bytes]),
+        options: Options(
+          headers: {...headers, Headers.contentLengthHeader: bytes.length},
+          validateStatus: (s) => s != null && s < 400,
+        ),
+      );
+    } on DioException catch (e) {
+      throw ApiError.fromDio(e);
+    }
+
+    final confirmed = await _post(
+      '/api/v1/driver/documents',
+      body: {
+        'type': type,
+        'object_key': objectKey,
+        if (expiresOn != null) 'expires_on': expiresOn.toIso8601String().substring(0, 10),
+      },
+    );
+    return DriverDocument.fromJson(confirmed);
+  }
 
   // ------------------------------------------------------------------- support
 
