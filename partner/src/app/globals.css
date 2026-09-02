@@ -1,0 +1,96 @@
+/* Tokenët e markës, të njëjtët si kudo. Ky panel qëndron i hapur gjithë ditën në një tablet
+   kuzhine: prekja bëhet me duar të zëna, ndaj çdo objektiv është i madh dhe teksti lexohet
+   nga një hap larg. */
+
+:root {
+  --brand-100: #241c4c;
+  --brand-400: #855eff;
+  --brand-500: #6a3dff;
+  --brand-600: #562fd6;
+  --on-brand: #ffffff;
+
+  --bg: #070b18;
+  --surface: #0f1526;
+  --surface-2: #141b30;
+  --surface-3: #1b2440;
+  --text: #f2f5ff;
+  --text-dim: #c3cbe4;
+  --muted: #8e9ab9;
+  --line: #212b47;
+  --line-2: #2c385a;
+
+  --ok: #12b76a;
+  --ok-bg: #0c2b1f;
+  --warn: #f79009;
+  --warn-bg: #33240c;
+  --danger: #f04438;
+  --danger-bg: #331615;
+  --info: #2e90fa;
+  --info-bg: #0c2033;
+
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-full: 999px;
+
+  /* Objektivi minimal është 56 px, jo 48: kuzhina preket shpejt dhe pa saktësi. */
+  --tap: 56px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font:
+    16px/1.5 system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+button {
+  font: inherit;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 3px solid var(--brand-400);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
