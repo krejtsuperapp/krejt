@@ -88,3 +88,8 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "app_secret_arns" {
+  description = "Sekretet e ofruesve sipas emrit (nga moduli security): jwt, google-maps, infobip, …"
+  type        = map(string)
+}

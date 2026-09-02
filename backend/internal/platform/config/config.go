@@ -43,6 +43,10 @@ type Config struct {
 	// ngjarjet e domenit (§41): EVENTS_PUBLISHER sns | devlog (vetëm development)
 	EventsPublisher      string
 	DomainEventsTopicARN string
+
+	// hartat (§46): MAPS_PROVIDER google | devestimate (vetëm development); çelësi nga Secrets Manager (krejt/<env>/google-maps)
+	MapsProvider  string
+	GoogleMapsKey string
 }
 
 func Load() (*Config, error) {
@@ -69,6 +73,8 @@ func Load() (*Config, error) {
 		InfobipSender:        getenv("INFOBIP_SENDER", "KREJT"),
 		EventsPublisher:      getenv("EVENTS_PUBLISHER", "sns"),
 		DomainEventsTopicARN: os.Getenv("SNS_DOMAIN_EVENTS_TOPIC_ARN"),
+		MapsProvider:         getenv("MAPS_PROVIDER", "google"),
+		GoogleMapsKey:        os.Getenv("GOOGLE_MAPS_KEY"),
 	}
 	for _, kv := range os.Environ() {
 		if strings.HasPrefix(kv, "SQS_") && strings.Contains(kv, "_QUEUE_URL=") {
