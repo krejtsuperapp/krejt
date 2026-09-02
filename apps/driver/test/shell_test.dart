@@ -5,6 +5,7 @@ import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_driver/screens/bank.dart';
 import 'package:krejt_driver/screens/documents.dart';
+import 'package:krejt_driver/screens/courier.dart';
 import 'package:krejt_driver/screens/offer_card.dart';
 import 'package:krejt_driver/screens/sign_in.dart';
 import 'package:krejt_driver/screens/work.dart';
@@ -53,6 +54,24 @@ Widget _wrap(Widget child, {AppState? app, WorkState? work, String locale = 'sq'
     ),
   );
 }
+
+CourierOffer _delivery({int seconds = 25, int earnings = 220}) => CourierOffer.fromJson({
+  'id': 'd1',
+  'order_id': 'o1',
+  'code': 'K7F3QA',
+  'expires_at': DateTime.now().add(Duration(seconds: seconds)).toIso8601String(),
+  'distance_m': 900,
+  'eta_s': 180,
+  'merchant_name': 'Te Ura',
+  'merchant_address': 'Rruga C 3',
+  'merchant_location': {'lat': 42.66, 'lng': 21.16},
+  'dropoff_address': 'Rruga D 4',
+  'dropoff': {'lat': 42.67, 'lng': 21.17},
+  'earnings_minor': earnings,
+  'currency': 'EUR',
+  'payment_method': 'cash',
+  'total_minor': 1450,
+});
 
 void main() {
   group('IBAN', () {
@@ -143,6 +162,29 @@ void main() {
     expect(find.text('Prano'), findsOneWidget);
     expect(find.text('Refuzo'), findsOneWidget);
     expect(find.text('Rruga A 1'), findsOneWidget);
+  });
+
+  test('puna aktive i ndal ofertat e reja të të dyja llojeve', () {
+    final work = WorkState(api: AppState().api);
+    expect(work.isBusyWithWork, isFalse);
+    work.deliveryOffers = [_delivery()];
+    expect(work.topDeliveryOffer?.id, 'd1');
+    work.deliveryOffers = [_delivery(seconds: 0)];
+    expect(work.topDeliveryOffer, isNull);
+  });
+
+  testWidgets('dorëzimi tregon të dy adresat dhe fitimin', (tester) async {
+    await tester.pumpWidget(_wrap(CourierOfferCard(offer: _delivery(earnings: 220))));
+    await tester.pump();
+    expect(find.text('Dorëzim i ri'), findsOneWidget);
+    expect(find.text('2,20 €'), findsOneWidget);
+    expect(find.textContaining('Te Ura'), findsOneWidget);
+    expect(find.text('Rruga D 4'), findsOneWidget);
+  });
+
+  testWidgets('gjendja e dorëzimit ndan para dhe pas marrjes', (tester) async {
+    expect(courierOrderStateKey(OrderState.pickedUp), 'order.state.picked_up');
+    expect(courierOrderStateKey(OrderState.courierAssigned), 'order.state.ready');
   });
 
   testWidgets('kërkesa e skaduar nuk pranohet dot', (tester) async {

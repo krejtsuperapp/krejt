@@ -8,6 +8,7 @@ import '../services/location.dart';
 import '../state/app_state.dart';
 import '../state/work_state.dart';
 import 'active_ride.dart';
+import 'courier.dart';
 import 'documents.dart';
 import 'offer_card.dart';
 
@@ -22,7 +23,9 @@ class WorkScreen extends StatelessWidget {
     final work = context.watch<WorkState>();
     final driver = state.driver;
     final ride = work.activeRide;
+    final order = work.activeOrder;
     final offer = work.topOffer;
+    final delivery = work.topDeliveryOffer;
 
     return SafeArea(
       child: ListView(
@@ -71,8 +74,19 @@ class WorkScreen extends StatelessWidget {
                   Navigator.of(context)
                       .push(MaterialPageRoute<void>(builder: (_) => const ActiveRideScreen())),
             )
+          else if (order != null)
+            KActiveBanner(
+              icon: Icons.delivery_dining,
+              title: context.t('courier.nav'),
+              subtitle: context.t(courierOrderStateKey(order.state)),
+              onTap: () =>
+                  Navigator.of(context)
+                      .push(MaterialPageRoute<void>(builder: (_) => const ActiveDeliveryScreen())),
+            )
           else if (offer != null)
             OfferCard(offer: offer)
+          else if (delivery != null)
+            CourierOfferCard(offer: delivery)
           else if (work.online)
             KEmpty(
               title: context.t('driver.status.waiting'),
@@ -99,6 +113,10 @@ class WorkScreen extends StatelessWidget {
     );
   }
 }
+
+/// Gjendja e një dorëzimi, e parë nga korrieri: para marrjes dhe pas saj.
+String courierOrderStateKey(OrderState s) =>
+    s == OrderState.pickedUp ? 'order.state.picked_up' : 'order.state.ready';
 
 String driverRideStateKey(RideState s) {
   switch (s) {
