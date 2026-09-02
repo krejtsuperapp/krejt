@@ -90,7 +90,7 @@ func TestMap(t *testing.T) {
 	for _, key := range []string{"notif.ride.offer", "notif.ride.assigned", "notif.ride.arrived", "notif.ride.started", "notif.ride.completed",
 		"notif.ride.completed.driver", "notif.ride.cancelled.customer", "notif.ride.reassigning", "notif.ride.no_driver",
 		"notif.payment.paid", "notif.payment.failed", "notif.driver.approved", "notif.driver.suspended", "notif.security.profile_changed",
-		"notif.wallet.topup", "notif.driver.document_rejected"} {
+		"notif.wallet.topup", "notif.driver.document_rejected", "notif.support.reply", "notif.chat.message"} {
 		if _, ok := texts[key]; !ok {
 			t.Errorf("mungon teksti për %s", key)
 		}

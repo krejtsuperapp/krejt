@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -12,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"krejt.app/backend/internal/modules/chat"
 	"krejt.app/backend/internal/modules/dispatch"
 	"krejt.app/backend/internal/modules/documents"
 	"krejt.app/backend/internal/modules/drivers"
@@ -110,7 +112,16 @@ func main() {
 	}
 	run("outbox", outbox.New(pool, publisher, log).Run)
 	run("dispatch", dispatchworker.New(dispatcher, ridesSvc, log).Run)
-	run("maintenance", maintenance.New(documents.New(pool, store), log).Run)
+	run("maintenance", maintenance.New(log,
+		maintenance.Job{Name: "documents.expire", Every: time.Hour, Run: func(ctx context.Context) (string, error) {
+			e, s, err := documents.New(pool, store).ExpireSweep(ctx)
+			return fmt.Sprintf("expired=%d suspended=%d", e, s), err
+		}},
+		maintenance.Job{Name: "chat.retention", Every: 6 * time.Hour, Run: func(ctx context.Context) (string, error) {
+			n, err := chat.New(pool).RetentionSweep(ctx)
+			return fmt.Sprintf("deleted=%d", n), err
+		}},
+	).Run)
 	if url := cfg.QueueURLs["notifications"]; url != "" && cfg.EventsPublisher == "sns" {
 		consumer, err := queue.New(ctx, cfg.Region, url, "notifications", handle, log)
 		fatal(log, "sqs consumer", err)
