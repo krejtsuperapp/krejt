@@ -244,3 +244,10 @@ email/emër). Dërgim në grup (5 s / 50 ngjarje), `devlog` vetëm në developme
 
 Terraform: sekreti i ri `otel` (header-i i autorizimit të Grafana Cloud), variabla `otlp_endpoint`, `SENTRY_DSN` dhe
 `POSTHOG_KEY` në task-et ECS. Rregulli i §50: kurrë fjalëkalime/token-a/çelësa/sekrete pagese në log (maskimi i logx).
+
+## OpenAPI (§39, §74)
+
+Specifikimi i plotë i API-së: `backend/internal/platform/httpx/openapi/openapi.yaml`, i shërbyer te `GET /api/v1/openapi.yaml`.
+Prej tij gjenerohet `packages/api-client` për Flutter/Next.js. Testi `openapi_test.go` skanon kodin për çdo rrugë të
+regjistruar dhe dështon nëse ndonjë endpoint mungon në spec (ose spec-i ka endpoint që s'ekziston) — dokumenti nuk
+mund të mbetet pas kodit.

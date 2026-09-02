@@ -34,6 +34,7 @@ import (
 	"krejt.app/backend/internal/platform/db"
 	"krejt.app/backend/internal/platform/errtrack"
 	"krejt.app/backend/internal/platform/httpx"
+	"krejt.app/backend/internal/platform/httpx/openapi"
 	"krejt.app/backend/internal/platform/logx"
 	otelx "krejt.app/backend/internal/platform/otel"
 	"krejt.app/backend/internal/platform/providers/maps"
@@ -186,6 +187,7 @@ func main() {
 			"service": "krejt-api", "env": cfg.Env, "version": cfg.Version, "region": cfg.Region,
 		})
 	})
+	mux.Handle("GET /api/v1/openapi.yaml", openapi.Handler())
 	authSvc.Routes(mux)
 	appCfg.Routes(mux, authSvc.OptionalAuth(), requireOps)
 	users.New(pool, ledgerSvc).Routes(mux, requireAuth)
