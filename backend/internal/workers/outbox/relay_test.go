@@ -79,8 +79,8 @@ func TestRelayPublishesRetriesAndKeepsAggregateOrder(t *testing.T) {
 	pub := &fakePublisher{agg: agg, fail: map[string]bool{"Second": true}}
 	r := New(pool, pub, logx.New("test", "development"))
 
-	// 1) First publikohet; Second dështon → Third (i njëjti agregat) NUK preket
-	if _, err := r.Tick(ctx); err != nil {
+	// 1) First publikohet; Second dështon → Third (i njëjti agregat) NUK preket, as në tick-un pasues
+	if err := r.Drain(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if ok, _, _ := state("First"); !ok {
@@ -93,20 +93,23 @@ func TestRelayPublishesRetriesAndKeepsAggregateOrder(t *testing.T) {
 		t.Fatalf("Third u prek megjithëse Second dështoi (published=%v attempts=%d)", ok, att)
 	}
 
-	// 2) gjatë backoff-it Second nuk riprovohet
-	if _, err := r.Tick(ctx); err != nil {
+	// 2) gjatë backoff-it Second nuk riprovohet dhe Third mbetet pas tij
+	if err := r.Drain(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if _, att, _ := state("Second"); att != 1 {
 		t.Fatalf("Second u riprovua para kohe (attempts=%d)", att)
 	}
+	if ok, _, _ := state("Third"); ok {
+		t.Fatal("Third u publikua para Second (renditja për agregat u thye)")
+	}
 
-	// 3) SNS "rikthehet": kalojmë kohën → Second dhe Third publikohen me radhë
+	// 3) SNS "rikthehet": kalojmë kohën → Second dhe Third publikohen me radhë (tick pas tick-u)
 	pub.fail = nil
 	if _, err := pool.Exec(ctx, `UPDATE outbox_events SET next_attempt_at = now() WHERE aggregate_id=$1`, agg); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.Tick(ctx); err != nil {
+	if err := r.Drain(ctx); err != nil {
 		t.Fatal(err)
 	}
 	got := pub.published

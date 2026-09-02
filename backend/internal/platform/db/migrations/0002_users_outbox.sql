@@ -6,10 +6,13 @@
 
 -- ------------------------------ outbox: riprovim ------------------------------
 ALTER TABLE outbox_events
+  ADD COLUMN seq             bigserial,               -- renditje e sigurt e futjes (created_at mund të barazohet)
   ADD COLUMN next_attempt_at timestamptz NOT NULL DEFAULT now(),
   ADD COLUMN last_error      text;
 DROP INDEX IF EXISTS outbox_unpublished_idx;
-CREATE INDEX outbox_unpublished_idx ON outbox_events(next_attempt_at, created_at) WHERE published_at IS NULL;
+CREATE INDEX outbox_unpublished_idx ON outbox_events(seq) WHERE published_at IS NULL;
+-- "koka" e çdo agregati: releja publikon vetëm ngjarjen më të hershme të papublikuar për agregat
+CREATE INDEX outbox_aggregate_head_idx ON outbox_events(aggregate_type, aggregate_id, seq) WHERE published_at IS NULL;
 
 -- ------------------------------ adresat e ruajtura ----------------------------
 CREATE TABLE user_addresses (

@@ -1,7 +1,7 @@
 // Package outbox — releja e outbox-it (§41): lexon ngjarjet e papublikuara me
 // FOR UPDATE SKIP LOCKED (disa worker-a paralelisht pa dyfishim), i publikon, i shënon.
-// Dështimi i një ngjarjeje bllokon ngjarjet PASUESE të të njëjtit agregat në atë grup
-// (renditja për agregat ruhet) dhe riprovohet me backoff eksponencial.
+// Renditja për agregat është strikte: publikohet vetëm "koka" (ngjarja më e hershme e papublikuar)
+// e çdo agregati; dështimi i saj mban pas edhe ngjarjet pasuese derisa të riprovohet me backoff.
 package outbox
 
 import (
@@ -53,17 +53,23 @@ type pending struct {
 	attempts int
 }
 
-// Tick trajton një grup ngjarjesh; kthen sa u trajtuan (sukses + dështim).
+// Tick trajton një grup ngjarjesh (vetëm kokat e agregateve); kthen sa u trajtuan (sukses + dështim).
 func (r *Relay) Tick(ctx context.Context) (int, error) {
 	handled := 0
 	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `
-			SELECT id, aggregate_type, aggregate_id, event_type, payload, created_at, attempts
-			FROM outbox_events
-			WHERE published_at IS NULL AND next_attempt_at <= now()
-			ORDER BY created_at
+			SELECT e.id, e.aggregate_type, e.aggregate_id, e.event_type, e.payload, e.created_at, e.attempts
+			FROM outbox_events e
+			WHERE e.published_at IS NULL
+			  AND e.next_attempt_at <= now()
+			  AND NOT EXISTS (
+			        SELECT 1 FROM outbox_events p
+			        WHERE p.published_at IS NULL
+			          AND p.aggregate_type = e.aggregate_type AND p.aggregate_id = e.aggregate_id
+			          AND p.seq < e.seq)
+			ORDER BY e.seq
 			LIMIT $1
-			FOR UPDATE SKIP LOCKED`, r.BatchSize)
+			FOR UPDATE OF e SKIP LOCKED`, r.BatchSize)
 		if err != nil {
 			return err
 		}
@@ -84,12 +90,7 @@ func (r *Relay) Tick(ctx context.Context) (int, error) {
 			return err
 		}
 
-		blocked := map[string]bool{} // agregatet me dështim në këtë grup
 		for _, p := range batch {
-			key := p.ev.AggregateType + ":" + p.ev.AggregateID
-			if blocked[key] {
-				continue
-			}
 			handled++
 			pctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			perr := r.pub.Publish(pctx, p.ev)
@@ -101,7 +102,6 @@ func (r *Relay) Tick(ctx context.Context) (int, error) {
 				}
 				continue
 			}
-			blocked[key] = true
 			attempt := p.attempts + 1
 			delay := Backoff(attempt)
 			lvl := slog.LevelWarn
@@ -122,6 +122,16 @@ func (r *Relay) Tick(ctx context.Context) (int, error) {
 		return nil
 	})
 	return handled, err
+}
+
+// Drain — thërret Tick derisa të mos mbetet asgjë e gatshme (për teste dhe mbyllje të butë).
+func (r *Relay) Drain(ctx context.Context) error {
+	for {
+		n, err := r.Tick(ctx)
+		if err != nil || n == 0 {
+			return err
+		}
+	}
 }
 
 // Backoff: 2 s, 4 s, 8 s, … deri në 10 min.
