@@ -151,3 +151,6 @@ func (s *Service) Balance(ctx context.Context, accountCode string) (money.Amount
 	}
 	return money.Amount{Minor: money.Minor(minor), Currency: currency}, nil
 }
+
+// UserWalletCode — kodi i llogarisë së wallet-it të mbyllur të përdoruesit (detyrim i platformës ndaj tij).
+func UserWalletCode(userID uuid.UUID) string { return "user:" + userID.String() + ":wallet" }

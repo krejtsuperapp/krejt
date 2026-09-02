@@ -1,5 +1,5 @@
-// KREJT Worker — konsumatorët e SQS: outbox → SNS, dispatch, njoftimet, payout-et (§41, §43).
-// Faza 0: skelet me lidhje DB/Redis dhe cikël pune të zbrazët por real (asgjë e simuluar).
+// KREJT Worker — proceset në sfond (§41, §43): releja e outbox-it → SNS `domain-events`;
+// më vonë konsumatorët e SQS (dispatch, notifications, payouts). Asgjë e simuluar.
 package main
 
 import (
@@ -13,7 +13,9 @@ import (
 	"krejt.app/backend/internal/platform/cache"
 	"krejt.app/backend/internal/platform/config"
 	"krejt.app/backend/internal/platform/db"
+	"krejt.app/backend/internal/platform/events"
 	"krejt.app/backend/internal/platform/logx"
+	"krejt.app/backend/internal/workers/outbox"
 )
 
 func main() {
@@ -42,15 +44,28 @@ func main() {
 	}
 	defer rdb.Close()
 
-	log.Info("worker started", "env", cfg.Env, "queues", cfg.QueueURLs)
+	publisher, err := events.NewPublisherFromEnv(ctx, cfg.Env, cfg.EventsPublisher, cfg.Region, cfg.DomainEventsTopicARN, log)
+	if err != nil {
+		log.Error("events publisher", "err", err)
+		os.Exit(1)
+	}
 
-	// Cikli i punës: në Fazën 0 vetëm heartbeat + kontroll i lidhjeve.
-	// Konsumatorët realë (outbox, dispatch, notifications, payouts) regjistrohen këtu fazë pas faze.
+	log.Info("worker started", "env", cfg.Env, "events_publisher", cfg.EventsPublisher, "queues", cfg.QueueURLs)
+
+	relay := outbox.New(pool, publisher, log)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		relay.Run(ctx)
+	}()
+
+	// heartbeat + kontroll i lidhjeve (§50): humbja e DB/Redis duket në log dhe alarm
 	t := time.NewTicker(30 * time.Second)
 	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
+			<-done
 			log.Info("worker stopped")
 			return
 		case <-t.C:
