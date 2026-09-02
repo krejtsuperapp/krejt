@@ -32,14 +32,18 @@ import (
 	"krejt.app/backend/internal/platform/cache"
 	"krejt.app/backend/internal/platform/config"
 	"krejt.app/backend/internal/platform/db"
+	"krejt.app/backend/internal/platform/errtrack"
 	"krejt.app/backend/internal/platform/httpx"
 	"krejt.app/backend/internal/platform/logx"
+	otelx "krejt.app/backend/internal/platform/otel"
 	"krejt.app/backend/internal/platform/providers/maps"
 	"krejt.app/backend/internal/platform/providers/payment"
 	rtprovider "krejt.app/backend/internal/platform/providers/realtime"
 	"krejt.app/backend/internal/platform/providers/sms"
 	"krejt.app/backend/internal/platform/providers/storage"
 	"krejt.app/backend/internal/platform/ratelimit"
+
+	"github.com/redis/go-redis/extra/redisotel/v9"
 )
 
 func main() {
@@ -53,6 +57,22 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	// --- observability (§50): OpenTelemetry + Sentry ---------------------------------
+	otelShutdown, err := otelx.Init(ctx, "krejt-api", cfg.Env, cfg.Version, log)
+	if err != nil {
+		log.Error("otel", "err", err)
+		os.Exit(1)
+	}
+	defer func() { _ = otelShutdown(context.Background()) }()
+	sentryFlush, err := errtrack.Init(cfg.SentryDSN, cfg.Env, cfg.Version, "krejt-api", log)
+	if err != nil {
+		log.Error("sentry", "err", err)
+		os.Exit(1)
+	}
+	defer sentryFlush()
+	httpx.SetErrorReporter(func(ctx context.Context, err error) { errtrack.Report(ctx, err, nil) })
+	db.QueryTracer = otelx.PgxTracer{}
 
 	// --- varësitë ------------------------------------------------------------
 	pool, err := db.Connect(ctx, cfg.DatabaseDSN())
@@ -73,6 +93,9 @@ func main() {
 		os.Exit(1)
 	}
 	defer rdb.Close()
+	if err := redisotel.InstrumentTracing(rdb); err != nil {
+		log.Warn("redis otel", "err", err)
+	}
 
 	// --- ofruesit (pas abstraksioneve) -------------------------------------------
 	smsProvider, err := sms.NewFromEnv(cfg.Env, cfg.SMSProvider, cfg.InfobipBaseURL, cfg.InfobipAPIKey, cfg.InfobipSender, log)
@@ -190,6 +213,7 @@ func main() {
 
 	handler := httpx.Chain(mux,
 		httpx.Recover(log),
+		otelx.HTTPMiddleware("krejt-api"), // §50: span për çdo kërkesë, trace_id në log dhe në zarfin e gabimit
 		httpx.RequestID(),
 		httpx.SecureHeaders(),
 		httpx.Timeout(30*time.Second),

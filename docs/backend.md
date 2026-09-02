@@ -225,3 +225,22 @@ mes palëve të udhëtimit, nga caktimi i shoferit deri 24 h pas përfundimit (1
 Raportimi: tiketë mbështetjeje me `ride_id`; Support-i e sheh udhëtimin, jo chat-in e plotë pa kërkesë (moderimi vjen me
 panelin). Ruajtja: mesazhet fshihen pas 90 ditësh (worker `chat.retention`). Worker-i i mirëmbajtjes tani mban punë me
 intervale të veçanta (`documents.expire` çdo orë, `chat.retention` çdo 6 orë), secila edhe në nisje.
+
+## Observability (§50) dhe analitika (§66)
+
+**OpenTelemetry**: span për çdo kërkesë HTTP (emri = shablloni i rrugës), për çdo query të PostgreSQL (pgx tracer,
+vetëm teksti i SQL-së pa argumente) dhe çdo komandë Redis; gjurmë + metrika (HTTP durations) drejt OTLP
+(`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS` nga Secrets Manager `krejt/<env>/otel`,
+`OTEL_TRACES_SAMPLER_ARG` = përqindja). `trace_id` hyn në log dhe në zarfin e gabimit (`error.trace_id`) — klienti mund ta
+tregojë te Support-i. Pa endpoint (development) asgjë nuk eksportohet.
+
+**Sentry** (`SENTRY_DSN`): paniqet dhe gabimet e brendshme 5xx me shkak, me `request_id`/`trace_id`/`user_id` (vetëm id,
+`SendDefaultPII=false`); gjurmët mbeten te OpenTelemetry.
+
+**Analitika** (PostHog EU, `POSTHOG_KEY`): worker-i i kthen ngjarjet e outbox-it në ngjarje produkti — signup,
+ride_requested/accepted/completed/cancelled/no_driver, payment_success/failure, wallet_topup, review, support_ticket,
+safety_report, driver_applied/approved — me `distinct_id` = id-ja e përdoruesit dhe veti vetëm biznesi (asnjë telefon/
+email/emër). Dërgim në grup (5 s / 50 ngjarje), `devlog` vetëm në development.
+
+Terraform: sekreti i ri `otel` (header-i i autorizimit të Grafana Cloud), variabla `otlp_endpoint`, `SENTRY_DSN` dhe
+`POSTHOG_KEY` në task-et ECS. Rregulli i §50: kurrë fjalëkalime/token-a/çelësa/sekrete pagese në log (maskimi i logx).

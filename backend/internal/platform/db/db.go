@@ -17,10 +17,16 @@ import (
 //go:embed migrations/*.sql
 var migrations embed.FS
 
+// QueryTracer — instrumentim opsional (OpenTelemetry) i çdo query; vendoset para Connect.
+var QueryTracer pgx.QueryTracer
+
 func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("db: parse dsn: %w", err)
+	}
+	if QueryTracer != nil {
+		cfg.ConnConfig.Tracer = QueryTracer
 	}
 	cfg.MaxConns = 20
 	cfg.MinConns = 2

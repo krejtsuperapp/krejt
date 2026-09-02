@@ -365,6 +365,8 @@ locals {
     { name = "REDIS_HOST", value = var.redis_endpoint },
     { name = "REDIS_TLS", value = "true" },
     { name = "CENTRIFUGO_API_URL", value = "http://centrifugo.${var.name}.local:8000/api" },
+    { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = var.otlp_endpoint },
+    { name = "OTEL_TRACES_SAMPLER_ARG", value = "0.2" },
   ]
   queue_env = [for k, u in var.queue_urls : { name = "SQS_${upper(k)}_QUEUE_URL", value = u }]
 
@@ -381,6 +383,9 @@ locals {
     { name = "FCM_SERVICE_ACCOUNT_JSON", valueFrom = var.app_secret_arns["fcm"] },
     { name = "STRIPE_SECRET_KEY", valueFrom = "${var.app_secret_arns["payment-provider"]}:secret_key::" },
     { name = "STRIPE_WEBHOOK_SECRET", valueFrom = "${var.app_secret_arns["payment-provider"]}:webhook_secret::" },
+    { name = "SENTRY_DSN", valueFrom = var.app_secret_arns["sentry"] },
+    { name = "POSTHOG_KEY", valueFrom = var.app_secret_arns["posthog"] },
+    { name = "OTEL_EXPORTER_OTLP_HEADERS", valueFrom = var.app_secret_arns["otel"] },
     { name = "CENTRIFUGO_API_KEY", valueFrom = "${var.centrifugo_secret_arn}:api_key::" },
     { name = "CENTRIFUGO_TOKEN_HMAC_SECRET", valueFrom = "${var.centrifugo_secret_arn}:token_hmac_secret_key::" },
   ]

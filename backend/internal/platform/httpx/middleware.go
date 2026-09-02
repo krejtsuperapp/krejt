@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"runtime/debug"
@@ -47,6 +48,7 @@ func Recover(log *slog.Logger) Middleware {
 			defer func() {
 				if rec := recover(); rec != nil {
 					logx.From(r.Context(), log).Error("panic", "panic", rec, "stack", string(debug.Stack()))
+					report(r.Context(), fmt.Errorf("panic: %v", rec))
 					WriteError(w, r, ErrInternal)
 				}
 			}()

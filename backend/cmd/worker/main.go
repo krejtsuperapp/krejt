@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"krejt.app/backend/internal/modules/analytics"
 	"krejt.app/backend/internal/modules/chat"
 	"krejt.app/backend/internal/modules/dispatch"
 	"krejt.app/backend/internal/modules/documents"
@@ -26,8 +27,11 @@ import (
 	"krejt.app/backend/internal/platform/cache"
 	"krejt.app/backend/internal/platform/config"
 	"krejt.app/backend/internal/platform/db"
+	"krejt.app/backend/internal/platform/errtrack"
 	"krejt.app/backend/internal/platform/events"
 	"krejt.app/backend/internal/platform/logx"
+	otelx "krejt.app/backend/internal/platform/otel"
+	analyticsprovider "krejt.app/backend/internal/platform/providers/analytics"
 	"krejt.app/backend/internal/platform/providers/maps"
 	"krejt.app/backend/internal/platform/providers/push"
 	rtprovider "krejt.app/backend/internal/platform/providers/realtime"
@@ -36,6 +40,8 @@ import (
 	"krejt.app/backend/internal/workers/maintenance"
 	"krejt.app/backend/internal/workers/outbox"
 	"krejt.app/backend/internal/workers/queue"
+
+	"github.com/redis/go-redis/extra/redisotel/v9"
 )
 
 func main() {
@@ -50,6 +56,15 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// --- observability (§50) ---------------------------------------------------------
+	otelShutdown, err := otelx.Init(ctx, "krejt-worker", cfg.Env, cfg.Version, log)
+	fatal(log, "otel", err)
+	defer func() { _ = otelShutdown(context.Background()) }()
+	sentryFlush, err := errtrack.Init(cfg.SentryDSN, cfg.Env, cfg.Version, "krejt-worker", log)
+	fatal(log, "sentry", err)
+	defer sentryFlush()
+	db.QueryTracer = otelx.PgxTracer{}
+
 	pool, err := db.Connect(ctx, cfg.DatabaseDSN())
 	if err != nil {
 		log.Error("db connect", "err", err)
@@ -63,6 +78,9 @@ func main() {
 		os.Exit(1)
 	}
 	defer rdb.Close()
+	if err := redisotel.InstrumentTracing(rdb); err != nil {
+		log.Warn("redis otel", "err", err)
+	}
 
 	// --- ofruesit -----------------------------------------------------------------
 	mapsProvider, err := maps.NewFromEnv(cfg.Env, cfg.MapsProvider, cfg.GoogleMapsKey, log)
@@ -73,6 +91,9 @@ func main() {
 	fatal(log, "realtime provider", err)
 	store, err := storage.NewFromEnv(ctx, cfg.Env, cfg.StorageProvider, cfg.Region, cfg.AssetsBucket, cfg.DevFSDir, cfg.PublicBaseURL, log)
 	fatal(log, "storage provider", err)
+	analyticsProvider, err := analyticsprovider.NewFromEnv(cfg.Env, cfg.AnalyticsProvider, cfg.PostHogKey, cfg.PostHogHost, log)
+	fatal(log, "analytics provider", err)
+	defer func() { _ = analyticsProvider.Close(context.Background()) }()
 
 	// --- modulet ------------------------------------------------------------------
 	locSvc := location.New(rdb, pool).WithRealtime(rtPub)
@@ -82,13 +103,17 @@ func main() {
 	dispatcher := dispatch.New(pool, locSvc, log)
 	notifSvc := notifications.New(pool, pushProvider)
 	rtSvc := realtime.New(pool, rtPub, nil) // worker-i vetëm publikon; token-at i lëshon API-ja
+	analyticsSvc := analytics.New(analyticsProvider)
 
 	// përpunuesit e ngjarjeve (të njëjtët në AWS përmes SQS dhe lokalisht në proces)
 	handle := func(ctx context.Context, ev events.Event) error {
 		if err := rtSvc.Handle(ctx, ev); err != nil {
 			return err
 		}
-		return notifSvc.Handle(ctx, ev)
+		if err := notifSvc.Handle(ctx, ev); err != nil {
+			return err
+		}
+		return analyticsSvc.Handle(ctx, ev)
 	}
 
 	// --- ngjarjet: outbox → SNS (AWS) ose → përpunuesit në proces (development) ------

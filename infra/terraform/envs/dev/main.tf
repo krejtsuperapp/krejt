@@ -64,6 +64,7 @@ module "ecs" {
   redis_auth_secret_arn    = module.data.redis_auth_secret_arn
   centrifugo_secret_arn    = module.security.secret_arns["centrifugo"]
   app_secret_arns          = module.security.secret_arns
+  otlp_endpoint            = var.otlp_endpoint
   alb_enabled              = var.alb_enabled
   acm_certificate_arn      = var.acm_certificate_arn
   protect                  = false
