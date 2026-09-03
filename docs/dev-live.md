@@ -119,6 +119,22 @@ Token-i `pk.` është ai publik i Mapbox-it; pa të, ekranet e udhëtimit vizato
 të hartës. Vetë ndërtimi kërkon token-in e shkarkimit te `~/.gradle/gradle.properties` — shih
 [packages/krejt_map/README.md](../packages/krejt_map/README.md).
 
+## Numrat e provës
+
+Vetëm në dev, tre numra kyçen me kodin fiks **111111**, pa SMS dhe pa skadim (`DEV_TEST_PHONES`,
+`DEV_TEST_OTP` te tfvars; serveri refuzon të niset me to jashtë development):
+
+| Numri | Roli |
+| --- | --- |
+| `+38344100200` | administrator (`SUPER_ADMIN` në kyçje) |
+| `+38344100201` | klient |
+| `+38344100202` | shofer |
+
+Aprovimi i shoferit në dev nuk kërkon dokumente (`documents_required = false`).
+
+Paneli i administrimit hapet lokalisht kundrejt dev-it: `admin/.env.local` me
+`KREJT_API_BASE_URL=https://dev.krejt.app`, pastaj `npm run dev --prefix admin`.
+
 ## Kyçja nga larg
 
 Derisa sender-i te Infobip të aprovohet, SMS-ja nuk dërgohet dhe kyçja nga një telefon i largët
