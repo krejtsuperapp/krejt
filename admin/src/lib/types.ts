@@ -127,15 +127,21 @@ export type Items<T> = { items: T[] };
 /// Kapacitetet që i japin kuptim menysë. Serveri i zbaton gjithsesi; kjo vetëm fsheh
 /// atë që përdoruesi nuk e bën dot, që paneli të mos ofrojë butona që kthejnë 403 (§37, §52).
 export const CAP = {
-  admin: 'ADMIN',
-  operations: 'OPERATIONS',
-  support: 'SUPPORT',
-  finance: 'FINANCE',
+  admin: "ADMIN",
+  // Administratori i parë lind me këtë; serveri e lë të kalojë kudo, ndaj edhe paneli duhet.
+  superAdmin: "SUPER_ADMIN",
+  operations: "OPERATIONS",
+  support: "SUPPORT",
+  finance: "FINANCE",
 } as const;
 
 export function can(me: Me | null, ...caps: string[]): boolean {
   if (!me) return false;
-  if (me.capabilities.includes(CAP.admin)) return true;
+  if (
+    me.capabilities.includes(CAP.admin) ||
+    me.capabilities.includes(CAP.superAdmin)
+  )
+    return true;
   return caps.some((c) => me.capabilities.includes(c));
 }
 
