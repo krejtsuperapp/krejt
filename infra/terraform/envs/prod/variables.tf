@@ -85,7 +85,7 @@ variable "analytics_provider" {
 variable "maps_provider" {
   description = "google | mapbox"
   type        = string
-  default     = "google"
+  default     = "mapbox"
 }
 
 variable "infobip_base_url" {
