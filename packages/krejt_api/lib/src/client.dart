@@ -312,8 +312,22 @@ class KrejtApi {
 
   Future<void> markAllNotificationsRead() => _post('/api/v1/notifications/read-all');
 
-  Future<void> registerPushToken({required String token, required String platform}) =>
-      _post('/api/v1/notifications/push-token', body: {'token': token, 'platform': platform});
+  /// Regjistron token-in e pajisjes; serveri e lidh me llogarinë dhe e heq kur dërgesa dështon.
+  Future<void> registerPushToken({
+    required String token,
+    required String platform,
+    String? locale,
+  }) => _post(
+    '/api/v1/notifications/push-token',
+    body: {'token': token, 'platform': platform, 'locale': ?locale},
+  );
+
+  /// Heq token-in në dalje, që njoftimet e llogarisë të mos vijnë më te kjo pajisje.
+  Future<void> removePushToken(String token) async {
+    await _send(
+      () => _dio.delete<dynamic>('/api/v1/notifications/push-token', data: {'token': token}),
+    );
+  }
 
   // ------------------------------------------------------------------ realtime
 

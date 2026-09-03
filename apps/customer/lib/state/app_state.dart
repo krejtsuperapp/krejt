@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:krejt_api/krejt_api.dart';
+import 'package:krejt_push/krejt_push.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../env.dart';
@@ -34,6 +35,10 @@ class AppState extends ChangeNotifier {
   /// Kanali i gjallë: një lidhje për sesion, e hapur në herën e parë që një ekran e kërkon.
   RealtimeClient? _realtime;
   RealtimeClient get realtime => _realtime ??= RealtimeClient(api);
+
+  /// Njoftimet push: ndizen pas kyçjes, vetëm nëse konfigurimi i Firebase-it është dhënë.
+  PushService? _push;
+  PushService get push => _push ??= PushService(api);
 
   BootPhase phase = BootPhase.starting;
   PublicConfig config = PublicConfig.fallback();
@@ -107,6 +112,7 @@ class AppState extends ChangeNotifier {
       }
       phase = BootPhase.ready;
       unawaited(refreshRides());
+      unawaited(push.start(onMessage: _onPush));
     } on ApiError catch (e) {
       if (e.isUnauthorized) {
         me = null;
@@ -204,7 +210,13 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Njoftimi (§47) është shtytje: gjendja merret nga serveri, që modeli të mbetet një.
+  void _onPush(Map<String, dynamic> data, {required bool opened}) {
+    unawaited(refreshRides());
+  }
+
   Future<void> signOut() async {
+    await push.stop();
     await api.logout();
     me = null;
     activeRide = null;
