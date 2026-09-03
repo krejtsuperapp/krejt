@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+
+	phoneutil "krejt.app/backend/internal/platform/phone"
 )
 
 // ErrBootstrapUserMissing — numri i dhënë nuk ka hyrë ende asnjëherë.
@@ -25,7 +27,7 @@ func (s *Service) BootstrapAdmin(ctx context.Context, phone string) (bool, error
 	if phone == "" {
 		return false, nil
 	}
-	if !phoneRe.MatchString(phone) {
+	if !phoneutil.Valid(phone) {
 		return false, fmt.Errorf("auth: numri i ndezjes fillestare i pavlefshëm")
 	}
 

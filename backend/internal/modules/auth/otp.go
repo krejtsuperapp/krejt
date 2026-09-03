@@ -19,6 +19,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"krejt.app/backend/internal/platform/httpx"
+	phoneutil "krejt.app/backend/internal/platform/phone"
 )
 
 const (
@@ -40,7 +41,7 @@ var (
 	ErrSessionInvalid = &httpx.APIError{Code: "SESSION_INVALID", MessageKey: "errors.auth.session_invalid", HTTPStatus: 401}
 )
 
-func ValidPhone(p string) bool { return phoneRe.MatchString(p) }
+func ValidPhone(p string) bool { return phoneutil.Valid(p) }
 
 func (s *Service) hashCode(phone, code string) []byte {
 	m := hmac.New(sha256.New, s.pepper)

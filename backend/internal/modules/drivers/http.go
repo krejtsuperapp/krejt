@@ -18,6 +18,7 @@ func (s *Service) Routes(mux *http.ServeMux, requireAuth, requireDriver, require
 	mux.Handle("POST /api/v1/driver/online", requireDriver(principal.Handler(s.handleOnline)))
 	mux.Handle("POST /api/v1/driver/offline", requireDriver(principal.Handler(s.handleOffline)))
 	mux.Handle("POST /api/v1/driver/location", requireDriver(principal.Handler(s.handleLocation)))
+	mux.Handle("POST /api/v1/admin/drivers", requireOps(principal.Handler(s.handleAdminCreate)))
 	mux.Handle("GET /api/v1/admin/drivers", requireOps(principal.Handler(s.handlePending)))
 	mux.Handle("PATCH /api/v1/admin/drivers/{id}", requireOps(principal.Handler(s.handleAdminPatch)))
 }
@@ -34,6 +35,25 @@ func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, a principa
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, p)
+}
+
+// handleAdminCreate — regjistrim i një shoferi nga zyra: numri duhet të ketë hyrë një herë,
+// sepse paneli regjistron shoferë dhe nuk krijon llogari.
+func (s *Service) handleAdminCreate(w http.ResponseWriter, r *http.Request, a principal.Actor) {
+	var in struct {
+		Phone string `json:"phone"`
+		ApplyInput
+	}
+	if err := httpx.DecodeJSON(r, &in); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	p, err := s.CreateFor(r.Context(), a, in.Phone, in.ApplyInput)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, p)
 }
 
 func (s *Service) handleGet(w http.ResponseWriter, r *http.Request, a principal.Actor) {
