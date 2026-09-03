@@ -164,7 +164,11 @@ func main() {
 
 	// --- modulet -----------------------------------------------------------------
 	ledgerSvc := ledger.New(pool)
-	authSvc := auth.New(pool, rdb, smsProvider, signer, ledgerSvc, pepper)
+	authSvc := auth.New(pool, rdb, smsProvider, signer, ledgerSvc, pepper).
+		WithDevTestPhones(cfg.DevTestPhones, cfg.DevTestOTP)
+	if len(cfg.DevTestPhones) > 0 {
+		log.Warn("VETËM DEV — numra prove me kod fiks", "phones", cfg.DevTestPhones)
+	}
 	// Ndezja fillestare e stafit: pa të, asnjë administrator nuk lind kurrë, sepse të drejtat
 	// jepen vetëm nga një administrator ekzistues. Vepron një herë të vetme dhe hesht më pas.
 	if granted, err := authSvc.BootstrapAdmin(ctx, cfg.BootstrapAdminPhone); err != nil {

@@ -43,6 +43,11 @@ type Config struct {
 	// në development: në prodhim do të thoshte shoferë në rrugë pa patentë të verifikuar.
 	DocumentsRequired bool
 
+	// Numra prove (E.164, të ndarë me presje) që kyçen me një kod fiks, pa SMS dhe pa skadim,
+	// dhe marrin SUPER_ADMIN në kyçje. Vetëm në development: kudo tjetër serveri nuk niset.
+	DevTestPhones []string
+	DevTestOTP    string
+
 	SMSProvider    string // infobip | devlog (vetëm development)
 	InfobipBaseURL string
 	InfobipAPIKey  string
@@ -106,6 +111,8 @@ func Load() (*Config, error) {
 		OTPPepper:                 os.Getenv("OTP_PEPPER"),
 		BootstrapAdminPhone:       os.Getenv("BOOTSTRAP_ADMIN_PHONE"),
 		DocumentsRequired:         getenv("DOCUMENTS_REQUIRED", "true") != "false",
+		DevTestPhones:             splitList(os.Getenv("DEV_TEST_PHONES")),
+		DevTestOTP:                os.Getenv("DEV_TEST_OTP"),
 		SMSProvider:               getenv("SMS_PROVIDER", "infobip"),
 		InfobipBaseURL:            getenv("INFOBIP_BASE_URL", "https://api.infobip.com"),
 		InfobipAPIKey:             os.Getenv("INFOBIP_API_KEY"),
@@ -155,6 +162,12 @@ func Load() (*Config, error) {
 	if !c.DocumentsRequired && c.Env != "development" {
 		return nil, errors.New("config: DOCUMENTS_REQUIRED=false lejohet vetëm në development")
 	}
+	if (len(c.DevTestPhones) > 0 || c.DevTestOTP != "") && c.Env != "development" {
+		return nil, errors.New("config: DEV_TEST_PHONES / DEV_TEST_OTP lejohen vetëm në development")
+	}
+	if len(c.DevTestPhones) > 0 && len(c.DevTestOTP) < 6 {
+		return nil, errors.New("config: DEV_TEST_OTP duhet të ketë të paktën 6 shifra")
+	}
 	return c, nil
 }
 
@@ -179,6 +192,17 @@ func (c *Config) DatabaseDSN() string {
 }
 
 func (c *Config) IsProduction() bool { return c.Env == "production" }
+
+// splitList ndan një listë me presje dhe heq hapësirat; bosh → asnjë element.
+func splitList(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
 
 func getenv(k, def string) string {
 	if v := os.Getenv(k); v != "" {

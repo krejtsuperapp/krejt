@@ -81,6 +81,10 @@ func (s *Service) RequestOTP(ctx context.Context, phone, ip, locale string) erro
 			return err
 		}
 	}
+	// Numri i provës nuk ka nevojë as për sfidë as për SMS: kodi është fiks dhe pa skadim.
+	if s.isTestPhone(phone) {
+		return nil
+	}
 	code, err := randomCode()
 	if err != nil {
 		return httpx.ErrInternal.With(err)
@@ -98,6 +102,13 @@ func (s *Service) RequestOTP(ctx context.Context, phone, ip, locale string) erro
 
 // verifyChallenge konsumon sfidën e fundit të vlefshme për numrin; numëron përpjekjet.
 func (s *Service) verifyChallenge(ctx context.Context, tx pgx.Tx, phone, code string) error {
+	// Numri i provës: krahasim me kohë konstante edhe këtu, që kodi fiks të mos rrjedhë nga koha.
+	if s.isTestPhone(phone) {
+		if subtle.ConstantTimeCompare([]byte(code), []byte(s.testOTP)) == 1 {
+			return nil
+		}
+		return ErrOTPInvalid
+	}
 	var id string
 	var hash []byte
 	var attempts int16

@@ -109,6 +109,18 @@ variable "bootstrap_admin_phone" {
   default     = ""
 }
 
+variable "dev_test_phones" {
+  description = "Numra prove (E.164) me kod fiks, pa SMS. Vetëm development."
+  type        = list(string)
+  default     = []
+}
+
+variable "dev_test_otp" {
+  description = "Kodi fiks i numrave të provës. Vetëm development."
+  type        = string
+  default     = ""
+}
+
 variable "documents_required" {
   description = "Dokumentet e miratuara para aprovimit të shoferit. false lejohet vetëm në development."
   type        = bool

