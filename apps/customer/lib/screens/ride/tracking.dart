@@ -12,8 +12,9 @@ import '../home.dart';
 import 'chat.dart';
 import 'review.dart';
 
-/// Ndjekja e udhëtimit. Gjendja vjen nga serveri me pyetje çdo katër sekonda; kanali i gjallë
-/// me Centrifugo hyn më vonë, por rrjedha e ekranit mbetet e njëjtë (§42).
+/// Ndjekja e udhëtimit. Gjendja vjen nga kanali i gjallë (§42): çdo ngjarje e udhëtimit
+/// rifreskon gjendjen nga serveri, ndërsa pozicioni i shoferit zbatohet drejtpërdrejt te harta.
+/// Pyetja periodike mbetet si rrugë rezervë, më e rrallë — pa lidhje, ekrani punon njësoj.
 class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key, required this.rideId});
 
@@ -24,9 +25,14 @@ class TrackingScreen extends StatefulWidget {
 }
 
 class _TrackingScreenState extends State<TrackingScreen> {
-  static const _pollEvery = Duration(seconds: 4);
+  // Rezervë: kanali i gjallë e mbulon rrjedhën; kjo e kap vetëm rastin kur ai bie.
+  static const _pollEvery = Duration(seconds: 15);
 
   Timer? _timer;
+  StreamSubscription<RealtimeEvent>? _live;
+
+  /// Pozicioni i fundit i shoferit nga kanali; më i freskët se ai i profilit të udhëtimit.
+  LatLng? _driverAt;
   Ride? _ride;
   ApiError? _error;
   bool _cancelling = false;
@@ -37,11 +43,26 @@ class _TrackingScreenState extends State<TrackingScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _poll());
     _timer = Timer.periodic(_pollEvery, (_) => _poll());
+    _live = context.read<AppState>().realtime.subscribe(rideChannel(widget.rideId)).listen(_onLive);
+  }
+
+  void _onLive(RealtimeEvent e) {
+    if (!mounted) return;
+    if (e.type == 'driver_location') {
+      final lat = e.payload['lat'], lng = e.payload['lng'];
+      if (lat is num && lng is num) {
+        setState(() => _driverAt = LatLng(lat.toDouble(), lng.toDouble()));
+      }
+      return;
+    }
+    // Çdo ngjarje tjetër e udhëtimit: gjendja e plotë merret nga serveri, që modeli të mbetet një.
+    unawaited(_poll());
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _live?.cancel();
     super.dispose();
   }
 
@@ -144,7 +165,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
   /// Shoferi shtohet vetëm kur serveri ka dërguar pozicionin e tij; një shenjë e ngrirë te
   /// pika e marrjes do të thoshte diçka që nuk dihet.
   List<MapMarker> _markers(Ride ride) {
-    final driverAt = ride.driver?.location;
+    final driverAt = _driverAt ?? ride.driver?.location;
     return [
       MapMarker(point: MapPoint(ride.pickup.lat, ride.pickup.lng), kind: MapMarkerKind.pickup),
       MapMarker(point: MapPoint(ride.dropoff.lat, ride.dropoff.lng), kind: MapMarkerKind.dropoff),

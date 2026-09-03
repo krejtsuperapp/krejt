@@ -16,7 +16,10 @@ void main() {
         ChangeNotifierProvider<AppState>.value(value: app),
         // Turni përdor të njëjtin klient API si pjesa tjetër e aplikacionit, që sesioni
         // dhe rifreskimi i token-it të mbeten në një vend të vetëm.
-        ChangeNotifierProvider<WorkState>(create: (_) => WorkState(api: app.api)),
+        ChangeNotifierProvider<WorkState>(
+          create: (_) =>
+              WorkState(api: app.api, realtime: app.realtime, driverId: () => app.me?.id),
+        ),
       ],
       child: const KrejtDriverApp(),
     ),

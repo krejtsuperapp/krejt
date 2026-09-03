@@ -5,6 +5,7 @@ library;
 export 'src/client.dart';
 export 'src/errors.dart';
 export 'src/session.dart';
+export 'src/realtime.dart';
 export 'src/money.dart';
 export 'src/models/config.dart';
 export 'src/models/user.dart';
