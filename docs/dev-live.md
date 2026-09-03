@@ -107,14 +107,15 @@ Te Cloudflare shto një CNAME `dev` → ai emër, **me proxy të ndezur**. Modal
 curl -fsS https://dev.krejt.app/healthz && echo
 ```
 
-Kopjo `apps/dart-defines.example.json` te `apps/dart-defines.json` dhe plotëso vlerat. Ai skedar
+Kopjo `apps/dart-defines.example.json` te `apps/dart-defines.customer.json` dhe `apps/dart-defines.driver.json`
+dhe plotëso vlerat — një skedar për aplikacion, sepse `KREJT_FIREBASE_APP_ID` ndryshon mes tyre. Ai skedar
 nuk versionohet: mban token-in publik të hartës, ndaj rri vetëm te makina jote dhe nuk përfundon
 as te historiku i terminalit.
 
 Ndërto aplikacionin kundrejt tij:
 
 ```bash
-cd apps/customer && flutter build apk --release --dart-define-from-file=../dart-defines.json
+cd apps/customer && flutter build apk --release --dart-define-from-file=../dart-defines.customer.json
 ```
 
 Meqë adresa është `https`, ndërtimi `--release` punon pa asnjë zbutje rrjeti.

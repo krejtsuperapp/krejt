@@ -1,4 +1,8 @@
 {
   "KREJT_API_BASE_URL": "https://dev.krejt.app",
-  "KREJT_MAPBOX_TOKEN": "pk.…"
+  "KREJT_MAPBOX_TOKEN": "pk.…",
+  "KREJT_FIREBASE_API_KEY": "",
+  "KREJT_FIREBASE_APP_ID": "",
+  "KREJT_FIREBASE_SENDER_ID": "",
+  "KREJT_FIREBASE_PROJECT_ID": ""
 }
