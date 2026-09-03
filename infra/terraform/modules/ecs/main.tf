@@ -496,7 +496,12 @@ resource "aws_ecs_task_definition" "centrifugo" {
     command = ["centrifugo", "--health", "--admin=false", "--engine=redis"]
     environment = [
       { name = "CENTRIFUGO_PORT", value = "8000" },
-      { name = "CENTRIFUGO_REDIS_CLUSTER_ADDRESS", value = "rediss://${var.redis_endpoint}:6379" },
+      # Vetëm `host:port`: kodi i v5-ës e kalon adresën nëpër `net.SplitHostPort`, ndaj çdo skemë
+      # e bën të pavlefshme. TLS-ja nuk vjen nga `rediss://` por nga cilësimi më poshtë.
+      { name = "CENTRIFUGO_REDIS_CLUSTER_ADDRESS", value = "${var.redis_endpoint}:6379" },
+      # ElastiCache-i e kërkon lidhjen të fshehtë; pa certifikata të vetat, Centrifugo përdor
+      # rrënjët e sistemit, të cilat e njohin certifikatën e Amazon-it.
+      { name = "CENTRIFUGO_REDIS_TLS", value = "true" },
       # Lista ndahet me hapësirë, jo me presje: kështu i lexon Centrifugo listat nga mjedisi.
       { name = "CENTRIFUGO_ALLOWED_ORIGINS", value = "https://krejt.app https://*.krejt.app" },
     ]
