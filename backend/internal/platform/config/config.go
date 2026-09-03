@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -47,6 +48,9 @@ type Config struct {
 	// dhe marrin SUPER_ADMIN në kyçje. Vetëm në development: kudo tjetër serveri nuk niset.
 	DevTestPhones []string
 	DevTestOTP    string
+	// Nënbashkësia e numrave të provës që marrin SUPER_ADMIN në kyçje. Klienti dhe shoferi i
+	// provës nuk duhet të jenë administratorë: prova e roleve humbet kuptimin.
+	DevTestAdminPhones []string
 
 	SMSProvider    string // infobip | devlog (vetëm development)
 	InfobipBaseURL string
@@ -113,6 +117,7 @@ func Load() (*Config, error) {
 		DocumentsRequired:         getenv("DOCUMENTS_REQUIRED", "true") != "false",
 		DevTestPhones:             splitList(os.Getenv("DEV_TEST_PHONES")),
 		DevTestOTP:                os.Getenv("DEV_TEST_OTP"),
+		DevTestAdminPhones:        splitList(os.Getenv("DEV_TEST_ADMIN_PHONES")),
 		SMSProvider:               getenv("SMS_PROVIDER", "infobip"),
 		InfobipBaseURL:            getenv("INFOBIP_BASE_URL", "https://api.infobip.com"),
 		InfobipAPIKey:             os.Getenv("INFOBIP_API_KEY"),
@@ -162,11 +167,16 @@ func Load() (*Config, error) {
 	if !c.DocumentsRequired && c.Env != "development" {
 		return nil, errors.New("config: DOCUMENTS_REQUIRED=false lejohet vetëm në development")
 	}
-	if (len(c.DevTestPhones) > 0 || c.DevTestOTP != "") && c.Env != "development" {
+	if (len(c.DevTestPhones) > 0 || len(c.DevTestAdminPhones) > 0 || c.DevTestOTP != "") && c.Env != "development" {
 		return nil, errors.New("config: DEV_TEST_PHONES / DEV_TEST_OTP lejohen vetëm në development")
 	}
 	if len(c.DevTestPhones) > 0 && len(c.DevTestOTP) < 6 {
 		return nil, errors.New("config: DEV_TEST_OTP duhet të ketë të paktën 6 shifra")
+	}
+	for _, a := range c.DevTestAdminPhones {
+		if !slices.Contains(c.DevTestPhones, a) {
+			return nil, fmt.Errorf("config: DEV_TEST_ADMIN_PHONES përmban %q që nuk është te DEV_TEST_PHONES", a)
+		}
 	}
 	return c, nil
 }

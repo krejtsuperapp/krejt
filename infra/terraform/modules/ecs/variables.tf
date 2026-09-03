@@ -115,6 +115,12 @@ variable "dev_test_phones" {
   default     = []
 }
 
+variable "dev_test_admin_phones" {
+  description = "Nënbashkësia e numrave të provës që marrin SUPER_ADMIN. Vetëm development."
+  type        = list(string)
+  default     = []
+}
+
 variable "dev_test_otp" {
   description = "Kodi fiks i numrave të provës. Vetëm development."
   type        = string

@@ -21,9 +21,11 @@ documents_required = false
 
 # Vetëm dev: ky numër kyçet me kodin fiks, pa SMS dhe pa skadim, dhe është administrator.
 # Hiqet para fazës finale; jashtë development serveri refuzon të niset me të.
-dev_test_phones = ["+38344100200"]
-dev_test_otp    = "111111"
-sms_provider    = "devlog"
+# Tre role, tre numra: administratori, klienti, shoferi. Kodi i njëjtë për të tre.
+dev_test_phones       = ["+38344100200", "+38344100201", "+38344100202"]
+dev_test_admin_phones = ["+38344100200"]
+dev_test_otp          = "111111"
+sms_provider          = "devlog"
 # Base URL personale e llogarisë Infobip; e gjen te paneli i tyre (jo https://api.infobip.com).
 infobip_base_url = "https://rk8n2y.api.infobip.com"
 infobip_sender   = "KREJT"

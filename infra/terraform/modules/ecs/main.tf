@@ -377,6 +377,7 @@ locals {
     # Vetëm dev: numra prove me kod fiks, pa SMS. Serveri refuzon të niset me to jashtë development.
     { name = "DEV_TEST_PHONES", value = join(",", var.dev_test_phones) },
     { name = "DEV_TEST_OTP", value = var.dev_test_otp },
+    { name = "DEV_TEST_ADMIN_PHONES", value = join(",", var.dev_test_admin_phones) },
     { name = "SMS_PROVIDER", value = var.sms_provider },
     { name = "PAYMENT_PROVIDER", value = var.payment_provider },
     { name = "PUSH_PROVIDER", value = var.push_provider },
