@@ -513,6 +513,10 @@ resource "aws_ecs_task_definition" "centrifugo" {
       { name = "CENTRIFUGO_REDIS_TLS", value = "true" },
       # Lista ndahet me hapësirë, jo me presje: kështu i lexon Centrifugo listat nga mjedisi.
       { name = "CENTRIFUGO_ALLOWED_ORIGINS", value = "https://krejt.app https://*.krejt.app" },
+      # Kanalet tona kanë prefiks (ride:, driver:, user:, ops:) dhe Centrifugo v5 e trajton prefiksin
+      # si namespace: pa e deklaruar, çdo publikim refuzohet me 102 "unknown channel". Alarmi i
+      # DLQ-së e nxori: asnjë ngjarje udhëtimi nuk kishte mbërritur te kanali i gjallë.
+      { name = "CENTRIFUGO_NAMESPACES", value = jsonencode([for n in ["ride", "driver", "user", "ops"] : { name = n }]) },
     ]
     secrets = [
       { name = "CENTRIFUGO_TOKEN_HMAC_SECRET_KEY", valueFrom = "${var.centrifugo_secret_arn}:token_hmac_secret_key::" },
