@@ -40,8 +40,10 @@ variable "image_tag" {
   default = "bootstrap"
 }
 variable "centrifugo_version" {
+  # Etiketë e ngulitur, jo `v5`: një etiketë lëvizëse do të thoshte se një imazh i ri mund ta
+  # ndalte shërbimin pa e prekur askush kodin, dhe shkaku do të ishte i padukshëm te historia.
   type    = string
-  default = "v5"
+  default = "v5.4.9"
 }
 variable "log_retention_days" {
   type    = number
