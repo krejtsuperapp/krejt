@@ -77,6 +77,8 @@ module "ecs" {
   acm_certificate_arn      = local.certificate_arn
   protect                  = false
   api_desired_count        = var.api_desired_count
+  api_min_count            = var.api_min_count
+  api_max_count            = var.api_max_count
   worker_desired_count     = var.worker_desired_count
   centrifugo_desired_count = var.centrifugo_desired_count
   tags                     = local.tags
