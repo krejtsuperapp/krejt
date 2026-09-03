@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -29,8 +28,6 @@ const (
 	rlPerPhone     = 5
 	rlPerIP        = 20
 )
-
-var phoneRe = regexp.MustCompile(`^\+[1-9][0-9]{6,14}$`)
 
 var (
 	ErrPhoneInvalid   = &httpx.APIError{Code: "PHONE_INVALID", MessageKey: "errors.auth.phone_invalid", HTTPStatus: 422}
