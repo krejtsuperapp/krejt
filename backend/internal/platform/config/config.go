@@ -39,6 +39,10 @@ type Config struct {
 	// Pa këtë, të drejtat e stafit nuk lindin kurrë: jepen vetëm nga një administrator ekzistues.
 	BootstrapAdminPhone string
 
+	// A kërkohen dokumentet e miratuara para se një shofer të aprovohet. Fikja lejohet vetëm
+	// në development: në prodhim do të thoshte shoferë në rrugë pa patentë të verifikuar.
+	DocumentsRequired bool
+
 	SMSProvider    string // infobip | devlog (vetëm development)
 	InfobipBaseURL string
 	InfobipAPIKey  string
@@ -101,6 +105,7 @@ func Load() (*Config, error) {
 		JWTPrivateKeyPEM:          os.Getenv("JWT_PRIVATE_KEY"),
 		OTPPepper:                 os.Getenv("OTP_PEPPER"),
 		BootstrapAdminPhone:       os.Getenv("BOOTSTRAP_ADMIN_PHONE"),
+		DocumentsRequired:         getenv("DOCUMENTS_REQUIRED", "true") != "false",
 		SMSProvider:               getenv("SMS_PROVIDER", "infobip"),
 		InfobipBaseURL:            getenv("INFOBIP_BASE_URL", "https://api.infobip.com"),
 		InfobipAPIKey:             os.Getenv("INFOBIP_API_KEY"),
@@ -145,6 +150,10 @@ func Load() (*Config, error) {
 	case "development", "staging", "production":
 	default:
 		return nil, fmt.Errorf("config: APP_ENV i panjohur %q", c.Env)
+	}
+	// I njëjti kufi si te ofruesit e provës: lehtësimet e dev-it nuk kalojnë dot më tej.
+	if !c.DocumentsRequired && c.Env != "development" {
+		return nil, errors.New("config: DOCUMENTS_REQUIRED=false lejohet vetëm në development")
 	}
 	return c, nil
 }

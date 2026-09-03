@@ -109,6 +109,12 @@ variable "bootstrap_admin_phone" {
   default     = ""
 }
 
+variable "documents_required" {
+  description = "Dokumentet e miratuara para aprovimit të shoferit. false lejohet vetëm në development."
+  type        = bool
+  default     = true
+}
+
 variable "sms_provider" {
   description = "infobip | devlog (vetëm development)"
   type        = string

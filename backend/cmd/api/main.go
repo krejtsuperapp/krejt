@@ -177,7 +177,12 @@ func main() {
 	locSvc := location.New(rdb, pool).WithRealtime(rtPub)
 	pricingSvc := pricing.New(pool, mapsProvider, locSvc)
 	docsSvc := documents.New(pool, store)
-	driversSvc := drivers.New(pool, locSvc).WithEligibility(docsSvc)
+	driversSvc := drivers.New(pool, locSvc)
+	if cfg.DocumentsRequired {
+		driversSvc = driversSvc.WithEligibility(docsSvc)
+	} else {
+		log.Warn("VETËM DEV — dokumentet nuk kërkohen për aprovimin e shoferit")
+	}
 	appCfg := appconfig.New(pool)
 	fraudSvc := fraud.New(pool, rdb)
 	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricingSvc).WithFlags(appCfg).WithVelocity(fraudSvc).WithQR(rtTokens)
