@@ -322,6 +322,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  krejt_map:
+    dependency: "direct main"
+    description:
+      path: "../../packages/krejt_map"
+      relative: true
+    source: path
+    version: "0.1.0"
   leak_tracker:
     dependency: transitive
     description:
