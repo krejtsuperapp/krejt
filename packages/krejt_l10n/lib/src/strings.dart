@@ -381,6 +381,9 @@ const Map<String, String> _sq = {
   'errors.outside_area': 'Jemi ende jashtë kësaj zone.',
   'errors.ride_conflict': 'Ke një udhëtim aktiv.',
   'errors.no_drivers': 'Nuk ka shoferë të lirë tani.',
+  'account.photo.change': 'Ndrysho foton',
+  'account.photo.remove': 'Hiq foton',
+  'account.photo.updated': 'Fotoja u përditësua.',
   // Çelësat e serverit (message_key), të plotë — pa përkthim binin te 'errors.internal'.
   'errors.auth.otp_invalid': 'Kodi nuk përputhet. Provo përsëri.',
   'errors.auth.otp_expired': 'Kodi skadoi. Kërko një kod të ri.',
@@ -413,10 +416,12 @@ const Map<String, String> _sq = {
   'errors.orders.invalid_state': 'Porosia nuk është më në këtë hap.',
   'errors.orders.merchant_closed': 'Lokali është i mbyllur tani.',
   'errors.orders.offer_gone': 'Dorëzimi u mor nga dikush tjetër.',
-  'errors.orders.payment_method_unavailable': 'Kjo mënyrë pagese nuk është e mundur për këtë porosi.',
+  'errors.orders.payment_method_unavailable':
+      'Kjo mënyrë pagese nuk është e mundur për këtë porosi.',
   'errors.orders.pickup_code_invalid': 'Kodi i marrjes nuk përputhet. Kërkoje nga lokali.',
   'errors.payments.not_refundable': 'Kjo pagesë nuk kthehet dot.',
-  'errors.payments.provider_unavailable': 'Pagesa nuk kryhet dot tani. Provo pas pak ose paguaj cash.',
+  'errors.payments.provider_unavailable':
+      'Pagesa nuk kryhet dot tani. Provo pas pak ose paguaj cash.',
   'errors.payments.webhook_signature': 'Njoftimi i pagesës nuk u verifikua.',
   'errors.payouts.batch_state': 'Pagesa e shoferëve nuk është në këtë hap.',
   'errors.payouts.iban_invalid': 'IBAN-i nuk është i saktë.',
@@ -428,7 +433,8 @@ const Map<String, String> _sq = {
   'errors.rides.no_pricing': 'Nuk ka çmim për këtë kategori tani.',
   'errors.rides.offer_gone': 'Kërkesa u mor nga dikush tjetër.',
   'errors.rides.outside_service_area': 'Jemi ende jashtë kësaj zone.',
-  'errors.rides.payment_method_unavailable': 'Kjo mënyrë pagese nuk është e mundur për këtë udhëtim.',
+  'errors.rides.payment_method_unavailable':
+      'Kjo mënyrë pagese nuk është e mundur për këtë udhëtim.',
   'errors.rides.pickup_code_invalid': 'Kodi i marrjes nuk përputhet. Kërkoje nga klienti.',
   'errors.rides.quote_expired': 'Oferta skadoi. Kërko çmim të ri.',
   'errors.rides.service_disabled': 'Udhëtimet janë të ndaluara përkohësisht.',
@@ -439,7 +445,8 @@ const Map<String, String> _sq = {
   'errors.users.address_limit': 'Ke arritur numrin maksimal të adresave.',
   'errors.users.address_outside_kosovo': 'Adresa duhet të jetë brenda Kosovës.',
   'errors.users.email_taken': 'Ky email përdoret nga një llogari tjetër.',
-  'errors.users.wallet_not_empty': 'Kuleta ka ende bilanc. Shpenzoje para se ta mbyllësh llogarinë.',
+  'errors.users.wallet_not_empty':
+      'Kuleta ka ende bilanc. Shpenzoje para se ta mbyllësh llogarinë.',
   'errors.wallet.insufficient_funds': 'Bilanci i kuletës nuk mjafton.',
   'errors.wallet.topup_amount': 'Shuma e mbushjes është jashtë kufijve.',
   'errors.wallet.topup_daily_limit': 'Ke arritur kufirin ditor të mbushjes.',
@@ -806,6 +813,9 @@ const Map<String, String> _en = {
   'errors.outside_area': 'We are not in this area yet.',
   'errors.ride_conflict': 'You already have an active ride.',
   'errors.no_drivers': 'No drivers are free right now.',
+  'account.photo.change': 'Change photo',
+  'account.photo.remove': 'Remove photo',
+  'account.photo.updated': 'Photo updated.',
   // Çelësat e serverit (message_key), të plotë — pa përkthim binin te 'errors.internal'.
   'errors.auth.otp_invalid': 'The code doesn\'t match. Try again.',
   'errors.auth.otp_expired': 'The code has expired. Request a new one.',
@@ -819,7 +829,8 @@ const Map<String, String> _en = {
   'errors.conflict': 'Something changed in the meantime. Refresh and try again.',
   'errors.documents.upload_mismatch': 'The file doesn\'t match what was announced.',
   'errors.documents.upload_not_found': 'Upload not found. Upload the document again.',
-  'errors.drivers.documents_incomplete': 'Some documents are missing. Complete your driver profile.',
+  'errors.drivers.documents_incomplete':
+      'Some documents are missing. Complete your driver profile.',
   'errors.drivers.not_a_driver': 'This account isn\'t a driver.',
   'errors.drivers.not_approved': 'Your driver profile isn\'t approved yet.',
   'errors.drivers.profile_locked': 'The profile can\'t be changed right now.',
@@ -838,10 +849,12 @@ const Map<String, String> _en = {
   'errors.orders.invalid_state': 'The order is no longer at this step.',
   'errors.orders.merchant_closed': 'The venue is closed right now.',
   'errors.orders.offer_gone': 'Someone else took this delivery.',
-  'errors.orders.payment_method_unavailable': 'This payment method isn\'t available for this order.',
+  'errors.orders.payment_method_unavailable':
+      'This payment method isn\'t available for this order.',
   'errors.orders.pickup_code_invalid': 'The pickup code doesn\'t match. Ask the venue for it.',
   'errors.payments.not_refundable': 'This payment can\'t be refunded.',
-  'errors.payments.provider_unavailable': 'Payments aren\'t available right now. Try again shortly or pay cash.',
+  'errors.payments.provider_unavailable':
+      'Payments aren\'t available right now. Try again shortly or pay cash.',
   'errors.payments.webhook_signature': 'The payment notification couldn\'t be verified.',
   'errors.payouts.batch_state': 'The payout batch isn\'t at this step.',
   'errors.payouts.iban_invalid': 'The IBAN isn\'t valid.',
@@ -864,7 +877,8 @@ const Map<String, String> _en = {
   'errors.users.address_limit': 'You\'ve reached the maximum number of addresses.',
   'errors.users.address_outside_kosovo': 'The address must be in Kosovo.',
   'errors.users.email_taken': 'That email is used by another account.',
-  'errors.users.wallet_not_empty': 'Your wallet still has a balance. Spend it before closing the account.',
+  'errors.users.wallet_not_empty':
+      'Your wallet still has a balance. Spend it before closing the account.',
   'errors.wallet.insufficient_funds': 'Your wallet balance isn\'t enough.',
   'errors.wallet.topup_amount': 'The top-up amount is outside the limits.',
   'errors.wallet.topup_daily_limit': 'You\'ve reached today\'s top-up limit.',
@@ -1233,6 +1247,9 @@ const Map<String, String> _de = {
   'errors.outside_area': 'Wir sind in diesem Gebiet noch nicht aktiv.',
   'errors.ride_conflict': 'Du hast bereits eine aktive Fahrt.',
   'errors.no_drivers': 'Gerade ist kein Fahrer frei.',
+  'account.photo.change': 'Foto ändern',
+  'account.photo.remove': 'Foto entfernen',
+  'account.photo.updated': 'Foto aktualisiert.',
   // Çelësat e serverit (message_key), të plotë — pa përkthim binin te 'errors.internal'.
   'errors.auth.otp_invalid': 'Der Code stimmt nicht. Versuche es erneut.',
   'errors.auth.otp_expired': 'Der Code ist abgelaufen. Fordere einen neuen an.',
@@ -1258,17 +1275,20 @@ const Map<String, String> _de = {
   'errors.merchants.not_active': 'Dieses Lokal ist nicht aktiv.',
   'errors.merchants.not_staff': 'Du gehörst nicht zum Personal dieses Lokals.',
   'errors.merchants.slug_taken': 'Diese Namensadresse ist vergeben.',
-  'errors.merchants.staff_user_not_found': 'Nutzer nicht gefunden. Er muss sich einmal angemeldet haben.',
+  'errors.merchants.staff_user_not_found':
+      'Nutzer nicht gefunden. Er muss sich einmal angemeldet haben.',
   'errors.orders.address_required': 'Wähle eine Lieferadresse.',
   'errors.orders.below_minimum': 'Die Bestellung liegt unter dem Mindestbetrag des Lokals.',
   'errors.orders.courier_busy': 'Du hast eine aktive Lieferung.',
   'errors.orders.invalid_state': 'Die Bestellung ist nicht mehr in diesem Schritt.',
   'errors.orders.merchant_closed': 'Das Lokal ist gerade geschlossen.',
   'errors.orders.offer_gone': 'Jemand anderes hat diese Lieferung übernommen.',
-  'errors.orders.payment_method_unavailable': 'Diese Zahlungsart ist für diese Bestellung nicht verfügbar.',
+  'errors.orders.payment_method_unavailable':
+      'Diese Zahlungsart ist für diese Bestellung nicht verfügbar.',
   'errors.orders.pickup_code_invalid': 'Der Abholcode stimmt nicht. Frag im Lokal nach.',
   'errors.payments.not_refundable': 'Diese Zahlung kann nicht erstattet werden.',
-  'errors.payments.provider_unavailable': 'Zahlungen sind gerade nicht möglich. Versuche es gleich noch einmal oder zahle bar.',
+  'errors.payments.provider_unavailable':
+      'Zahlungen sind gerade nicht möglich. Versuche es gleich noch einmal oder zahle bar.',
   'errors.payments.webhook_signature': 'Die Zahlungsbenachrichtigung konnte nicht geprüft werden.',
   'errors.payouts.batch_state': 'Die Auszahlungsrunde ist nicht in diesem Schritt.',
   'errors.payouts.iban_invalid': 'Die IBAN ist ungültig.',
@@ -1280,7 +1300,8 @@ const Map<String, String> _de = {
   'errors.rides.no_pricing': 'Für diese Kategorie gibt es gerade keinen Preis.',
   'errors.rides.offer_gone': 'Jemand anderes hat diese Anfrage übernommen.',
   'errors.rides.outside_service_area': 'Diese Gegend decken wir noch nicht ab.',
-  'errors.rides.payment_method_unavailable': 'Diese Zahlungsart ist für diese Fahrt nicht verfügbar.',
+  'errors.rides.payment_method_unavailable':
+      'Diese Zahlungsart ist für diese Fahrt nicht verfügbar.',
   'errors.rides.pickup_code_invalid': 'Der Abholcode stimmt nicht. Frag den Fahrgast danach.',
   'errors.rides.quote_expired': 'Das Angebot ist abgelaufen. Fordere einen neuen Preis an.',
   'errors.rides.service_disabled': 'Fahrten sind vorübergehend pausiert.',
@@ -1291,7 +1312,8 @@ const Map<String, String> _de = {
   'errors.users.address_limit': 'Du hast die maximale Anzahl an Adressen erreicht.',
   'errors.users.address_outside_kosovo': 'Die Adresse muss im Kosovo liegen.',
   'errors.users.email_taken': 'Diese E-Mail wird von einem anderen Konto verwendet.',
-  'errors.users.wallet_not_empty': 'Dein Wallet hat noch Guthaben. Gib es aus, bevor du das Konto schließt.',
+  'errors.users.wallet_not_empty':
+      'Dein Wallet hat noch Guthaben. Gib es aus, bevor du das Konto schließt.',
   'errors.wallet.insufficient_funds': 'Dein Wallet-Guthaben reicht nicht aus.',
   'errors.wallet.topup_amount': 'Der Aufladebetrag liegt außerhalb der Grenzen.',
   'errors.wallet.topup_daily_limit': 'Du hast das tägliche Aufladelimit erreicht.',
