@@ -466,6 +466,8 @@ class KrejtApi {
 
   Future<void> goOffline() => _post('/api/v1/driver/offline');
 
+  /// Mostra GPS. Serveri pret një grup (, deri në 50, të renditura sipas kohës);
+  /// aplikacioni dërgon një të vetme për çdo interval, por kontrata mbetet ajo e grupit.
   Future<void> pushLocation({
     required double lat,
     required double lng,
@@ -474,11 +476,15 @@ class KrejtApi {
   }) => _post(
     '/api/v1/driver/location',
     body: {
-      'lat': lat,
-      'lng': lng,
-      'heading': ?heading,
-      'speed_mps': ?speedMps,
-      'ts': DateTime.now().millisecondsSinceEpoch,
+      'samples': [
+        {
+          'lat': lat,
+          'lng': lng,
+          'heading': ?heading,
+          'speed_mps': ?speedMps,
+          'ts': DateTime.now().millisecondsSinceEpoch,
+        },
+      ],
     },
   );
 
@@ -503,13 +509,17 @@ class KrejtApi {
       Ride.fromJson(await _post('/api/v1/driver/rides/$rideId/arrived'));
 
   /// Nisja kërkon vërtetimin e marrjes: ose kodi 4-shifror, ose token-i i QR-së (§25).
-  Future<Ride> driverStart(String rideId, {String? pickupCode, String? qrToken}) async =>
-      Ride.fromJson(
-        await _post(
-          '/api/v1/driver/rides/$rideId/start',
-          body: {'pickup_code': ?pickupCode, 'qr_token': ?qrToken},
-        ),
-      );
+  Future<Ride> driverStart(
+    String rideId, {
+    String? pickupCode,
+    String? qrToken,
+  }) async => Ride.fromJson(
+    await _post(
+      '/api/v1/driver/rides/$rideId/start',
+      // Serveri e quan `code` (OpenAPI); emri i vjetër `pickup_code` refuzohej si fushë e panjohur.
+      body: {'code': ?pickupCode, 'qr_token': ?qrToken},
+    ),
+  );
 
   Future<Ride> driverComplete(String rideId) async => Ride.fromJson(
     await _post('/api/v1/driver/rides/$rideId/complete', idempotencyKey: newIdempotencyKey()),
