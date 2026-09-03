@@ -463,7 +463,7 @@ paths:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     post: { tags: [orders], summary: Refuzo ofertën, responses: { "204": { description: OK } } }
   /api/v1/courier/orders/active:
-    get: { tags: [orders], summary: Porosia aktuale e korrierit, responses: { "200": { description: OK } } }
+    get: { tags: [orders], summary: Porosia aktuale e korrierit (null nëse s'ka), responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { order: { oneOf: [{ $ref: "#/components/schemas/Order" }, { type: "null" }] } } } } } } } }
   /api/v1/courier/orders/{id}/pickup:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     post:

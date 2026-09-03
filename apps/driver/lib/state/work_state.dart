@@ -172,9 +172,15 @@ class WorkState extends ChangeNotifier {
     }
   }
 
+  /// Numërohet çdo ndryshim lokal i punës (pranim, hap i shoferit); një sondazh që nisi para
+  /// ndryshimit sjell gjendje të vjetër dhe hidhet poshtë, që të mos fshijë udhëtimin e sapopranuar.
+  int _workGen = 0;
+
   Future<void> _pollActiveRide() async {
+    final gen = _workGen;
     try {
       final results = await Future.wait([api.driverActiveRide(), api.courierActiveOrder()]);
+      if (gen != _workGen) return;
       final ride = results[0] as Ride?;
       final order = results[1] as Order?;
       final changed =
@@ -196,6 +202,7 @@ class WorkState extends ChangeNotifier {
     notifyListeners();
     try {
       activeRide = await api.acceptOffer(offer.id);
+      _workGen++;
       offers = const [];
       return true;
     } on ApiError catch (e) {
@@ -226,6 +233,7 @@ class WorkState extends ChangeNotifier {
     notifyListeners();
     try {
       activeOrder = await api.acceptCourierOffer(offer.id);
+      _workGen++;
       deliveryOffers = const [];
       return true;
     } on ApiError catch (e) {
@@ -294,6 +302,7 @@ class WorkState extends ChangeNotifier {
     notifyListeners();
     try {
       final ride = await run();
+      _workGen++;
       activeRide = ride.isFinished ? null : ride;
       return true;
     } on ApiError catch (e) {

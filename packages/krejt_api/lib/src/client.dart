@@ -499,10 +499,11 @@ class KrejtApi {
 
   Future<void> declineOffer(String offerId) => _post('/api/v1/driver/offers/$offerId/decline');
 
+  /// Serveri e kthen udhëtimin të mbështjellë (`{"ride": …}`, `null` kur s'ka); pranohet edhe
+  /// trupi i zhveshur. Një lexim i gabuar këtu fshinte udhëtimin sapo shoferi e pranonte.
   Future<Ride?> driverActiveRide() async {
-    final j = await _get('/api/v1/driver/rides/active');
-    if (j.isEmpty || j['id'] == null) return null;
-    return Ride.fromJson(j);
+    final j = _unwrap(await _get('/api/v1/driver/rides/active'), 'ride');
+    return j == null ? null : Ride.fromJson(j);
   }
 
   Future<Ride> driverArrived(String rideId) async =>
@@ -712,9 +713,17 @@ class KrejtApi {
       _post('/api/v1/courier/offers/$offerId/decline');
 
   Future<Order?> courierActiveOrder() async {
-    final j = await _get('/api/v1/courier/orders/active');
-    if (j.isEmpty || j['id'] == null) return null;
-    return Order.fromJson(j);
+    final j = _unwrap(await _get('/api/v1/courier/orders/active'), 'order');
+    return j == null ? null : Order.fromJson(j);
+  }
+
+  /// `{"<key>": {...}}` → objekti; `{"<key>": null}` ose `{}` → null; objekti i zhveshur → vetë.
+  static Map<String, dynamic>? _unwrap(Map<String, dynamic> j, String key) {
+    if (j.containsKey(key)) {
+      final inner = j[key];
+      return inner is Map<String, dynamic> && inner['id'] != null ? inner : null;
+    }
+    return j['id'] != null ? j : null;
   }
 
   /// Marrja te merchant-i kërkon kodin 6-shkronjor të porosisë: pa të, korrieri s'e merr dot (§26).
