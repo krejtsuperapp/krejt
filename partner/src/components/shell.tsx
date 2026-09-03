@@ -1,27 +1,48 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-import { useSession } from './session-provider';
-import { SignIn } from './sign-in';
-import { Empty, Loading } from './ui';
-import styles from './shell.module.css';
+import { useSession } from "./session-provider";
+import { SignIn } from "./sign-in";
+import { Empty, ErrorState, Loading } from "./ui";
+import styles from "./shell.module.css";
 
 const ENTRIES = [
-  { href: '/', label: 'Porositë' },
-  { href: '/menu', label: 'Menuja' },
-  { href: '/settings', label: 'Cilësimet' },
+  { href: "/", label: "Porositë" },
+  { href: "/menu", label: "Menuja" },
+  { href: "/settings", label: "Cilësimet" },
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { me, merchants, merchant, loading, select, signIn, signOut } = useSession();
+  const {
+    me,
+    merchants,
+    merchant,
+    loading,
+    error,
+    select,
+    reload,
+    signIn,
+    signOut,
+  } = useSession();
   const pathname = usePathname();
 
   if (loading) {
     return (
       <main className={styles.center}>
         <Loading />
+      </main>
+    );
+  }
+
+  // Serveri nuk u përgjigj (500, rrjet): nuk është dalje nga llogaria, ndaj nuk kthehemi te kyçja.
+  if (error) {
+    return (
+      <main className={styles.center}>
+        <div className={styles.notice}>
+          <ErrorState message={error} onRetry={() => void reload()} />
+        </div>
       </main>
     );
   }
@@ -76,7 +97,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Link
               key={e.href}
               href={e.href}
-              className={`${styles.link} ${pathname === e.href ? styles.active : ''}`}
+              className={`${styles.link} ${pathname === e.href ? styles.active : ""}`}
             >
               {e.label}
             </Link>
