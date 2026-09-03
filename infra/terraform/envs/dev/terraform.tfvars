@@ -23,7 +23,11 @@ infobip_sender   = "KREJT"
 # Certifikatën e krijon Terraform-i për domain_name; kjo mbetet vetëm nëse do të përdorësh një të lëshuar diku tjetër.
 acm_certificate_arn = ""
 
-# Nga një detyrë për shërbim: dev-i provohet nga larg, jo ngarkohet.
+# Nga një detyrë për shërbim: dev-i shërben për prova nga larg, jo për ngarkesë.
+# Vlerat e mëposhtme vlejnë vetëm kur shërbimi krijohet: pas kësaj numrin e drejtojnë
+# autoscaling-u dhe CI-ja, ndaj `ignore_changes` e mban Terraform-in jashtë.
+api_min_count            = 1
+api_max_count            = 6
 api_desired_count        = 1
 worker_desired_count     = 1
 centrifugo_desired_count = 1

@@ -38,6 +38,17 @@ variable "alb_enabled" {
 }
 # Numri i detyrave nis nga zero: mjedisi ekziston pa shpenzuar për detyra që do të
 # dështonin derisa imazhi i parë të jetë në ECR.
+variable "api_min_count" {
+  description = "Kufiri i poshtëm i autoscaling-ut. Zero do të thotë që API-ja mund të ulet vetvetiu deri në asnjë detyrë."
+  type        = number
+  default     = 1
+}
+
+variable "api_max_count" {
+  type    = number
+  default = 6
+}
+
 variable "api_desired_count" {
   type    = number
   default = 0
