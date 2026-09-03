@@ -128,6 +128,16 @@ func TestMerchantFlow(t *testing.T) {
 	if err != nil || up.PrepTimeMin != 25 || up.DeliveryFeeMinor != 200 || !up.OpenNow {
 		t.Fatalf("update: %+v err=%v", up, err)
 	}
+	// Lista e pronarit duhet ta tregojë të hapur njësoj si detaji: paneli i partnerit lexon listën.
+	mineOpen, err := svc.Mine(ctx, owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, x := range mineOpen {
+		if x.ID == m.ID && !x.OpenNow {
+			t.Fatal("lista e pronarit e tregon të mbyllur një vend të hapur")
+		}
+	}
 	// zbulimi: afër, me distancë, hapur; kërkim pa theksa
 	list, err := svc.Discover(ctx, DiscoverFilter{At: &geo.Point{Lat: 42.66, Lng: 21.16}, Query: "qebaptore testi"})
 	if err != nil {
