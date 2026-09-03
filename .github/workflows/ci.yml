@@ -3,6 +3,7 @@
 name: ci
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
@@ -195,3 +196,14 @@ jobs:
         run: BASE=https://dev.krejt.app node tests/e2e/ride.mjs
       - name: porosi ushqimi kundrejt dev-it
         run: BASE=https://dev.krejt.app node tests/e2e/food.mjs
+
+  # Me dorë (workflow_dispatch): një minutë ngarkese e lehtë kundrejt dev-it me k6, që pragjet e
+  # vonesës të maten rregullisht dhe jo vetëm para nisjes. Nuk ekzekutohet vetë: dev-i ka një detyrë.
+  load-smoke:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: grafana/setup-k6-action@v1
+      - name: k6 smoke kundrejt dev-it
+        run: k6 run -e BASE=https://dev.krejt.app -e SMOKE=1 tests/load/rides.js
