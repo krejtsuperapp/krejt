@@ -23,7 +23,7 @@ infobip_sender   = "KREJT"
 # Certifikatën e krijon Terraform-i për domain_name; kjo mbetet vetëm nëse do të përdorësh një të lëshuar diku tjetër.
 acm_certificate_arn = ""
 
-# Rriten në 1 pasi imazhi i parë të jetë në ECR.
-api_desired_count        = 0
-worker_desired_count     = 0
-centrifugo_desired_count = 0
+# Nga një detyrë për shërbim: dev-i provohet nga larg, jo ngarkohet.
+api_desired_count        = 1
+worker_desired_count     = 1
+centrifugo_desired_count = 1

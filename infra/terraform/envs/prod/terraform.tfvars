@@ -19,7 +19,7 @@ alert_email        = "krejtsuperapp@gmail.com"
 
 # Adresa publike e API-së dhe ofruesit që zgjedh ky mjedis.
 public_base_url = "https://api.krejt.app"
-maps_provider   = "google" # google | mapbox
+maps_provider   = "mapbox" # google | mapbox
 # Base URL personale e llogarisë Infobip; e gjen te paneli i tyre (jo https://api.infobip.com).
 infobip_base_url = ""
 infobip_sender   = "KREJT"
