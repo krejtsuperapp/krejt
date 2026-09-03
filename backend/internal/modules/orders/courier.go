@@ -206,7 +206,7 @@ func (s *Service) courierTransition(ctx context.Context, a principal.Actor, orde
 			return ErrInvalidState
 		}
 		if to == StatePickedUp && !equalFold(code, o.Code) {
-			return httpx.ErrValidation.WithFields(map[string]string{"code": "invalid"})
+			return ErrPickupCode
 		}
 		from := o.State
 		set := ""

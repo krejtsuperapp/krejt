@@ -33,6 +33,8 @@ var (
 	ErrAddressRequired = &httpx.APIError{Code: "ADDRESS_REQUIRED", MessageKey: "errors.orders.address_required", HTTPStatus: http.StatusUnprocessableEntity}
 	ErrOfferGone       = &httpx.APIError{Code: "OFFER_GONE", MessageKey: "errors.orders.offer_gone", HTTPStatus: http.StatusConflict}
 	ErrCourierAssigned = &httpx.APIError{Code: "COURIER_ALREADY_BUSY", MessageKey: "errors.orders.courier_busy", HTTPStatus: http.StatusConflict}
+	// ErrPickupCode — kodi 6-shkronjësh i marrjes nuk përputhet; mesazh i vetin, jo "kontrollo të dhënat".
+	ErrPickupCode = &httpx.APIError{Code: "PICKUP_CODE_INVALID", MessageKey: "errors.orders.pickup_code_invalid", HTTPStatus: http.StatusUnprocessableEntity}
 )
 
 // Merchants — çka i duhet porosive nga moduli merchants (ndërfaqe: pa varësi ciklike).
