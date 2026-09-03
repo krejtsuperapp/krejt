@@ -8,6 +8,12 @@ import { SignIn } from "./sign-in";
 import { Empty, ErrorState, Loading } from "./ui";
 import styles from "./shell.module.css";
 
+const STATUS_LABEL: Record<string, string> = {
+  pending: "në shqyrtim",
+  paused: "i ndalur",
+  suspended: "i pezulluar",
+};
+
 const ENTRIES = [
   { href: "/", label: "Porositë" },
   { href: "/menu", label: "Menuja" },
@@ -84,6 +90,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
               {merchants.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name}
+                  {m.status === "active"
+                    ? ""
+                    : ` (${STATUS_LABEL[m.status] ?? m.status})`}
                 </option>
               ))}
             </select>
