@@ -82,6 +82,20 @@ func TestMerchantFlow(t *testing.T) {
 		t.Fatalf("slug i dytë: %+v err=%v", m2, err)
 	}
 	// i panjohuri s'e sheh, s'e ndryshon
+	// Lista e tregtarëve të mi kalon nëpër merchant_staff; kolonat e papërcaktuara bëheshin të
+	// dykuptimta (created_at ekziston në të dyja) dhe kërkesa kthente 500 sapo ekzistonte një tregtar.
+	mine, err := svc.Mine(ctx, owner)
+	if err != nil {
+		t.Fatalf("mine: %v", err)
+	}
+	mineHas := false
+	for _, x := range mine {
+		mineHas = mineHas || x.ID == m.ID
+	}
+	if !mineHas {
+		t.Fatal("tregtari i sapokrijuar mungon te lista e pronarit")
+	}
+
 	if _, err := svc.Get(ctx, stranger, m.ID); !errors.Is(err, ErrNotMember) {
 		t.Fatalf("stranger get: %v", err)
 	}
