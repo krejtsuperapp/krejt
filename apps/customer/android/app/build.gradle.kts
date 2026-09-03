@@ -1,3 +1,13 @@
+import java.util.Properties
+
+// Nënshkrimi i release-it vjen nga android/key.properties (jashtë git-it): i njëjti çelës te
+// CI-ja dhe te makina e zhvilluesit, që një version i ri të instalohet mbi të vjetrin.
+// Pa skedar, bie te çelësi i debug-ut, që `flutter run --release` të punojë pa përgatitje.
+val keyProps = Properties().apply {
+    val f = rootProject.file("key.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -29,11 +39,22 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            val storePath = keyProps.getProperty("storeFile")
+            if (storePath != null) {
+                storeFile = rootProject.file(storePath)
+                storePassword = keyProps.getProperty("storePassword")
+                keyAlias = keyProps.getProperty("keyAlias")
+                keyPassword = keyProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (keyProps.getProperty("storeFile") != null)
+                signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
     }
 }
