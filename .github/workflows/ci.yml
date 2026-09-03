@@ -193,3 +193,5 @@ jobs:
         with: { node-version: 22 }
       - name: udhëtim i plotë kundrejt dev-it
         run: BASE=https://dev.krejt.app node tests/e2e/ride.mjs
+      - name: porosi ushqimi kundrejt dev-it
+        run: BASE=https://dev.krejt.app node tests/e2e/food.mjs
