@@ -7,6 +7,7 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
+  centrifuge: ^0.20.1
   flutter:
     sdk: flutter
   dio: ^5.7.0

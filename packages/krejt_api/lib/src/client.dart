@@ -319,6 +319,10 @@ class KrejtApi {
 
   Future<Map<String, dynamic>> realtimeToken() => _post('/api/v1/realtime/token');
 
+  /// Token-i i abonimit për një kanal; serveri vendos nëse ky përdorues e sheh.
+  Future<Map<String, dynamic>> realtimeSubscribe(String channel) =>
+      _post('/api/v1/realtime/subscribe', body: {'channel': channel});
+
   // --------------------------------------------------------------------- rides
 
   Future<QuoteResult> quoteRide({

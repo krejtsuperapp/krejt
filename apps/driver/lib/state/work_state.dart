@@ -8,14 +8,26 @@ import '../services/location.dart';
 /// Turni i punës: sa është shoferi në punë, aplikacioni dërgon pozicionin, pyet për oferta
 /// dhe ndjek udhëtimin aktiv. Jashtë pune asgjë nga këto nuk ndodh — as një kërkesë e vetme (§27).
 class WorkState extends ChangeNotifier {
-  WorkState({required this.api, this.location = const LocationService()});
+  WorkState({
+    required this.api,
+    this.location = const LocationService(),
+    this.realtime,
+    this.driverId,
+  });
 
-  static const _offersEvery = Duration(seconds: 3);
+  // Rezervë: kanali i gjallë sjell ofertat dhe ndryshimet e udhëtimit menjëherë; këto e kapin
+  // vetëm rastin kur ai bie. Pozicioni dërgohet gjithmonë me orar — nuk varet nga kanali.
+  static const _offersEvery = Duration(seconds: 10);
   static const _locationEvery = Duration(seconds: 10);
-  static const _rideEvery = Duration(seconds: 4);
+  static const _rideEvery = Duration(seconds: 15);
 
   final KrejtApi api;
   final LocationService location;
+
+  /// Kanali i gjallë dhe identiteti i shoferit; pa to, turni punon vetëm me pyetje periodike.
+  final RealtimeClient? realtime;
+  final String? Function()? driverId;
+  StreamSubscription<RealtimeEvent>? _live;
 
   Timer? _offersTimer;
   Timer? _locationTimer;
@@ -53,7 +65,22 @@ class WorkState extends ChangeNotifier {
     super.dispose();
   }
 
+  /// Kanali i shoferit sjell ofertat dhe ndryshimet e udhëtimit; çdo ngjarje është një shtytje
+  /// për të marrë gjendjen nga serveri, që modeli të mbetet një.
+  void _listenLive() {
+    final id = driverId?.call();
+    final rt = realtime;
+    if (rt == null || id == null) return;
+    _live?.cancel();
+    _live = rt.subscribe(driverChannel(id)).listen((_) {
+      unawaited(_pollOffers());
+      unawaited(_pollActiveRide());
+    });
+  }
+
   void _stopTimers() {
+    _live?.cancel();
+    _live = null;
     _offersTimer?.cancel();
     _locationTimer?.cancel();
     _rideTimer?.cancel();
@@ -80,6 +107,7 @@ class WorkState extends ChangeNotifier {
       _offersTimer = Timer.periodic(_offersEvery, (_) => _pollOffers());
       _locationTimer = Timer.periodic(_locationEvery, (_) => _pushLocation());
       _rideTimer = Timer.periodic(_rideEvery, (_) => _pollActiveRide());
+      _listenLive();
       unawaited(_pollOffers());
       unawaited(_pollActiveRide());
       return true;

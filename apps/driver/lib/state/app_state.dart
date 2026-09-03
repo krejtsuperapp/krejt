@@ -30,6 +30,10 @@ class AppState extends ChangeNotifier {
   late final Session _session;
   late final KrejtApi api;
 
+  /// Kanali i gjallë: një lidhje për sesion, e hapur në herën e parë që turni e kërkon.
+  RealtimeClient? _realtime;
+  RealtimeClient get realtime => _realtime ??= RealtimeClient(api);
+
   BootPhase phase = BootPhase.starting;
   PublicConfig config = PublicConfig.fallback();
   Me? me;
