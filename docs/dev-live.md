@@ -119,6 +119,10 @@ cd apps/customer && flutter build apk --release --dart-define-from-file=../dart-
 
 Meqë adresa është `https`, ndërtimi `--release` punon pa asnjë zbutje rrjeti.
 
+Për njoftimet push shto te i njëjti skedar katër vlerat e `google-services.json` të projektit
+Firebase (`KREJT_FIREBASE_API_KEY`, `KREJT_FIREBASE_APP_ID`, `KREJT_FIREBASE_SENDER_ID`,
+`KREJT_FIREBASE_PROJECT_ID`); pa to push-i thjesht nuk ndizet.
+
 Token-i `pk.` është ai publik i Mapbox-it; pa të, ekranet e udhëtimit vizatojnë skemën në vend
 të hartës. Vetë ndërtimi kërkon token-in e shkarkimit te `~/.gradle/gradle.properties` — shih
 [packages/krejt_map/README.md](../packages/krejt_map/README.md).
