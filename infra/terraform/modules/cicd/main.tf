@@ -25,7 +25,10 @@ data "aws_iam_policy_document" "assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:ref:refs/heads/${var.deploy_branch}"]
+      # Puna e deploy-it deklaron `environment:`, ndaj GitHub-i e vulos token-in me mjedisin
+      # e jo me degën. Ky është lidhje më e ngushtë se dega: një push i thjeshtë nuk e merr dot
+      # rolin — duhet të kalojë nga mjedisi, që mund të ketë edhe miratim njeriu.
+      values = ["repo:${var.github_repo}:environment:${var.deploy_environment}"]
     }
   }
 }

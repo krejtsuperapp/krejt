@@ -4,6 +4,11 @@ variable "github_repo" {
   description = "owner/repo që lejohet të bëjë deploy (OIDC subject)."
   type        = string
 }
+variable "deploy_environment" {
+  description = "Mjedisi i GitHub-it nga i cili lejohet deploy-i (puna deklaron environment:)."
+  type        = string
+}
+
 variable "deploy_branch" {
   type    = string
   default = "main"
