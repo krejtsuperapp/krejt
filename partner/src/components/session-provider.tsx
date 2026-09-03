@@ -65,7 +65,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Ruajtja lokale mund të jetë e mbyllur; atëherë zgjidhet i pari.
     }
-    setMerchant(items.find((m) => m.id === picked) ?? items[0] ?? null);
+    setMerchant(
+      items.find((m) => m.id === picked) ??
+        items.find((m) => m.status === "active") ??
+        items[0] ??
+        null,
+    );
   }, []);
 
   useEffect(() => {
