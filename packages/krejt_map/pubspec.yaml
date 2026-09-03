@@ -1,0 +1,20 @@
+name: krejt_map
+description: Harta e KREJT-it pas një ndërfaqeje — ofruesi ndërrohet pa i prekur ekranet.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  krejt_design:
+    path: ../krejt_design
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
+import 'package:krejt_map/krejt_map.dart';
 import 'package:provider/provider.dart';
 
 import '../../state/app_state.dart';
@@ -140,6 +141,18 @@ class _TrackingScreenState extends State<TrackingScreen> {
     );
   }
 
+  /// Shoferi shtohet vetëm kur serveri ka dërguar pozicionin e tij; një shenjë e ngrirë te
+  /// pika e marrjes do të thoshte diçka që nuk dihet.
+  List<MapMarker> _markers(Ride ride) {
+    final driverAt = ride.driver?.location;
+    return [
+      MapMarker(point: MapPoint(ride.pickup.lat, ride.pickup.lng), kind: MapMarkerKind.pickup),
+      MapMarker(point: MapPoint(ride.dropoff.lat, ride.dropoff.lng), kind: MapMarkerKind.dropoff),
+      if (driverAt != null)
+        MapMarker(point: MapPoint(driverAt.lat, driverAt.lng), kind: MapMarkerKind.driver),
+    ];
+  }
+
   Widget _content(BuildContext context, Ride ride, String locale) {
     final driver = ride.driver;
     return ListView(
@@ -150,6 +163,12 @@ class _TrackingScreenState extends State<TrackingScreen> {
           const SizedBox(height: K.s3),
         ],
         _StateHeader(ride: ride),
+        const SizedBox(height: K.s4),
+        KMap(
+          markers: _markers(ride),
+          schematicCaption: context.t('map.schematic'),
+          semanticsLabel: context.t('map.a11y.ride'),
+        ),
         const SizedBox(height: K.s5),
         if (ride.state == RideState.matching)
           KCard(

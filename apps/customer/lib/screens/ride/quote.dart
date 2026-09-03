@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
+import 'package:krejt_map/krejt_map.dart';
 import 'package:provider/provider.dart';
 
 import '../../state/app_state.dart';
@@ -153,6 +154,22 @@ class _QuoteScreenState extends State<QuoteScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(K.s5, K.s4, K.s5, K.s4),
             children: [
+              KMap(
+                height: 160,
+                markers: [
+                  MapMarker(
+                    point: MapPoint(widget.pickup.point.lat, widget.pickup.point.lng),
+                    kind: MapMarkerKind.pickup,
+                  ),
+                  MapMarker(
+                    point: MapPoint(widget.dropoff.point.lat, widget.dropoff.point.lng),
+                    kind: MapMarkerKind.dropoff,
+                  ),
+                ],
+                schematicCaption: context.t('map.schematic'),
+                semanticsLabel: context.t('map.a11y.ride'),
+              ),
+              const SizedBox(height: K.s4),
               KCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -17,6 +17,8 @@ dependencies:
     path: ../../packages/krejt_api
   krejt_l10n:
     path: ../../packages/krejt_l10n
+  krejt_map:
+    path: ../../packages/krejt_map
   go_router: ^14.6.2
   provider: ^6.1.2
   shared_preferences: ^2.3.3
