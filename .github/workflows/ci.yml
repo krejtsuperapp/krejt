@@ -114,7 +114,8 @@ jobs:
       contents: read
     env:
       AWS_REGION: eu-central-1
-      CLUSTER: krejt-dev
+      # Terraform-i e emërton clusterin `${name}-cluster`; emri i mjedisit vetëm nuk mjafton.
+      CLUSTER: krejt-dev-cluster
       DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
     steps:
       - uses: actions/checkout@v4
