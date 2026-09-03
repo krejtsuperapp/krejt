@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -36,7 +37,9 @@ func TestBootstrapAdmin(t *testing.T) {
 	}
 
 	svc := &Service{pool: pool}
-	phone := "+38346" + uuid.NewString()[:6]
+	// Vetëm shifra: identifikuesit e rastësishëm përmbajnë shkronja dhe do të binin te vetë
+	// kontrolli i formatit, duke e fshehur atë që testi kërkon të masë.
+	phone := uniquePhone()
 
 	t.Run("numri pa llogari nuk kalon", func(t *testing.T) {
 		if _, err := svc.BootstrapAdmin(ctx, phone); !errors.Is(err, ErrBootstrapUserMissing) {
@@ -80,7 +83,7 @@ func TestBootstrapAdmin(t *testing.T) {
 	})
 
 	t.Run("një numër tjetër nuk ngrihet kur administratori ekziston", func(t *testing.T) {
-		other := "+38346" + uuid.NewString()[:6]
+		other := uniquePhone()
 		if _, err := pool.Exec(ctx,
 			`INSERT INTO users (phone_e164, locale) VALUES ($1, 'sq')`, other); err != nil {
 			t.Fatal(err)
@@ -106,4 +109,9 @@ func TestBootstrapAdmin(t *testing.T) {
 			t.Fatal("prisja gabim për numër të pavlefshëm")
 		}
 	})
+}
+
+// uniquePhone jep një numër E.164 të vlefshëm dhe të papërsëritur brenda bazës së përbashkët.
+func uniquePhone() string {
+	return fmt.Sprintf("+383%09d", time.Now().UnixNano()%1_000_000_000)
 }
