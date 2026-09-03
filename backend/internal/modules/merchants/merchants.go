@@ -338,7 +338,17 @@ func (s *Service) Mine(ctx context.Context, a principal.Actor) ([]Merchant, erro
 		}
 		out = append(out, *m)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Orari dhe "hapur tani" njësoj si te Get: paneli i partnerit e lexon nga kjo listë, dhe pa
+	// to tregonte "Jashtë orarit" për një vend që ishte hapur dhe pranonte porosi.
+	now := s.now()
+	for k := range out {
+		out[k].Hours, _ = s.hours(ctx, out[k].ID)
+		out[k].OpenNow = OpenAt(out[k].Hours, now) && out[k].AcceptingOrders
+	}
+	return out, nil
 }
 
 type ProfileUpdate struct {
@@ -504,7 +514,17 @@ func (s *Service) Pending(ctx context.Context, limit int) ([]Merchant, error) {
 		}
 		out = append(out, *m)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Orari dhe "hapur tani" njësoj si te Get: paneli i partnerit e lexon nga kjo listë, dhe pa
+	// to tregonte "Jashtë orarit" për një vend që ishte hapur dhe pranonte porosi.
+	now := s.now()
+	for k := range out {
+		out[k].Hours, _ = s.hours(ctx, out[k].ID)
+		out[k].OpenNow = OpenAt(out[k].Hours, now) && out[k].AcceptingOrders
+	}
+	return out, nil
 }
 
 // SetStatus — activate (jep MERCHANT pronarit) | pause | suspend (me arsye).
