@@ -108,8 +108,11 @@ jobs:
           set -euo pipefail
           # Versioni duhet të mbetet semver: serveri e krahason me min_version (§48).
           version="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)"
+          # Token-i i hartës është publik dhe hyn brenda APK-së; pa të, ekranet e udhëtimit
+          # vizatojnë skemën. Ndërtimi nuk ndalet nëse mungon, ndryshe nga ai i shkarkimit.
           flutter build apk --debug \
             --dart-define=KREJT_API_BASE_URL=${{ vars.KREJT_API_BASE_URL || 'http://10.0.2.2:8080' }} \
+            --dart-define=KREJT_MAPBOX_TOKEN=${{ secrets.MAPBOX_PUBLIC_TOKEN }} \
             --dart-define=KREJT_APP_VERSION="$version"
 
       - uses: actions/upload-artifact@v4
