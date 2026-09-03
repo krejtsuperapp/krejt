@@ -15,7 +15,10 @@ maps_provider   = "mapbox" # google | mapbox
 # SMS-ja mbetet devlog derisa sender-i te Infobip të aprovohet: me një sender të paaprovuar
 # kërkesa dështon pa dërguar asgjë, dhe askush nuk kyçet dot. Me devlog kodi shkruhet te
 # CloudWatch, ndaj kyçja nga larg funksionon. Ndërroje në "infobip" ditën e aprovimit.
-sms_provider = "devlog"
+# Vetëm dev: shoferi i provës aprovohet pa gjashtë dokumente. Jashtë development serveri
+# refuzon të niset me këtë vlerë.
+documents_required = false
+sms_provider       = "devlog"
 # Base URL personale e llogarisë Infobip; e gjen te paneli i tyre (jo https://api.infobip.com).
 infobip_base_url = "https://rk8n2y.api.infobip.com"
 infobip_sender   = "KREJT"
