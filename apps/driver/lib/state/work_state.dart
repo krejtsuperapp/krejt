@@ -17,7 +17,10 @@ class WorkState extends ChangeNotifier {
 
   // Rezervë: kanali i gjallë sjell ofertat dhe ndryshimet e udhëtimit menjëherë; këto e kapin
   // vetëm rastin kur ai bie. Pozicioni dërgohet gjithmonë me orar — nuk varet nga kanali.
-  static const _offersEvery = Duration(seconds: 10);
+  // Ofertat jetojnë 20 sekonda te serveri. Rezerva prej 10 s ishte e tepërt: nëse kanali i gjallë
+  // vonohet, shoferi e sheh ofertën me pak sekonda mbetur dhe pranimi bie si e skaduar — kërkesa
+  // 'zhduket'. Tri sekonda kushtojnë pak dhe e mbyllin këtë vrimë; pozicioni mbetet çdo 10 s.
+  static const _offersEvery = Duration(seconds: 3);
   static const _locationEvery = Duration(seconds: 10);
   static const _rideEvery = Duration(seconds: 15);
 
