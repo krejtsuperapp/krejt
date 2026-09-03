@@ -38,4 +38,9 @@ class MapConfig {
   }
 
   bool get isLive => kind != MapProviderKind.schematic;
+
+  /// SDK-ja e kërkon stilin si adresë `mapbox://`; konfigurimi e mban emrin e shkurtër,
+  /// që `--dart-define` të mbetet i lexueshëm. Një adresë e plotë kalon e paprekur.
+  String get mapboxStyleUri =>
+      mapboxStyle.contains('://') ? mapboxStyle : 'mapbox://styles/$mapboxStyle';
 }

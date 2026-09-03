@@ -79,10 +79,24 @@ jobs:
           channel: stable
           cache: true
 
+      # SDK-ja e Mapbox-it nuk shkarkohet publikisht; Gradle-ja vërtetohet me një token që ka
+      # vetëm të drejtën DOWNLOADS:READ. Shkruhet jashtë repo-s, te dosja e Gradle-së.
+      - name: token-i i shkarkimit të Mapbox-it
+        env:
+          MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MAPBOX_DOWNLOADS_TOKEN:-}" ]; then
+            echo "::error::MAPBOX_DOWNLOADS_TOKEN mungon te sekretet — pa të, Gradle nuk e shkarkon dot SDK-në."
+            exit 1
+          fi
+          mkdir -p ~/.gradle
+          printf 'MAPBOX_DOWNLOADS_TOKEN=%s\n' "$MAPBOX_DOWNLOADS_TOKEN" >> ~/.gradle/gradle.properties
+
       - name: pub get
         run: |
           set -euo pipefail
-          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n apps/${{ matrix.app }}; do
+          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map apps/${{ matrix.app }}; do
             (cd "$d" && flutter pub get)
           done
 

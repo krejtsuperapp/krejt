@@ -4,6 +4,6 @@ library;
 
 export 'src/config.dart';
 export 'src/k_map.dart';
-export 'src/mapbox_static.dart';
+export 'src/mapbox_live.dart';
 export 'src/model.dart';
 export 'src/schematic.dart';

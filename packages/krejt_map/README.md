@@ -24,15 +24,20 @@ Vjen gjithmonë me `--dart-define` gjatë ndërtimit; asnjë çelës nuk qëndro
 token **publik** (`pk.`), të kufizuar me URL te paneli i Mapbox-it. Token-at sekretë (`sk.`) nuk
 hyjnë kurrë në një aplikacion që shpërndahet.
 
-## Pse pamje e palëvizshme dhe jo SDK vendase
+## Token-i i shkarkimit
 
-SDK-ja vendase e Mapbox-it kërkon një token shkarkimi te makina dhe te CI-ja, dhe atë e vendos
-vetëm pronari i llogarisë. Static Images API-ja jep të njëjtat rrugë me një kërkesë HTTPS, pa asnjë
-hap vendas — ndaj harta punon që sot. Kur të vendoset ofruesi përfundimtar, SDK-ja hyn si një
-zbatim i dytë pas së njëjtës ndërfaqe.
+SDK-ja e Mapbox-it nuk shkarkohet publikisht: Gradle-ja dhe CocoaPods-i vërtetohen te Mapbox-i
+**në kohën e ndërtimit**. Kjo kërkon një token sekret me të drejtën `DOWNLOADS:READ`, dhe vetëm atë —
+asnjë të drejtë publike, sepse token-i jeton te shumë makina dhe te CI-ja.
 
-## Kostoja
+Android: një rresht te `~/.gradle/gradle.properties` (jashtë repo-s):
 
-Çdo pamje faturohet. Shoferi lëviz vazhdimisht, ndaj `KMap.settle` e mban pamjen e mëparshme
-derisa dikush të ketë lëvizur mbi njëzet e pesë metra — pa këtë, çdo pyetje e serverit do të
-blinte një pamje të re për një ndryshim që syri nuk e dallon.
+```
+MAPBOX_DOWNLOADS_TOKEN=sk.…
+```
+
+iOS: e njëjta gjë te `~/.netrc`.
+
+CI: sekreti `MAPBOX_DOWNLOADS_TOKEN`, që workflow-i e shkruan te dosja e Gradle-së para ndërtimit.
+
+Pa këtë token ndërtimi dështon — jo aplikacioni, por vetë kompilimi.
