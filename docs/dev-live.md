@@ -110,10 +110,14 @@ curl -fsS https://dev.krejt.app/healthz && echo
 Ndërto aplikacionin kundrejt tij:
 
 ```bash
-cd apps/customer && flutter build apk --release --dart-define=KREJT_API_BASE_URL=https://dev.krejt.app
+cd apps/customer && flutter build apk --release --dart-define=KREJT_API_BASE_URL=https://dev.krejt.app --dart-define=KREJT_MAPBOX_TOKEN=pk....
 ```
 
 Meqë adresa është `https`, ndërtimi `--release` punon pa asnjë zbutje rrjeti.
+
+Token-i `pk.` është ai publik i Mapbox-it; pa të, ekranet e udhëtimit vizatojnë skemën në vend
+të hartës. Vetë ndërtimi kërkon token-in e shkarkimit te `~/.gradle/gradle.properties` — shih
+[packages/krejt_map/README.md](../packages/krejt_map/README.md).
 
 ## Kyçja nga larg
 
