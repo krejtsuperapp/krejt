@@ -165,7 +165,7 @@ func main() {
 	// --- modulet -----------------------------------------------------------------
 	ledgerSvc := ledger.New(pool)
 	authSvc := auth.New(pool, rdb, smsProvider, signer, ledgerSvc, pepper).
-		WithDevTestPhones(cfg.DevTestPhones, cfg.DevTestOTP)
+		WithDevTestPhones(cfg.DevTestPhones, cfg.DevTestAdminPhones, cfg.DevTestOTP)
 	if len(cfg.DevTestPhones) > 0 {
 		log.Warn("VETËM DEV — numra prove me kod fiks", "phones", cfg.DevTestPhones)
 	}

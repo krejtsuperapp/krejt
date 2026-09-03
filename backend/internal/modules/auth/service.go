@@ -28,12 +28,13 @@ type Service struct {
 
 	// Numra prove me kod fiks (vetëm development). Bosh në çdo mjedis tjetër.
 	testPhones map[string]struct{}
+	testAdmins map[string]struct{}
 	testOTP    string
 }
 
 // WithDevTestPhones aktivizon kyçjen me kod fiks për numrat e dhënë. Konfigurimi e ka
 // refuzuar tashmë këtë jashtë development-it; këtu vetëm regjistrohet lista.
-func (s *Service) WithDevTestPhones(phones []string, code string) *Service {
+func (s *Service) WithDevTestPhones(phones, admins []string, code string) *Service {
 	if len(phones) == 0 || code == "" {
 		return s
 	}
@@ -41,8 +42,18 @@ func (s *Service) WithDevTestPhones(phones []string, code string) *Service {
 	for _, p := range phones {
 		s.testPhones[p] = struct{}{}
 	}
+	s.testAdmins = make(map[string]struct{}, len(admins))
+	for _, p := range admins {
+		s.testAdmins[p] = struct{}{}
+	}
 	s.testOTP = code
 	return s
+}
+
+// isTestAdmin thotë nëse numri i provës merr SUPER_ADMIN në kyçje.
+func (s *Service) isTestAdmin(phone string) bool {
+	_, ok := s.testAdmins[phone]
+	return ok
 }
 
 // isTestPhone thotë nëse numri kyçet me kodin fiks të provës.
@@ -116,8 +127,8 @@ func (s *Service) VerifyOTP(ctx context.Context, phone, code, locale string, dev
 			return httpx.ErrForbidden
 		}
 
-		// Numri i provës është edhe administrator: kështu paneli provohet pa ndezje të dytë.
-		if s.isTestPhone(phone) {
+		// Administratori i provës e merr të drejtën në kyçje: paneli provohet pa ndezje të dytë.
+		if s.isTestAdmin(phone) {
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO user_capabilities (user_id, capability) VALUES ($1, 'SUPER_ADMIN')
 				ON CONFLICT DO NOTHING`, userID); err != nil {

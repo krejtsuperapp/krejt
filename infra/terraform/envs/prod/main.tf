@@ -70,6 +70,7 @@ module "ecs" {
   documents_required       = var.documents_required
   dev_test_phones          = var.dev_test_phones
   dev_test_otp             = var.dev_test_otp
+  dev_test_admin_phones    = var.dev_test_admin_phones
   sms_provider             = var.sms_provider
   payment_provider         = var.payment_provider
   push_provider            = var.push_provider
