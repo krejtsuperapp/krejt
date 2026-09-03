@@ -37,10 +37,11 @@ module "storage" {
 }
 
 module "messaging" {
-  source     = "../../modules/messaging"
-  name       = var.name
-  kms_key_id = module.security.kms_key_id
-  tags       = local.tags
+  source          = "../../modules/messaging"
+  name            = var.name
+  kms_key_id      = module.security.kms_key_id
+  alarm_topic_arn = module.monitoring.alerts_topic_arn
+  tags            = local.tags
 }
 
 module "ecs" {
@@ -165,4 +166,21 @@ locals {
   # Certifikata e vetë Terraform-it ka përparësi; `acm_certificate_arn` mbetet për një
   # certifikatë të lëshuar diku tjetër.
   certificate_arn = var.domain_name == "" ? var.acm_certificate_arn : one(aws_acm_certificate.api[*].arn)
+}
+
+# --- monitorimi dhe siguria (§57, §71): alarme te email-i, CloudTrail, GuardDuty ----------
+module "monitoring" {
+  source                      = "../../modules/monitoring"
+  name                        = var.name
+  region                      = var.region
+  alert_email                 = var.alert_email
+  alb_arn_suffix              = module.ecs.alb_arn_suffix
+  api_target_group_arn_suffix = module.ecs.api_target_group_arn_suffix
+  cluster_name                = module.ecs.cluster_name
+  api_service_name            = module.ecs.api_service_name
+  worker_service_name         = module.ecs.worker_service_name
+  centrifugo_service_name     = module.ecs.centrifugo_service_name
+  aurora_cluster_id           = "${var.name}-aurora"
+  guardduty_enabled           = var.guardduty_enabled
+  tags                        = local.tags
 }
