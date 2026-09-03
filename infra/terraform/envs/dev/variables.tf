@@ -163,3 +163,9 @@ variable "github_repo" {
   type        = string
   default     = "krejtsuperapp/krejt"
 }
+
+variable "guardduty_enabled" {
+  description = "Zbulim kërcënimesh nga AWS-i. Disa dollarë në muaj në këtë madhësi; në prodhim mbetet i ndezur."
+  type        = bool
+  default     = true
+}

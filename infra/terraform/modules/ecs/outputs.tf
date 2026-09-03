@@ -6,3 +6,10 @@ output "ecr_repository_urls" { value = { for k, r in aws_ecr_repository.this : k
 output "task_role_arn" { value = aws_iam_role.task.arn }
 output "exec_role_arn" { value = aws_iam_role.exec.arn }
 output "ecr_repository_arns" { value = [for k, r in aws_ecr_repository.this : r.arn] }
+
+# Për alarmet: dimensionet e CloudWatch-it kërkojnë prapashtesat e ARN-ve, jo emrat.
+output "alb_arn_suffix" { value = local.alb_n == 0 ? null : aws_lb.this[0].arn_suffix }
+output "api_target_group_arn_suffix" { value = local.alb_n == 0 ? null : aws_lb_target_group.api[0].arn_suffix }
+output "api_service_name" { value = local.alb_n == 0 ? null : aws_ecs_service.api[0].name }
+output "worker_service_name" { value = aws_ecs_service.worker.name }
+output "centrifugo_service_name" { value = local.alb_n == 0 ? null : aws_ecs_service.centrifugo[0].name }
