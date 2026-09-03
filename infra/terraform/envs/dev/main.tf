@@ -131,6 +131,7 @@ module "cicd" {
   name                = var.name
   region              = var.region
   github_repo         = var.github_repo
+  github_repo_id      = var.github_repo_id
   deploy_environment  = "dev"
   cluster_name        = module.ecs.cluster_name
   ecr_repository_arns = module.ecs.ecr_repository_arns

@@ -10,6 +10,17 @@ resource "aws_iam_openid_connect_provider" "github" {
   tags            = var.tags
 }
 
+locals {
+  # Organizata ka ndezur identifikuesit e pandryshueshëm, ndaj GitHub-i e vulos token-in me
+  # `owner@id/repo@id` e jo me emrat. Ajo formë mbijeton riemërtimet dhe nuk mund të rimerret
+  # nga dikush që regjistron emrin e lirë më vonë, ndaj është edhe më e sigurt se emri.
+  # Të dyja format lejohen: cilësimi mund të ndërrohet pa e prishur deploy-in.
+  allowed_subjects = compact([
+    "repo:${var.github_repo}:environment:${var.deploy_environment}",
+    var.github_repo_id == "" ? "" : "repo:${var.github_repo_id}:environment:${var.deploy_environment}",
+  ])
+}
+
 data "aws_iam_policy_document" "assume" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -28,7 +39,7 @@ data "aws_iam_policy_document" "assume" {
       # Puna e deploy-it deklaron `environment:`, ndaj GitHub-i e vulos token-in me mjedisin
       # e jo me degën. Ky është lidhje më e ngushtë se dega: një push i thjeshtë nuk e merr dot
       # rolin — duhet të kalojë nga mjedisi, që mund të ketë edhe miratim njeriu.
-      values = ["repo:${var.github_repo}:environment:${var.deploy_environment}"]
+      values = local.allowed_subjects
     }
   }
 }

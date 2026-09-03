@@ -105,6 +105,12 @@ variable "otlp_endpoint" {
   default     = ""
 }
 
+variable "github_repo_id" {
+  description = "Forma e pandryshueshme e repo-s te token-i i OIDC-së (owner@ownerId/repo@repoId)."
+  type        = string
+  default     = "krejtsuperapp@323840566/krejt@1354309985"
+}
+
 variable "github_repo" {
   description = "Repo-ja që bën deploy përmes OIDC (owner/repo)."
   type        = string
