@@ -12,13 +12,13 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
 
 	"krejt.app/backend/internal/platform/httpx"
+	phoneutil "krejt.app/backend/internal/platform/phone"
 )
 
 const (
@@ -29,8 +29,6 @@ const (
 	rlPerIP        = 20
 )
 
-var phoneRe = regexp.MustCompile(`^\+[1-9][0-9]{6,14}$`)
-
 var (
 	ErrPhoneInvalid   = &httpx.APIError{Code: "PHONE_INVALID", MessageKey: "errors.auth.phone_invalid", HTTPStatus: 422}
 	ErrOTPInvalid     = &httpx.APIError{Code: "OTP_INVALID", MessageKey: "errors.auth.otp_invalid", HTTPStatus: 401}
@@ -40,7 +38,7 @@ var (
 	ErrSessionInvalid = &httpx.APIError{Code: "SESSION_INVALID", MessageKey: "errors.auth.session_invalid", HTTPStatus: 401}
 )
 
-func ValidPhone(p string) bool { return phoneRe.MatchString(p) }
+func ValidPhone(p string) bool { return phoneutil.Valid(p) }
 
 func (s *Service) hashCode(phone, code string) []byte {
 	m := hmac.New(sha256.New, s.pepper)

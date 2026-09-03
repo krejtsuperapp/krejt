@@ -35,10 +35,14 @@ type Config struct {
 	// autentikimi (§53) — vlerat nga Secrets Manager (krejt/<env>/jwt, krejt/<env>/infobip)
 	JWTPrivateKeyPEM string
 	OTPPepper        string
-	SMSProvider      string // infobip | devlog (vetëm development)
-	InfobipBaseURL   string
-	InfobipAPIKey    string
-	InfobipSender    string
+	// Numri që merr SUPER_ADMIN në nisje, por vetëm nëse sistemi ende nuk ka asnjë administrator.
+	// Pa këtë, të drejtat e stafit nuk lindin kurrë: jepen vetëm nga një administrator ekzistues.
+	BootstrapAdminPhone string
+
+	SMSProvider    string // infobip | devlog (vetëm development)
+	InfobipBaseURL string
+	InfobipAPIKey  string
+	InfobipSender  string
 
 	// ngjarjet e domenit (§41): EVENTS_PUBLISHER sns | devlog (vetëm development)
 	EventsPublisher      string
@@ -96,6 +100,7 @@ func Load() (*Config, error) {
 		QueueURLs:                 map[string]string{},
 		JWTPrivateKeyPEM:          os.Getenv("JWT_PRIVATE_KEY"),
 		OTPPepper:                 os.Getenv("OTP_PEPPER"),
+		BootstrapAdminPhone:       os.Getenv("BOOTSTRAP_ADMIN_PHONE"),
 		SMSProvider:               getenv("SMS_PROVIDER", "infobip"),
 		InfobipBaseURL:            getenv("INFOBIP_BASE_URL", "https://api.infobip.com"),
 		InfobipAPIKey:             os.Getenv("INFOBIP_API_KEY"),

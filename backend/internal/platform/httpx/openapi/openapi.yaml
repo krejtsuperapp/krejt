@@ -562,6 +562,11 @@ paths:
       responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/AuditRow" } } } } } } } }
   /api/v1/admin/drivers:
     get: { tags: [admin], summary: Aplikimet e shoferëve në pritje (OPERATIONS), responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/DriverProfile" } } } } } } } } }
+    post:
+      tags: [admin]
+      summary: Regjistro një shofer nga zyra (OPERATIONS); numri duhet të ketë hyrë një herë
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [phone, vehicle_make, vehicle_model, vehicle_plate, vehicle_color, categories], properties: { phone: { type: string, example: "+38344123456" }, vehicle_make: { type: string }, vehicle_model: { type: string }, vehicle_plate: { type: string }, vehicle_color: { type: string }, categories: { type: array, items: { $ref: "#/components/schemas/RideCategory" } } } } } } }
+      responses: { "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/DriverProfile" } } } }, "404": { $ref: "#/components/responses/Err" }, "409": { $ref: "#/components/responses/Err" }, "422": { $ref: "#/components/responses/Err" } }
   /api/v1/admin/drivers/{id}:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     patch:

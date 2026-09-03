@@ -21,6 +21,7 @@ import (
 	"krejt.app/backend/internal/platform/events"
 	"krejt.app/backend/internal/platform/httpx"
 	"krejt.app/backend/internal/platform/logx"
+	phoneutil "krejt.app/backend/internal/platform/phone"
 	"krejt.app/backend/internal/platform/principal"
 )
 
@@ -194,6 +195,68 @@ func (s *Service) Get(ctx context.Context, userID uuid.UUID) (*Profile, error) {
 		return nil, ErrNotDriver
 	}
 	return p, err
+}
+
+// CreateFor — OPERATIONS regjistron një shofer në emër të tij: onboarding në zyrë, ku të dhënat
+// e automjetit i lexon dikush nga letrat dhe jo shoferi nga telefoni.
+//
+// Numri duhet të ketë hyrë një herë. Kjo është e qëllimshme: paneli regjistron shoferë, nuk
+// krijon llogari. Një llogari e krijuar nga paneli nuk do të kishte kaluar kurrë nga verifikimi
+// i numrit, dhe askush nuk do ta dinte se kujt i përket.
+func (s *Service) CreateFor(ctx context.Context, admin principal.Actor, phone string, in ApplyInput) (*Profile, error) {
+	f := validateApply(&in)
+	if f == nil {
+		f = map[string]string{}
+	}
+	if !phoneutil.Valid(phone) {
+		f["phone"] = "invalid"
+	}
+	if len(f) > 0 {
+		return nil, httpx.ErrValidation.WithFields(f)
+	}
+
+	var out *Profile
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		var driverID uuid.UUID
+		err := tx.QueryRow(ctx, `SELECT id FROM users WHERE phone_e164 = $1`, phone).Scan(&driverID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return httpx.ErrNotFound.WithFields(map[string]string{"phone": "unknown"})
+		}
+		if err != nil {
+			return err
+		}
+
+		var status string
+		err = tx.QueryRow(ctx, `SELECT status FROM drivers WHERE user_id = $1 FOR UPDATE`, driverID).Scan(&status)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		// I njëjti kufi si te vetë-aplikimi: një profil i aprovuar nuk rishkruhet pa vendim.
+		if err == nil && status != "pending" {
+			return ErrProfileLocked
+		}
+
+		p, err := scanProfile(tx.QueryRow(ctx, `
+			INSERT INTO drivers (user_id, vehicle_make, vehicle_model, vehicle_plate, vehicle_color, categories)
+			VALUES ($1,$2,$3,$4,$5,$6)
+			ON CONFLICT (user_id) DO UPDATE SET vehicle_make = EXCLUDED.vehicle_make, vehicle_model = EXCLUDED.vehicle_model,
+			  vehicle_plate = EXCLUDED.vehicle_plate, vehicle_color = EXCLUDED.vehicle_color, categories = EXCLUDED.categories,
+			  updated_at = now()
+			RETURNING `+profileCols, driverID, in.VehicleMake, in.VehicleModel, in.VehiclePlate, in.VehicleColor, in.Categories))
+		if err != nil {
+			return err
+		}
+		out = p
+		// Gjurma mban kush e regjistroi: ndryshe nga vetë-aplikimi, këtu vepruesi nuk është shoferi.
+		if err := audit(ctx, tx, admin, "driver.created_by_ops", driverID, map[string]any{"categories": in.Categories}); err != nil {
+			return err
+		}
+		return events.Emit(ctx, tx, "driver", driverID.String(), "DriverApplied", map[string]any{"driver_id": driverID, "categories": in.Categories})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // Approved — profili vetëm nëse është i miratuar (pranueshmëria për punë).

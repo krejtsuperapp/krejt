@@ -369,6 +369,9 @@ locals {
     # Ofruesit zgjidhen këtu e jo nga vlerat e paracaktuara të kodit: një mjedis i vërtetë
     # nuk duhet të varet nga ajo çka ndodh të jetë default.
     { name = "MAPS_PROVIDER", value = var.maps_provider },
+    # Numri që merr SUPER_ADMIN në nisje, dhe vetëm nëse sistemi ende nuk ka asnjë. Pa këtë,
+    # administratori i parë nuk lind kurrë dhe paneli mbetet i pahapshëm.
+    { name = "BOOTSTRAP_ADMIN_PHONE", value = var.bootstrap_admin_phone },
     { name = "SMS_PROVIDER", value = var.sms_provider },
     { name = "PAYMENT_PROVIDER", value = var.payment_provider },
     { name = "PUSH_PROVIDER", value = var.push_provider },

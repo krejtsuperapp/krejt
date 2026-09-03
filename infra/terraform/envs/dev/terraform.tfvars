@@ -31,3 +31,8 @@ api_max_count            = 6
 api_desired_count        = 1
 worker_desired_count     = 1
 centrifugo_desired_count = 1
+
+# Numri që bëhet administratori i parë. Vepron një herë: pasi një administrator ekziston,
+# ky cilësim nuk bën më asgjë.
+bootstrap_admin_phone = "+38344123456"
+

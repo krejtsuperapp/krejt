@@ -66,6 +66,7 @@ module "ecs" {
   app_secret_arns          = module.security.secret_arns
   public_base_url          = var.public_base_url
   maps_provider            = var.maps_provider
+  bootstrap_admin_phone    = var.bootstrap_admin_phone
   sms_provider             = var.sms_provider
   payment_provider         = var.payment_provider
   push_provider            = var.push_provider
