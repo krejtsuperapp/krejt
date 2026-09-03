@@ -322,7 +322,10 @@ func (s *Service) Apply(ctx context.Context, a principal.Actor, in ApplyInput) (
 
 // Mine — merchant-ët ku aktori është staf.
 func (s *Service) Mine(ctx context.Context, a principal.Actor) ([]Merchant, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+merchantCols+` FROM merchants m JOIN merchant_staff st ON st.merchant_id = m.id WHERE st.user_id = $1 ORDER BY m.created_at`, a.UserID)
+	// Pa JOIN: merchant_staff ka edhe ajo created_at, dhe kolonat e papërcaktuara bëheshin të
+	// dykuptimta — kërkesa dështonte me 500 sapo një përdorues kishte ndonjë tregtar.
+	rows, err := s.pool.Query(ctx, `SELECT `+merchantCols+` FROM merchants
+		WHERE id IN (SELECT merchant_id FROM merchant_staff WHERE user_id = $1) ORDER BY created_at`, a.UserID)
 	if err != nil {
 		return nil, err
 	}

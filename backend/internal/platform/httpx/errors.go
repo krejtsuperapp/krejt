@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"krejt.app/backend/internal/platform/logx"
@@ -96,6 +97,9 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	}
 	if api.HTTPStatus >= 500 && api.Err != nil {
 		report(r.Context(), api.Err)
+		// Edhe te log-u, jo vetëm te Sentry: një 500 duhet të gjendet me request_id nga CloudWatch
+		// pa hapur asnjë panel tjetër. Defekti i merchant/mine u kërkua kot te log-u derisa u shtua kjo.
+		logx.From(r.Context(), slog.Default()).Error("http 5xx", "method", r.Method, "path", r.URL.Path, "err", api.Err.Error())
 	}
 	var env errorEnvelope
 	env.Error.Code = api.Code
