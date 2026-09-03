@@ -70,6 +70,8 @@ module "ecs" {
   maps_provider            = var.maps_provider
   bootstrap_admin_phone    = var.bootstrap_admin_phone
   documents_required       = var.documents_required
+  dev_test_phones          = var.dev_test_phones
+  dev_test_otp             = var.dev_test_otp
   sms_provider             = var.sms_provider
   payment_provider         = var.payment_provider
   push_provider            = var.push_provider

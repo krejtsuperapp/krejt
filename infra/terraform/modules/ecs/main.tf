@@ -374,6 +374,9 @@ locals {
     { name = "BOOTSTRAP_ADMIN_PHONE", value = var.bootstrap_admin_phone },
     # Vetëm dev: aprovimi i shoferit pa dokumente. Serveri e refuzon vlerën jashtë development.
     { name = "DOCUMENTS_REQUIRED", value = var.documents_required ? "true" : "false" },
+    # Vetëm dev: numra prove me kod fiks, pa SMS. Serveri refuzon të niset me to jashtë development.
+    { name = "DEV_TEST_PHONES", value = join(",", var.dev_test_phones) },
+    { name = "DEV_TEST_OTP", value = var.dev_test_otp },
     { name = "SMS_PROVIDER", value = var.sms_provider },
     { name = "PAYMENT_PROVIDER", value = var.payment_provider },
     { name = "PUSH_PROVIDER", value = var.push_provider },
