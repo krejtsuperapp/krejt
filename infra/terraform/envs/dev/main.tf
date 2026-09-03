@@ -74,7 +74,7 @@ module "ecs" {
   infobip_sender           = var.infobip_sender
   otlp_endpoint            = var.otlp_endpoint
   alb_enabled              = var.alb_enabled
-  acm_certificate_arn      = var.acm_certificate_arn
+  acm_certificate_arn      = local.certificate_arn
   protect                  = false
   api_desired_count        = var.api_desired_count
   worker_desired_count     = var.worker_desired_count
@@ -136,4 +136,25 @@ module "cicd" {
   task_role_arn       = module.ecs.task_role_arn
   exec_role_arn       = module.ecs.exec_role_arn
   tags                = local.tags
+}
+
+# --- certifikata e ALB-së ------------------------------------------------------
+# E mban Terraform-i, që të mos mbetet burim i krijuar me dorë. Validimi bëhet me DNS:
+# pas apply-t të parë, `terraform output acm_validation_record` jep regjistrimin që
+# duhet shtuar te Cloudflare **me proxy të fikur** — validimi i ACM-së nuk kalon përmes tij.
+resource "aws_acm_certificate" "api" {
+  count             = var.domain_name == "" ? 0 : 1
+  domain_name       = var.domain_name
+  validation_method = "DNS"
+  tags              = local.tags
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+locals {
+  # Certifikata e vetë Terraform-it ka përparësi; `acm_certificate_arn` mbetet për një
+  # certifikatë të lëshuar diku tjetër.
+  certificate_arn = var.domain_name == "" ? var.acm_certificate_arn : one(aws_acm_certificate.api[*].arn)
 }

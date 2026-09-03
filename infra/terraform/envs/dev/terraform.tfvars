@@ -20,7 +20,7 @@ sms_provider = "devlog"
 infobip_base_url = "https://rk8n2y.api.infobip.com"
 infobip_sender   = "KREJT"
 
-# ARN-ja e certifikatës për dev.krejt.app, e lëshuar në eu-central-1. ALB-ja nuk ngrihet pa të.
+# Certifikatën e krijon Terraform-i për domain_name; kjo mbetet vetëm nëse do të përdorësh një të lëshuar diku tjetër.
 acm_certificate_arn = ""
 
 # Rriten në 1 pasi imazhi i parë të jetë në ECR.

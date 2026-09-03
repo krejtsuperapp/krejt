@@ -19,6 +19,12 @@ variable "assets_bucket_name" {
   type = string
 }
 
+variable "domain_name" {
+  description = "Domeni i API-së për këtë mjedis. Bosh = certifikata nuk krijohet nga Terraform."
+  type        = string
+  default     = "api.krejt.app"
+}
+
 variable "acm_certificate_arn" {
   description = "Certifikata për krejt.app. ALB-ja nuk ngrihet pa të."
   type        = string
