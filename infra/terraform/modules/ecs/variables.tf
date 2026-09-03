@@ -103,6 +103,12 @@ variable "public_base_url" {
 
 # Ofruesit e jashtëm zgjidhen për mjedis. Vlerat "dev*" i pranon vetëm APP_ENV=development;
 # në staging dhe prod backend-i i refuzon, ndaj një gabim shtypi nuk kalon në heshtje.
+variable "bootstrap_admin_phone" {
+  description = "Numri (E.164) që merr SUPER_ADMIN në nisje, vetëm nëse ende nuk ka asnjë administrator."
+  type        = string
+  default     = ""
+}
+
 variable "sms_provider" {
   description = "infobip | devlog (vetëm development)"
   type        = string

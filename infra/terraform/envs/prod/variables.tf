@@ -58,6 +58,12 @@ variable "public_base_url" {
   type        = string
 }
 
+variable "bootstrap_admin_phone" {
+  description = "Numri (E.164) që merr SUPER_ADMIN në nisje, vetëm nëse ende nuk ka asnjë administrator."
+  type        = string
+  default     = ""
+}
+
 variable "sms_provider" {
   description = "infobip | devlog (vetëm development)"
   type        = string

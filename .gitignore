@@ -45,3 +45,5 @@ apps/*/ios/Flutter/ephemeral/
 apps/*/macos/Flutter/ephemeral/
 apps/*/windows/flutter/ephemeral/
 apps/*/linux/flutter/ephemeral/
+apps/dart-defines*.json
+!apps/dart-defines.example.json

@@ -165,6 +165,15 @@ func main() {
 	// --- modulet -----------------------------------------------------------------
 	ledgerSvc := ledger.New(pool)
 	authSvc := auth.New(pool, rdb, smsProvider, signer, ledgerSvc, pepper)
+	// Ndezja fillestare e stafit: pa të, asnjë administrator nuk lind kurrë, sepse të drejtat
+	// jepen vetëm nga një administrator ekzistues. Vepron një herë të vetme dhe hesht më pas.
+	if granted, err := authSvc.BootstrapAdmin(ctx, cfg.BootstrapAdminPhone); err != nil {
+		// Nuk e ndal serverin: një numër i shkruar gabim nuk duhet ta lërë API-në pa u ngritur.
+		log.Warn("bootstrap admin", "err", err)
+	} else if granted {
+		log.Info("bootstrap admin: SUPER_ADMIN u dha", "phone", cfg.BootstrapAdminPhone)
+	}
+
 	locSvc := location.New(rdb, pool).WithRealtime(rtPub)
 	pricingSvc := pricing.New(pool, mapsProvider, locSvc)
 	docsSvc := documents.New(pool, store)
