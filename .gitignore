@@ -47,3 +47,4 @@ apps/*/windows/flutter/ephemeral/
 apps/*/linux/flutter/ephemeral/
 apps/dart-defines*.json
 !apps/dart-defines.example.json
+apps/keys/

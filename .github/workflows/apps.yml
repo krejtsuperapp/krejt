@@ -121,3 +121,84 @@ jobs:
           path: apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 14
           if-no-files-found: error
+
+  # Pas çdo bashkimi në main: APK release, e nënshkruar me çelësin e provës (i njëjti si te makina
+  # e zhvilluesit, që versioni i ri të instalohet mbi të vjetrin), ngarkohet te Firebase App
+  # Distribution. Testuesit marrin njoftim në telefon dhe e instalojnë me një prekje.
+  distribute:
+    name: shpërndarja (${{ matrix.app }})
+    needs: analyze
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [customer, driver]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: token-i i shkarkimit të Mapbox-it
+        env:
+          MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.gradle
+          printf 'MAPBOX_DOWNLOADS_TOKEN=%s\n' "$MAPBOX_DOWNLOADS_TOKEN" >> ~/.gradle/gradle.properties
+
+      # Çelësi i provës: vetëm për shpërndarje testimi, jo për dyqan. Ai i dyqanit vjen më vonë, i
+      # ndarë, dhe nuk kalon kurrë nga CI-ja pa vendim të pronarit.
+      - name: çelësi i nënshkrimit
+        env:
+          KS_B64: ${{ secrets.ANDROID_TEST_KEYSTORE_B64 }}
+          KS_PASSWORD: ${{ secrets.ANDROID_TEST_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p apps/keys
+          printf '%s' "$KS_B64" | base64 -d > apps/keys/krejt-test.jks
+          cat > apps/${{ matrix.app }}/android/key.properties <<EOF
+          storeFile=../../keys/krejt-test.jks
+          storePassword=$KS_PASSWORD
+          keyAlias=krejt-test
+          keyPassword=$KS_PASSWORD
+          EOF
+
+      - name: pub get
+        run: |
+          set -euo pipefail
+          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push apps/${{ matrix.app }}; do
+            (cd "$d" && flutter pub get)
+          done
+
+      - name: build apk (release, arm64)
+        working-directory: apps/${{ matrix.app }}
+        env:
+          APP_ID: ${{ matrix.app == 'customer' && vars.FIREBASE_APP_ID_CUSTOMER || vars.FIREBASE_APP_ID_DRIVER }}
+        run: |
+          set -euo pipefail
+          version="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)"
+          flutter build apk --release --split-per-abi --target-platform android-arm64 \
+            --dart-define=KREJT_API_BASE_URL=${{ vars.KREJT_API_BASE_URL }} \
+            --dart-define=KREJT_APP_VERSION="$version" \
+            --dart-define=KREJT_MAPBOX_TOKEN=${{ secrets.MAPBOX_PUBLIC_TOKEN }} \
+            --dart-define=KREJT_FIREBASE_API_KEY=${{ vars.KREJT_FIREBASE_API_KEY }} \
+            --dart-define=KREJT_FIREBASE_APP_ID="$APP_ID" \
+            --dart-define=KREJT_FIREBASE_SENDER_ID=${{ vars.KREJT_FIREBASE_SENDER_ID }} \
+            --dart-define=KREJT_FIREBASE_PROJECT_ID=${{ vars.KREJT_FIREBASE_PROJECT_ID }}
+
+      - name: ngarko te Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ matrix.app == 'customer' && vars.FIREBASE_APP_ID_CUSTOMER || vars.FIREBASE_APP_ID_DRIVER }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          testers: ${{ vars.FIREBASE_TESTERS }}
+          file: apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          releaseNotes: ${{ github.event.head_commit.message }}
