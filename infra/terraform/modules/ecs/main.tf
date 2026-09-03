@@ -488,8 +488,18 @@ resource "aws_ecs_task_definition" "centrifugo" {
     image        = "centrifugo/centrifugo:${var.centrifugo_version}"
     essential    = true
     portMappings = [{ containerPort = 8000, protocol = "tcp" }]
-    command      = ["centrifugo", "--health", "--admin=false", "--engine=redis", "--redis_address=rediss://${var.redis_endpoint}:6379", "--redis_cluster_address=rediss://${var.redis_endpoint}:6379", "--allowed_origins=https://krejt.app,https://*.krejt.app"]
-    environment  = [{ name = "CENTRIFUGO_PORT", value = "8000" }]
+    # Te Centrifugo v5 vetëm një pjesë e vogël e cilësimeve janë flamuj rreshti; pjesa tjetër
+    # jepet si mjedis. `--redis_cluster_address` si flamur nuk ekziston, dhe pikërisht ai e ndalonte
+    # nisjen. Adresa e cluster-it mbetet e domosdoshme: Redis-i ynë e ka modalitetin cluster të
+    # ndezur dhe endpoint-i është ai i konfigurimit, ndaj një klient jo-cluster do të dështonte
+    # te ridrejtimet.
+    command = ["centrifugo", "--health", "--admin=false", "--engine=redis"]
+    environment = [
+      { name = "CENTRIFUGO_PORT", value = "8000" },
+      { name = "CENTRIFUGO_REDIS_CLUSTER_ADDRESS", value = "rediss://${var.redis_endpoint}:6379" },
+      # Lista ndahet me hapësirë, jo me presje: kështu i lexon Centrifugo listat nga mjedisi.
+      { name = "CENTRIFUGO_ALLOWED_ORIGINS", value = "https://krejt.app https://*.krejt.app" },
+    ]
     secrets = [
       { name = "CENTRIFUGO_TOKEN_HMAC_SECRET_KEY", valueFrom = "${var.centrifugo_secret_arn}:token_hmac_secret_key::" },
       { name = "CENTRIFUGO_API_KEY", valueFrom = "${var.centrifugo_secret_arn}:api_key::" },
