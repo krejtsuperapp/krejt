@@ -6,7 +6,9 @@ import 'package:provider/provider.dart';
 
 import '../../state/app_state.dart';
 
-const reviewTags = ['clean', 'safe', 'fast', 'polite', 'route'];
+/// Emrat janë ata të serverit (reviews.CustomerTags): një etiketë e panjohur refuzon gjithë
+/// vlerësimin me 422, ndaj lista nuk shpiket këtu.
+const reviewTags = ['clean_car', 'friendly', 'safe_driving', 'great_route'];
 
 /// Vlerësimi pas udhëtimit. Kalimi lejohet: një vlerësim i detyruar është një vlerësim i rremë (§30).
 class ReviewScreen extends StatefulWidget {
