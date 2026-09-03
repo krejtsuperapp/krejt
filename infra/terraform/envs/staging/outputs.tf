@@ -13,3 +13,15 @@ output "kms_key_arn" { value = module.security.kms_key_arn }
 output "provider_secret_arns" { value = module.security.secret_arns }
 output "deploy_role_arn" { value = module.cicd.deploy_role_arn }
 output "ecs_cluster_name" { value = module.ecs.cluster_name }
+
+# Regjistrimi që duhet shtuar te Cloudflare për ta validuar certifikatën.
+output "acm_validation_record" {
+  description = "CNAME i validimit; shtohet te Cloudflare me proxy të fikur."
+  value = try({
+    emri  = tolist(aws_acm_certificate.api[0].domain_validation_options)[0].resource_record_name
+    lloji = tolist(aws_acm_certificate.api[0].domain_validation_options)[0].resource_record_type
+    vlera = tolist(aws_acm_certificate.api[0].domain_validation_options)[0].resource_record_value
+  }, null)
+}
+
+output "acm_certificate_arn" { value = local.certificate_arn }
