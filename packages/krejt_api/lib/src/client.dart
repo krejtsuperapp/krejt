@@ -288,6 +288,10 @@ class KrejtApi {
 
   Future<Me> me() async => Me.fromJson(await _get('/api/v1/users/me'));
 
+  /// Fshirja e llogarisë. Serveri heq të dhënat personale, revokon sesionet dhe kërkon që kuleta
+  /// të jetë bosh; ndryshe kthen WALLET_NOT_EMPTY.
+  Future<void> deleteAccount() => _delete('/api/v1/users/me');
+
   Future<Me> updateProfile({String? fullName, String? email, String? locale}) async {
     await _patch(
       '/api/v1/users/me',
