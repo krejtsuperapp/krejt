@@ -63,6 +63,8 @@ func Map(ev events.Event) ([]Target, error) {
 		}
 	}
 	rideLink := func() string { return "krejt://rides/" + p.str("ride_id") }
+	orderLink := func() string { return "krejt://orders/" + p.str("order_id") }
+	parcelLink := func() string { return "krejt://parcels/" + p.str("parcel_id") }
 	switch ev.EventType {
 	case "RideOffered":
 		did, ok := p.uuid("driver_id")
@@ -136,6 +138,104 @@ func Map(ev events.Event) ([]Target, error) {
 			return nil, nil
 		}
 		return []Target{{UserID: cid, Category: "payments", TextKey: key, Params: map[string]string{"ride_id": p.str("ride_id")}, DeepLink: rideLink(), Priority: "normal"}}, nil
+	// --- porositë e ushqimit/marketit (§19) -------------------------------------------------
+	case "OrderCreated":
+		// Partneri e mëson porosinë e re menjëherë; klienti e sheh gjendjen te aplikacioni.
+		oid, ok := p.uuid("owner_id")
+		if !ok {
+			return nil, nil
+		}
+		return []Target{{UserID: oid, Category: "orders", TextKey: "notif.order.new",
+			Params:   map[string]string{"order_id": p.str("order_id"), "code": p.str("code"), "total_minor": fmt.Sprint(p.int64("total_minor"))},
+			DeepLink: "krejt://merchant/orders/" + p.str("order_id"), Priority: "high", Collapse: "order:" + p.str("order_id")}}, nil
+	case "OrderAccepted", "OrderPreparing", "OrderReady", "OrderRejected":
+		cid, ok := p.uuid("customer_id")
+		if !ok {
+			return nil, nil
+		}
+		key := map[string]string{"OrderAccepted": "notif.order.accepted", "OrderPreparing": "notif.order.preparing",
+			"OrderReady": "notif.order.ready", "OrderRejected": "notif.order.rejected"}[ev.EventType]
+		// "Gati" e ka kuptimin te marrja në vend; me korrier klienti pret dorëzimin.
+		if ev.EventType == "OrderReady" && p.str("fulfillment") == "courier" {
+			return nil, nil
+		}
+		return []Target{{UserID: cid, Category: "orders", TextKey: key,
+			Params:   map[string]string{"order_id": p.str("order_id"), "code": p.str("code"), "reason": p.str("reason")},
+			DeepLink: orderLink(), Priority: "high", Collapse: "order:" + p.str("order_id")}}, nil
+	case "OrderOffered":
+		did, ok := p.uuid("courier_id")
+		if !ok {
+			return nil, nil
+		}
+		return []Target{{UserID: did, Category: "orders", TextKey: "notif.order.offer",
+			Params:   map[string]string{"offer_id": p.str("offer_id"), "order_id": p.str("order_id")},
+			DeepLink: "krejt://courier/offers/" + p.str("offer_id"), Priority: "high", TTL: 25 * time.Second, Collapse: "offer:" + p.str("order_id")}}, nil
+	case "OrderCourierAssigned", "OrderPickedUp":
+		cid, ok := p.uuid("customer_id")
+		if !ok {
+			return nil, nil
+		}
+		key := "notif.order.courier"
+		if ev.EventType == "OrderPickedUp" {
+			key = "notif.order.on_the_way"
+		}
+		return []Target{{UserID: cid, Category: "orders", TextKey: key, Params: map[string]string{"order_id": p.str("order_id"), "code": p.str("code")},
+			DeepLink: orderLink(), Priority: "high", Collapse: "order:" + p.str("order_id")}}, nil
+	case "OrderDelivered":
+		cid, ok := p.uuid("customer_id")
+		if !ok {
+			return nil, nil
+		}
+		return []Target{{UserID: cid, Category: "orders", TextKey: "notif.order.delivered", Params: map[string]string{"order_id": p.str("order_id"), "code": p.str("code")},
+			DeepLink: orderLink(), Priority: "normal", Collapse: "order:" + p.str("order_id")}}, nil
+	case "OrderCancelled":
+		// Klientit i thotë kush e anuloi; korrierit vetëm kur e kishte pranuar.
+		var out []Target
+		if p.str("by") != "customer" {
+			if cid, ok := p.uuid("customer_id"); ok {
+				out = append(out, Target{UserID: cid, Category: "orders", TextKey: "notif.order.cancelled",
+					Params: map[string]string{"order_id": p.str("order_id"), "code": p.str("code"), "reason": p.str("reason")}, DeepLink: orderLink(), Priority: "high"})
+			}
+		}
+		if did, ok := p.uuid("courier_id"); ok && p.str("by") != "courier" {
+			out = append(out, Target{UserID: did, Category: "orders", TextKey: "notif.order.cancelled.courier",
+				Params: map[string]string{"order_id": p.str("order_id"), "code": p.str("code")}, DeepLink: "krejt://courier/orders/" + p.str("order_id"), Priority: "high"})
+		}
+		return out, nil
+
+	// --- pakot (§21) -----------------------------------------------------------------------
+	case "ParcelOffered":
+		did, ok := p.uuid("courier_id")
+		if !ok {
+			return nil, nil
+		}
+		return []Target{{UserID: did, Category: "orders", TextKey: "notif.parcel.offer",
+			Params:   map[string]string{"offer_id": p.str("offer_id"), "parcel_id": p.str("parcel_id")},
+			DeepLink: "krejt://courier/parcel-offers/" + p.str("offer_id"), Priority: "high", TTL: 25 * time.Second, Collapse: "parcel-offer:" + p.str("parcel_id")}}, nil
+	case "ParcelCourierAssigned", "ParcelPickedUp", "ParcelDelivered":
+		cid, ok := p.uuid("customer_id")
+		if !ok {
+			return nil, nil
+		}
+		key := map[string]string{"ParcelCourierAssigned": "notif.parcel.courier", "ParcelPickedUp": "notif.parcel.picked_up",
+			"ParcelDelivered": "notif.parcel.delivered"}[ev.EventType]
+		priority := "high"
+		if ev.EventType == "ParcelDelivered" {
+			priority = "normal"
+		}
+		return []Target{{UserID: cid, Category: "orders", TextKey: key, Params: map[string]string{"parcel_id": p.str("parcel_id"), "code": p.str("code")},
+			DeepLink: parcelLink(), Priority: priority, Collapse: "parcel:" + p.str("parcel_id")}}, nil
+	case "ParcelNoCourier":
+		// payload-i mban vetëm parcel_id: klienti lexohet nga baza (Handle e plotëson)
+		return []Target{{Category: "orders", TextKey: "notif.parcel.no_courier", Params: map[string]string{"parcel_id": p.str("parcel_id")},
+			DeepLink: parcelLink(), Priority: "high"}}, nil
+	case "ParcelCancelled":
+		if did, ok := p.uuid("courier_id"); ok && p.str("by") == "customer" {
+			return []Target{{UserID: did, Category: "orders", TextKey: "notif.parcel.cancelled.courier",
+				Params:   map[string]string{"parcel_id": p.str("parcel_id"), "code": p.str("code")},
+				DeepLink: "krejt://courier/parcels/" + p.str("parcel_id"), Priority: "high"}}, nil
+		}
+		return nil, nil
 	case "WalletToppedUp":
 		uid, ok := p.uuid("user_id")
 		if !ok {
@@ -233,16 +333,23 @@ func (s *Service) Handle(ctx context.Context, ev events.Event) error {
 	return nil
 }
 
+// fillUser — disa ngjarje mbajnë vetëm id-në e udhëtimit/pakos; marrësi lexohet nga baza.
 func (s *Service) fillUser(ctx context.Context, t *Target) error {
-	rid, err := uuid.Parse(t.Params["ride_id"])
-	if err != nil {
-		return nil
+	if rid, err := uuid.Parse(t.Params["ride_id"]); err == nil {
+		err = s.pool.QueryRow(ctx, `SELECT customer_id FROM rides WHERE id = $1`, rid).Scan(&t.UserID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
 	}
-	err = s.pool.QueryRow(ctx, `SELECT customer_id FROM rides WHERE id = $1`, rid).Scan(&t.UserID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
+	if pid, err := uuid.Parse(t.Params["parcel_id"]); err == nil {
+		err = s.pool.QueryRow(ctx, `SELECT customer_id FROM parcels WHERE id = $1`, pid).Scan(&t.UserID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
 	}
-	return err
+	return nil
 }
 
 func (s *Service) deliver(ctx context.Context, ev events.Event, t Target) error {
