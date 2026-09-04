@@ -227,7 +227,7 @@ func TestOrderWalletFlowWithCourier(t *testing.T) {
 	if err != nil || assigned.State != StateCourierAssigned || assigned.CourierID == nil {
 		t.Fatalf("accept offer: %+v err=%v", assigned, err)
 	}
-	if _, err := e.svc.PickUp(e.ctx, courier, o.ID, "XXXXXX"); !errors.Is(err, httpx.ErrValidation) {
+	if _, err := e.svc.PickUp(e.ctx, courier, o.ID, "XXXXXX"); !errors.Is(err, ErrPickupCode) {
 		t.Fatalf("kod i gabuar: %v", err)
 	}
 	if _, err := e.svc.PickUp(e.ctx, courier, o.ID, assigned.Code); err != nil {
