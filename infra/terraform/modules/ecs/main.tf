@@ -361,6 +361,9 @@ locals {
 
   common_env = [
     { name = "APP_ENV", value = local.app_env },
+    # Versioni i shërbyer nga /api/v1/version. Terraform-i vendos vetëm vendmbajtësin; deploy-i e
+    # zëvendëson me SHA-në e commit-it, dhe health-check-u i mjedisit e krahason pikërisht atë.
+    { name = "APP_VERSION", value = "dev" },
     { name = "AWS_REGION", value = data.aws_region.this.name },
     { name = "S3_ASSETS_BUCKET", value = var.assets_bucket_name },
     # Imazhet publike: bucket i veçantë dhe baza e CloudFront-it nga ku i lexojnë klientët.
@@ -400,24 +403,30 @@ locals {
   # Sekretet e aplikacionit (vlerat futen me dorë në Secrets Manager; task-et nuk nisen pa to):
   #  - krejt-<env>/jwt: JSON { "private_key_pem": "...", "otp_pepper": "..." }
   #  - krejt-<env>/google-maps, krejt-<env>/mapbox-token, krejt-<env>/infobip: vlera e thjeshtë (çelësi); krejt-<env>/fcm: JSON-i i llogarisë së shërbimit
-  common_secrets = [
-    { name = "DB_CREDENTIALS_JSON", valueFrom = var.aurora_master_secret_arn },
-    { name = "REDIS_AUTH", valueFrom = var.redis_auth_secret_arn },
-    { name = "JWT_PRIVATE_KEY", valueFrom = "${var.app_secret_arns["jwt"]}:private_key_pem::" },
-    { name = "OTP_PEPPER", valueFrom = "${var.app_secret_arns["jwt"]}:otp_pepper::" },
-    # Të dy ofruesit e hartave janë të lidhur; MAPS_PROVIDER vendos cili përdoret (§46).
-    { name = "GOOGLE_MAPS_KEY", valueFrom = var.app_secret_arns["google-maps"] },
-    { name = "MAPBOX_TOKEN", valueFrom = var.app_secret_arns["mapbox-token"] },
-    { name = "INFOBIP_API_KEY", valueFrom = var.app_secret_arns["infobip"] },
-    { name = "FCM_SERVICE_ACCOUNT_JSON", valueFrom = var.app_secret_arns["fcm"] },
-    { name = "STRIPE_SECRET_KEY", valueFrom = "${var.app_secret_arns["payment-provider"]}:secret_key::" },
-    { name = "STRIPE_WEBHOOK_SECRET", valueFrom = "${var.app_secret_arns["payment-provider"]}:webhook_secret::" },
-    { name = "SENTRY_DSN", valueFrom = var.app_secret_arns["sentry"] },
-    { name = "POSTHOG_KEY", valueFrom = var.app_secret_arns["posthog"] },
-    { name = "OTEL_EXPORTER_OTLP_HEADERS", valueFrom = var.app_secret_arns["otel"] },
-    { name = "CENTRIFUGO_API_KEY", valueFrom = "${var.centrifugo_secret_arn}:api_key::" },
-    { name = "CENTRIFUGO_TOKEN_HMAC_SECRET", valueFrom = "${var.centrifugo_secret_arn}:token_hmac_secret_key::" },
-  ]
+  # Injektohen vetëm sekretet që ky mjedis i përdor vërtet. ECS-ja nuk e nis task-un kur një sekret
+  # i referuar është bosh (ResourceNotFoundException: AWSCURRENT), ndaj një ofrues i pandezur nuk
+  # duhet ta bllokojë ngritjen — kështu staging-u punon me Mapbox pa pasur çelës Google.
+  common_secrets = concat(
+    [
+      { name = "DB_CREDENTIALS_JSON", valueFrom = var.aurora_master_secret_arn },
+      { name = "REDIS_AUTH", valueFrom = var.redis_auth_secret_arn },
+      { name = "JWT_PRIVATE_KEY", valueFrom = "${var.app_secret_arns["jwt"]}:private_key_pem::" },
+      { name = "OTP_PEPPER", valueFrom = "${var.app_secret_arns["jwt"]}:otp_pepper::" },
+      { name = "CENTRIFUGO_API_KEY", valueFrom = "${var.centrifugo_secret_arn}:api_key::" },
+      { name = "CENTRIFUGO_TOKEN_HMAC_SECRET", valueFrom = "${var.centrifugo_secret_arn}:token_hmac_secret_key::" },
+    ],
+    var.maps_provider == "google" ? [{ name = "GOOGLE_MAPS_KEY", valueFrom = var.app_secret_arns["google-maps"] }] : [],
+    var.maps_provider == "mapbox" ? [{ name = "MAPBOX_TOKEN", valueFrom = var.app_secret_arns["mapbox-token"] }] : [],
+    var.sms_provider == "infobip" ? [{ name = "INFOBIP_API_KEY", valueFrom = var.app_secret_arns["infobip"] }] : [],
+    var.push_provider == "fcm" ? [{ name = "FCM_SERVICE_ACCOUNT_JSON", valueFrom = var.app_secret_arns["fcm"] }] : [],
+    var.payment_provider == "stripe" ? [
+      { name = "STRIPE_SECRET_KEY", valueFrom = "${var.app_secret_arns["payment-provider"]}:secret_key::" },
+      { name = "STRIPE_WEBHOOK_SECRET", valueFrom = "${var.app_secret_arns["payment-provider"]}:webhook_secret::" },
+    ] : [],
+    var.analytics_provider == "posthog" ? [{ name = "POSTHOG_KEY", valueFrom = var.app_secret_arns["posthog"] }] : [],
+    var.sentry_enabled ? [{ name = "SENTRY_DSN", valueFrom = var.app_secret_arns["sentry"] }] : [],
+    var.otel_enabled ? [{ name = "OTEL_EXPORTER_OTLP_HEADERS", valueFrom = var.app_secret_arns["otel"] }] : [],
+  )
 }
 
 resource "aws_ecs_task_definition" "api" {
