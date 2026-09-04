@@ -247,6 +247,40 @@ func (s *Service) Apply(ctx context.Context, a principal.Actor, in ApplyInput) (
 	return &p, nil
 }
 
+const providerCols = `user_id, status, categories, business_name, bio, city, phone_public, rating, rating_count, jobs_done, suspended_reason, created_at`
+
+func scanProvider(row pgx.Row) (*Provider, error) {
+	var p Provider
+	if err := row.Scan(&p.UserID, &p.Status, &p.Categories, &p.BusinessName, &p.Bio, &p.City, &p.PhonePublic,
+		&p.Rating, &p.RatingCount, &p.JobsDone, &p.SuspendedReason, &p.CreatedAt); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// Providers — lista për Operacionet: aplikimet e reja të parat, që shqyrtimi të mos presë.
+func (s *Service) Providers(ctx context.Context, status string, limit int) ([]Provider, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	rows, err := s.pool.Query(ctx, `SELECT `+providerCols+` FROM service_providers
+		WHERE ($1 = '' OR status = $1)
+		ORDER BY (status = 'pending') DESC, created_at DESC LIMIT $2`, status, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Provider{}
+	for rows.Next() {
+		p, err := scanProvider(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *p)
+	}
+	return out, rows.Err()
+}
+
 func (s *Service) ProviderProfile(ctx context.Context, id uuid.UUID) (*Provider, error) {
 	var p Provider
 	err := s.pool.QueryRow(ctx, `SELECT user_id, status, categories, business_name, bio, city, phone_public, rating, rating_count, jobs_done, suspended_reason, created_at
@@ -580,7 +614,9 @@ func (s *Service) settle(ctx context.Context, r *Request) error {
 	}
 	price := money.Minor(*r.PriceMinor)
 	commission := money.Minor(r.CommissionMinor)
-	wallet := "provider:" + r.ProviderID.String() + ":wallet"
+	// I njëjti kod llogarie si te shoferët dhe korrierët: pagesat e mjeshtrave kalojnë nga e njëjta
+	// makineri payout-esh, ndryshe fitimi do të mbetej në një llogari që askush nuk e paguan.
+	wallet := "driver:" + r.ProviderID.String() + ":wallet"
 	pid := *r.ProviderID
 	if err := s.ledger.EnsureAccount(ctx, wallet, "driver", &pid, "liability", r.Currency); err != nil {
 		return err

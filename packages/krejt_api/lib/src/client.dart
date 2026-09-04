@@ -407,6 +407,72 @@ class KrejtApi {
         await _post('/api/v1/services/requests/$id/cancel', body: {'reason': ?reason}),
       );
 
+  // --------------------------------------------------------------- mjeshtri
+
+  Future<ServiceProviderProfile> serviceProviderProfile() async =>
+      ServiceProviderProfile.fromJson(await _get('/api/v1/services/provider'));
+
+  Future<ServiceProviderProfile> applyAsServiceProvider({
+    required List<String> categories,
+    required String city,
+    String? businessName,
+    String? bio,
+    String? phonePublic,
+  }) async => ServiceProviderProfile.fromJson(
+    await _post(
+      '/api/v1/services/provider',
+      body: {
+        'categories': categories,
+        'city': city,
+        'business_name': ?businessName,
+        'bio': ?bio,
+        'phone_public': ?phonePublic,
+      },
+    ),
+  );
+
+  Future<List<ServiceOpenRequest>> openServiceRequests({int limit = 20}) async {
+    final rows = await _getList('/api/v1/services/provider/open', 'items', query: {'limit': limit});
+    return rows.map(ServiceOpenRequest.fromJson).toList();
+  }
+
+  Future<List<ServiceRequest>> myServiceJobs({int limit = 20}) async {
+    final rows = await _getList('/api/v1/services/provider/jobs', 'items', query: {'limit': limit});
+    return rows.map(ServiceRequest.fromJson).toList();
+  }
+
+  /// Çmimin e vendos mjeshtri; ndryshimi lejohet derisa klienti të zgjedhë.
+  Future<ServiceOffer> makeServiceOffer(
+    String requestId, {
+    required int priceMinor,
+    String? note,
+    DateTime? canStartAt,
+  }) async => ServiceOffer.fromJson(
+    await _post(
+      '/api/v1/services/provider/requests/$requestId/offer',
+      body: {
+        'price_minor': priceMinor,
+        'note': ?note,
+        'can_start_at': ?canStartAt?.toUtc().toIso8601String(),
+      },
+    ),
+  );
+
+  Future<void> withdrawServiceOffer(String offerId) async {
+    await _post('/api/v1/services/provider/offers/$offerId/withdraw');
+  }
+
+  Future<ServiceRequest> startServiceJob(String id) async =>
+      ServiceRequest.fromJson(await _post('/api/v1/services/provider/requests/$id/start'));
+
+  Future<ServiceRequest> completeServiceJob(String id) async =>
+      ServiceRequest.fromJson(await _post('/api/v1/services/provider/requests/$id/complete'));
+
+  Future<ServiceRequest> releaseServiceJob(String id, {String? reason}) async =>
+      ServiceRequest.fromJson(
+        await _post('/api/v1/services/provider/requests/$id/release', body: {'reason': ?reason}),
+      );
+
   // ------------------------------------------------------------------ kupona
 
   /// Kontrollo një kupon para checkout-it; zbritjen e llogarit serveri.

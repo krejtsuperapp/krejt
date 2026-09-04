@@ -242,6 +242,14 @@ paths:
       summary: Mjeshtri heq dorë para nisjes (kërkesa kthehet e hapur)
       requestBody: { content: { application/json: { schema: { type: object, properties: { reason: { type: string, maxLength: 200 } } } } } }
       responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceRequest" } } } }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/admin/service-providers:
+    get:
+      tags: [services]
+      summary: Mjeshtrit për shqyrtim (OPERATIONS); aplikimet e reja të parat
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [pending, approved, suspended] } }
+        - { $ref: "#/components/parameters/Limit" }
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/ServiceProvider" } } } } } } } }
   /api/v1/admin/service-providers/{id}:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     patch:

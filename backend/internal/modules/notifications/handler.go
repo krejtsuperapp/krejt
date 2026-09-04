@@ -65,6 +65,7 @@ func Map(ev events.Event) ([]Target, error) {
 	rideLink := func() string { return "krejt://rides/" + p.str("ride_id") }
 	orderLink := func() string { return "krejt://orders/" + p.str("order_id") }
 	parcelLink := func() string { return "krejt://parcels/" + p.str("parcel_id") }
+	serviceLink := func() string { return "krejt://services/" + p.str("request_id") }
 	switch ev.EventType {
 	case "RideOffered":
 		did, ok := p.uuid("driver_id")
@@ -236,6 +237,62 @@ func Map(ev events.Event) ([]Target, error) {
 				DeepLink: "krejt://courier/parcels/" + p.str("parcel_id"), Priority: "high"}}, nil
 		}
 		return nil, nil
+	// --- shërbimet me mjeshtër (§22) ---------------------------------------------------------
+	case "ServiceOffered":
+		// Klienti lexohet nga baza: ngjarja e ofertës mban mjeshtrin, jo atë që kërkoi punën.
+		return []Target{{Category: "orders", TextKey: "notif.service.offer",
+			Params:   map[string]string{"request_id": p.str("request_id"), "price_minor": fmt.Sprint(p.int64("price_minor"))},
+			DeepLink: serviceLink(), Priority: "high", Collapse: "service:" + p.str("request_id")}}, nil
+	case "ServiceBooked":
+		did, ok := p.uuid("provider_id")
+		if !ok {
+			return nil, nil
+		}
+		return []Target{{UserID: did, Category: "orders", TextKey: "notif.service.booked",
+			Params:   map[string]string{"request_id": p.str("request_id"), "code": p.str("code"), "price_minor": fmt.Sprint(p.int64("price_minor"))},
+			DeepLink: "krejt://provider/jobs/" + p.str("request_id"), Priority: "high", Collapse: "service:" + p.str("request_id")}}, nil
+	case "ServiceStarted", "ServiceCompleted":
+		cid, ok := p.uuid("customer_id")
+		if !ok {
+			return nil, nil
+		}
+		key := "notif.service.started"
+		if ev.EventType == "ServiceCompleted" {
+			key = "notif.service.completed"
+		}
+		return []Target{{UserID: cid, Category: "orders", TextKey: key,
+			Params:   map[string]string{"request_id": p.str("request_id"), "code": p.str("code")},
+			DeepLink: serviceLink(), Priority: "normal", Collapse: "service:" + p.str("request_id")}}, nil
+	case "ServiceReleased":
+		cid, ok := p.uuid("customer_id")
+		if !ok {
+			return nil, nil
+		}
+		return []Target{{UserID: cid, Category: "orders", TextKey: "notif.service.released",
+			Params:   map[string]string{"request_id": p.str("request_id")},
+			DeepLink: serviceLink(), Priority: "high"}}, nil
+	case "ServiceCancelled":
+		if did, ok := p.uuid("provider_id"); ok && p.str("by") == "customer" {
+			return []Target{{UserID: did, Category: "orders", TextKey: "notif.service.cancelled.provider",
+				Params:   map[string]string{"request_id": p.str("request_id"), "code": p.str("code")},
+				DeepLink: "krejt://provider/jobs/" + p.str("request_id"), Priority: "high"}}, nil
+		}
+		return nil, nil
+	case "ServiceProviderStatusChanged":
+		did, ok := p.uuid("provider_id")
+		if !ok {
+			return nil, nil
+		}
+		switch p.str("status") {
+		case "approved":
+			return []Target{{UserID: did, Category: "support", TextKey: "notif.provider.approved",
+				DeepLink: "krejt://provider", Priority: "high"}}, nil
+		case "suspended":
+			return []Target{{UserID: did, Category: "support", TextKey: "notif.provider.suspended",
+				Params: map[string]string{"reason": p.str("reason")}, DeepLink: "krejt://provider", Priority: "high"}}, nil
+		}
+		return nil, nil
+
 	case "WalletToppedUp":
 		uid, ok := p.uuid("user_id")
 		if !ok {
@@ -337,6 +394,13 @@ func (s *Service) Handle(ctx context.Context, ev events.Event) error {
 func (s *Service) fillUser(ctx context.Context, t *Target) error {
 	if rid, err := uuid.Parse(t.Params["ride_id"]); err == nil {
 		err = s.pool.QueryRow(ctx, `SELECT customer_id FROM rides WHERE id = $1`, rid).Scan(&t.UserID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	if rid, err := uuid.Parse(t.Params["request_id"]); err == nil {
+		err = s.pool.QueryRow(ctx, `SELECT customer_id FROM service_requests WHERE id = $1`, rid).Scan(&t.UserID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}

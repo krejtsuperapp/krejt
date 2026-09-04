@@ -153,6 +153,46 @@ var texts = map[string]map[string][2]string{
 		"en": {"Parcel cancelled", "Parcel {code} is no longer being sent."},
 		"de": {"Paket storniert", "Paket {code} wird nicht mehr versendet."},
 	},
+	"notif.service.offer": {
+		"sq": {"Ofertë e re", "Një mjeshtër ofroi {price}. Shihe dhe zgjidh."},
+		"en": {"New offer", "A professional offered {price}. Take a look and choose."},
+		"de": {"Neues Angebot", "Eine Fachkraft bietet {price}. Schau es dir an und wähle."},
+	},
+	"notif.service.booked": {
+		"sq": {"Puna është e jotja", "Kërkesa {code} · {price}. Klienti zgjodhi ofertën tënde."},
+		"en": {"The job is yours", "Request {code} · {price}. The customer chose your offer."},
+		"de": {"Der Auftrag gehört dir", "Anfrage {code} · {price}. Der Kunde hat dein Angebot gewählt."},
+	},
+	"notif.service.started": {
+		"sq": {"Puna filloi", "Mjeshtri nisi punën për {code}."},
+		"en": {"Work started", "The professional started on {code}."},
+		"de": {"Arbeit begonnen", "Die Fachkraft hat mit {code} begonnen."},
+	},
+	"notif.service.completed": {
+		"sq": {"Puna përfundoi", "Kërkesa {code} u mbyll. Faleminderit!"},
+		"en": {"Work finished", "Request {code} is closed. Thank you!"},
+		"de": {"Arbeit erledigt", "Anfrage {code} ist abgeschlossen. Danke!"},
+	},
+	"notif.service.released": {
+		"sq": {"Mjeshtri hoqi dorë", "Kërkesa u kthye e hapur; zgjidh një mjeshtër tjetër."},
+		"en": {"The professional stepped back", "Your request is open again; choose someone else."},
+		"de": {"Die Fachkraft ist abgesprungen", "Deine Anfrage ist wieder offen; wähle jemand anderen."},
+	},
+	"notif.service.cancelled.provider": {
+		"sq": {"Puna u anulua", "Klienti anuloi kërkesën {code}."},
+		"en": {"Job cancelled", "The customer cancelled request {code}."},
+		"de": {"Auftrag storniert", "Der Kunde hat Anfrage {code} storniert."},
+	},
+	"notif.provider.approved": {
+		"sq": {"Llogaria u miratua", "Tani mund të dërgosh oferta për punët e hapura."},
+		"en": {"Account approved", "You can now send offers for open jobs."},
+		"de": {"Konto freigegeben", "Du kannst jetzt Angebote für offene Aufträge senden."},
+	},
+	"notif.provider.suspended": {
+		"sq": {"Llogaria u pezullua", "{reason}"},
+		"en": {"Account suspended", "{reason}"},
+		"de": {"Konto gesperrt", "{reason}"},
+	},
 	"notif.wallet.topup": {
 		"sq": {"Wallet-i u mbush", "{amount} u shtua në KREJT Wallet."},
 		"en": {"Wallet topped up", "{amount} was added to your KREJT Wallet."},

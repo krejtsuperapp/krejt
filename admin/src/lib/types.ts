@@ -110,6 +110,21 @@ export type Flag = {
   description: string | null;
 };
 
+export type ServiceProvider = {
+  user_id: string;
+  status: "pending" | "approved" | "suspended";
+  categories: string[];
+  business_name: string | null;
+  bio: string | null;
+  city: string;
+  phone_public: string | null;
+  rating: number | null;
+  rating_count: number;
+  jobs_done: number;
+  suspended_reason: string | null;
+  created_at: string;
+};
+
 export type Coupon = {
   code: string;
   kind: "percent" | "fixed";

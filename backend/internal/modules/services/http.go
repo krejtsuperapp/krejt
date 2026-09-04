@@ -30,6 +30,7 @@ func (s *Service) Routes(mux *http.ServeMux, requireAuth, requireOps httpx.Middl
 	mux.Handle("POST /api/v1/services/provider/requests/{id}/complete", requireAuth(principal.Handler(s.step(StateCompleted))))
 	mux.Handle("POST /api/v1/services/provider/requests/{id}/release", requireAuth(principal.Handler(s.step(StateOpen))))
 
+	mux.Handle("GET /api/v1/admin/service-providers", requireOps(principal.Handler(s.handleProviders)))
 	mux.Handle("PATCH /api/v1/admin/service-providers/{id}", requireOps(principal.Handler(s.handleSetStatus)))
 }
 
@@ -186,6 +187,12 @@ func (s *Service) step(to string) func(http.ResponseWriter, *http.Request, princ
 		req, err := s.Step(r.Context(), a, id, to, in.Reason)
 		respond(w, r, req, err)
 	}
+}
+
+func (s *Service) handleProviders(w http.ResponseWriter, r *http.Request, _ principal.Actor) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	items, err := s.Providers(r.Context(), r.URL.Query().Get("status"), limit)
+	respond(w, r, map[string]any{"items": items}, err)
 }
 
 func (s *Service) handleSetStatus(w http.ResponseWriter, r *http.Request, a principal.Actor) {
