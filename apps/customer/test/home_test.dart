@@ -103,7 +103,7 @@ void main() {
     await tester.pumpAndSettle();
     // Ushqimi dhe marketi janë të fikur në konfigurimin e paracaktuar; korrieri dhe shërbimet
     // janë ende të pandërtuara, ndaj shënohen gjithmonë "së shpejti".
-    expect(find.text('Së shpejti'), findsNWidgets(3));
+    expect(find.text('Së shpejti'), findsNWidgets(2));
   });
 
   testWidgets('llogaria tregon inicialet dhe gjuhën aktive', (tester) async {

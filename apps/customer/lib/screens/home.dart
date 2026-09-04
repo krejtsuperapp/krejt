@@ -128,13 +128,13 @@ class _HomeScreenState extends State<HomeScreen> {
             _ServicesGrid(
               rideReady: state.config.flag('rides', fallback: true),
               foodReady: foodOn,
-              marketReady: state.config.flag('market'),
+              marketReady: state.config.flag('market', fallback: true),
               courierReady: state.config.flag('parcels', fallback: true),
               onRide: () => _open(
                 active == null ? const DestinationScreen() : TrackingScreen(rideId: active.id),
               ),
               onFood: () => _open(const DiscoverScreen()),
-              onMarket: () => _open(const DiscoverScreen()),
+              onMarket: () => _open(const DiscoverScreen(mode: DiscoverMode.market)),
               onCourier: () => _open(
                 activeParcel == null
                     ? const NewParcelScreen()
