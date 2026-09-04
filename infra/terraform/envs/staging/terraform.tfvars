@@ -34,3 +34,6 @@ push_provider      = "fcm" # sekreti fcm u kopjua nga dev-i (i njëjti projekt F
 # Base URL personale e llogarisë Infobip; e gjen te paneli i tyre (jo https://api.infobip.com).
 infobip_base_url = ""
 infobip_sender   = "KREJT"
+
+# Certifikata e paneleve u lëshua (ISSUED); lidhet me listener-in HTTPS.
+panel_cert_ready = true
