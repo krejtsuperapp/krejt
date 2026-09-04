@@ -61,7 +61,14 @@ jobs:
           set -euo pipefail
           for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push packages/krejt_screens apps/customer apps/driver; do
             echo "== $d"
-            (cd "$d" && flutter test)
+            # Një paketë pa teste nuk është dështim. `flutter test` del me 1 kur mungon dosja
+            # `test/`, dhe kjo e ndalte gjithë punën — përfshirë ndërtimin e APK-së dhe
+            # shpërndarjen te testuesit, që s'kanë asnjë lidhje me të.
+            if [ -d "$d/test" ]; then
+              (cd "$d" && flutter test)
+            else
+              echo "(pa teste)"
+            fi
           done
 
   apk:
