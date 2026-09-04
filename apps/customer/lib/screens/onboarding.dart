@@ -15,7 +15,7 @@ class OnboardingScreen extends StatefulWidget {
   static const slides = <OnboardingSlide>[
     OnboardingSlide('assets/onboarding/01.jpg', 'onboarding.s1'),
     OnboardingSlide('assets/onboarding/02.jpg', 'onboarding.s2'),
-    OnboardingSlide('assets/onboarding/03.jpg', 'onboarding.s3', soon: true),
+    OnboardingSlide('assets/onboarding/03.jpg', 'onboarding.s3'),
     OnboardingSlide('assets/onboarding/04.jpg', 'onboarding.s4'),
     OnboardingSlide('assets/onboarding/05.jpg', 'onboarding.s5', soon: true),
     OnboardingSlide('assets/onboarding/06.jpg', 'onboarding.s6'),
