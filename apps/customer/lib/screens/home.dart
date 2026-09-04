@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../services/location.dart';
 import '../state/app_state.dart';
+import 'activity.dart';
 import 'food/discover.dart';
 import 'food/menu.dart';
 import 'food/order_tracking.dart';
@@ -207,7 +208,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
               ),
             ],
-            KSectionHeader(context.t('home.recent')),
+            KSectionHeader(
+              context.t('home.recent'),
+              action: context.t('home.see_all'),
+              onAction: () => _open(const ActivityScreen()),
+            ),
             if (past.isEmpty)
               KEmpty(
                 title: context.t('home.rides.empty'),

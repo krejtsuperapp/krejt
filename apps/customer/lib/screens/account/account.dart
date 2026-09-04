@@ -4,6 +4,7 @@ import 'package:krejt_l10n/krejt_l10n.dart';
 import 'package:provider/provider.dart';
 
 import '../../state/app_state.dart';
+import '../activity.dart';
 import 'addresses.dart';
 import 'language_settings.dart';
 import 'notifications.dart';
@@ -69,6 +70,11 @@ class AccountScreen extends StatelessWidget {
             icon: Icons.person_outline,
             label: context.t('account.profile'),
             onTap: () => _open(context, const ProfileScreen()),
+          ),
+          _Entry(
+            icon: Icons.history,
+            label: context.t('activity.title'),
+            onTap: () => _open(context, const ActivityScreen()),
           ),
           _Entry(
             icon: Icons.place_outlined,
