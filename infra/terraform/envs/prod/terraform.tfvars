@@ -22,7 +22,7 @@ alert_email        = "krejtsuperapp@gmail.com"
 public_base_url = "https://api.krejt.app"
 maps_provider   = "mapbox" # google | mapbox
 # Base URL personale e llogarisë Infobip; e gjen te paneli i tyre (jo https://api.infobip.com).
-infobip_base_url = ""
+infobip_base_url = "https://rk8n2y.api.infobip.com"
 infobip_sender   = "KREJT"
 
 # Nisja: vetëm cash dhe kuletë. Karta hapet kur Stripe të jetë gati (payment_provider = "stripe"),
