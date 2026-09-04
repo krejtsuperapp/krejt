@@ -11,11 +11,21 @@ import 'images.dart';
 
 /// Një slide i karuselit: foto, etiketë e vogël neon, titull dhe veprim.
 class KHeroSlide {
-  const KHeroSlide({required this.title, this.tag, this.imageUrl, this.actionLabel, this.onTap});
+  const KHeroSlide({
+    required this.title,
+    this.tag,
+    this.imageUrl,
+    this.assetImage,
+    this.actionLabel,
+    this.onTap,
+  });
 
   final String title;
   final String? tag;
   final String? imageUrl;
+
+  /// Foto e paketuar me aplikacionin; përdoret kur nuk ka ende foto nga serveri.
+  final String? assetImage;
   final String? actionLabel;
   final VoidCallback? onTap;
 }
@@ -143,6 +153,13 @@ class _Slide extends StatelessWidget {
             children: [
               if (url != null && url.isNotEmpty)
                 KNetImage(url: url, radius: 0, fallbackIcon: Icons.storefront_outlined)
+              else if (slide.assetImage != null)
+                Image.asset(
+                  slide.assetImage!,
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                  excludeFromSemantics: true,
+                )
               else
                 const DecoratedBox(
                   decoration: BoxDecoration(

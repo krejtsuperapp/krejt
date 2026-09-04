@@ -217,12 +217,31 @@ class _HomeScreenState extends State<HomeScreen> {
   List<KHeroSlide> _slides(BuildContext context, List<Merchant> open, String locale) {
     final withCover = open.where((m) => m.coverUrl != null).take(3).toList();
     if (withCover.isEmpty) {
+      // Pa foto nga partnerët, karuseli tregon vetë shërbimet me fotot e paketuara — asnjë
+      // shifër dhe asnjë ofertë e shpikur, vetëm ajo që aplikacioni bën vërtet.
+      final active = context.read<AppState>().activeRide;
       return [
         KHeroSlide(
           tag: 'KREJT',
-          title: context.t('home.slide.brand'),
+          title: context.t('onboarding.s1.title'),
+          assetImage: 'assets/onboarding/01.jpg',
+          actionLabel: context.t('home.services.ride'),
+          onTap: () =>
+              _open(active == null ? const DestinationScreen() : TrackingScreen(rideId: active.id)),
+        ),
+        KHeroSlide(
+          tag: 'KREJT',
+          title: context.t('onboarding.s2.title'),
+          assetImage: 'assets/onboarding/02.jpg',
           actionLabel: context.t('home.services.food'),
           onTap: () => _open(const DiscoverScreen()),
+        ),
+        KHeroSlide(
+          tag: 'KREJT',
+          title: context.t('onboarding.s4.title'),
+          assetImage: 'assets/onboarding/04.jpg',
+          actionLabel: context.t('home.services.courier'),
+          onTap: () => _open(const NewParcelScreen()),
         ),
       ];
     }
