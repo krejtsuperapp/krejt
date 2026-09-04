@@ -11,6 +11,8 @@ import '../state/app_state.dart';
 import 'food/discover.dart';
 import 'food/menu.dart';
 import 'food/order_tracking.dart';
+import 'parcels/new_parcel.dart';
+import 'parcels/parcel_tracking.dart';
 import 'ride/destination.dart';
 import 'ride/tracking.dart';
 import 'wallet.dart';
@@ -99,6 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final locale = state.locale;
     final active = state.activeRide;
     final activeOrder = state.activeOrder;
+    final activeParcel = state.activeParcel;
     final past = state.recentRides.where((r) => r.isFinished).take(4).toList();
     final open = _nearby.where((m) => m.canOrder).toList();
     final foodOn = state.config.flag('food');
@@ -126,11 +129,17 @@ class _HomeScreenState extends State<HomeScreen> {
               rideReady: state.config.flag('rides', fallback: true),
               foodReady: foodOn,
               marketReady: state.config.flag('market'),
+              courierReady: state.config.flag('parcels', fallback: true),
               onRide: () => _open(
                 active == null ? const DestinationScreen() : TrackingScreen(rideId: active.id),
               ),
               onFood: () => _open(const DiscoverScreen()),
               onMarket: () => _open(const DiscoverScreen()),
+              onCourier: () => _open(
+                activeParcel == null
+                    ? const NewParcelScreen()
+                    : ParcelTrackingScreen(parcelId: activeParcel.id),
+              ),
               onPayments: () => _open(const WalletScreen()),
             ),
             if (active != null) ...[
@@ -140,6 +149,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: context.t('home.active.ride'),
                 subtitle: _rideSubtitle(context, active),
                 onTap: () => _open(TrackingScreen(rideId: active.id)),
+              ),
+            ],
+            if (activeParcel != null) ...[
+              const SizedBox(height: K.s4),
+              KNeonBanner(
+                icon: Icons.inventory_2_outlined,
+                title: context.t('parcel.active'),
+                subtitle: context.t(parcelStateKey(activeParcel.state)),
+                onTap: () => _open(ParcelTrackingScreen(parcelId: activeParcel.id)),
               ),
             ],
             if (activeOrder != null) ...[
@@ -287,18 +305,22 @@ class _ServicesGrid extends StatelessWidget {
     required this.rideReady,
     required this.foodReady,
     required this.marketReady,
+    required this.courierReady,
     required this.onRide,
     required this.onFood,
     required this.onMarket,
+    required this.onCourier,
     required this.onPayments,
   });
 
   final bool rideReady;
   final bool foodReady;
   final bool marketReady;
+  final bool courierReady;
   final VoidCallback onRide;
   final VoidCallback onFood;
   final VoidCallback onMarket;
+  final VoidCallback onCourier;
   final VoidCallback onPayments;
 
   @override
@@ -329,8 +351,9 @@ class _ServicesGrid extends StatelessWidget {
       KServiceTile(
         icon: Icons.inventory_2_outlined,
         label: context.t('home.services.courier'),
-        ready: false,
+        ready: courierReady,
         soonLabel: soon,
+        onTap: onCourier,
       ),
       KServiceTile(
         icon: Icons.handyman_outlined,

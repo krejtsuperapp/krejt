@@ -11,6 +11,7 @@ import 'active_ride.dart';
 import 'courier.dart';
 import 'documents.dart';
 import 'offer_card.dart';
+import 'parcel.dart';
 
 /// Ekrani i punës sipas markës: "Sot" me ndërruesin neon të turnit në krye, tri shifrat e
 /// ditës (nga serveri), pastaj ose kërkesa që pret përgjigje, ose udhëtimi në rrjedhë, ose
@@ -27,8 +28,10 @@ class WorkScreen extends StatelessWidget {
     final locale = state.locale;
     final ride = work.activeRide;
     final order = work.activeOrder;
+    final parcel = work.activeParcel;
     final offer = work.topOffer;
     final delivery = work.topDeliveryOffer;
+    final parcelOffer = work.topParcelOffer;
 
     return SafeArea(
       child: ListView(
@@ -122,10 +125,25 @@ class WorkScreen extends StatelessWidget {
                   Navigator.of(context)
                       .push(MaterialPageRoute<void>(builder: (_) => const ActiveDeliveryScreen())),
             )
+          else if (parcel != null)
+            KNeonBanner(
+              icon: Icons.inventory_2_outlined,
+              title: context.t('courier.parcel.nav'),
+              subtitle: context.t(
+                parcel.state == ParcelState.pickedUp
+                    ? 'parcel.state.picked_up'
+                    : 'parcel.state.courier_assigned',
+              ),
+              onTap: () =>
+                  Navigator.of(context)
+                      .push(MaterialPageRoute<void>(builder: (_) => const ActiveParcelScreen())),
+            )
           else if (offer != null)
             OfferCard(offer: offer)
           else if (delivery != null)
             CourierOfferCard(offer: delivery)
+          else if (parcelOffer != null)
+            ParcelOfferCard(offer: parcelOffer)
           else if (work.online)
             KEmpty(
               title: context.t('driver.status.waiting'),

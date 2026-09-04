@@ -40,8 +40,10 @@ class WorkState extends ChangeNotifier {
   bool busy = false;
   List<RideOffer> offers = const [];
   List<CourierOffer> deliveryOffers = const [];
+  List<ParcelOffer> parcelOffers = const [];
   Ride? activeRide;
   Order? activeOrder;
+  Parcel? activeParcel;
   ApiError? lastError;
   LocationProblem? locationProblem;
 
@@ -59,8 +61,15 @@ class WorkState extends ChangeNotifier {
     return null;
   }
 
-  /// I zënë me punë: as udhëtim as dorëzim i ri nuk ka kuptim derisa kjo të mbarojë.
-  bool get isBusyWithWork => activeRide != null || activeOrder != null;
+  ParcelOffer? get topParcelOffer {
+    for (final o in parcelOffers) {
+      if (o.secondsLeft > 0) return o;
+    }
+    return null;
+  }
+
+  /// I zënë me punë: as udhëtim, as dorëzim, as pako e re nuk ka kuptim derisa kjo të mbarojë.
+  bool get isBusyWithWork => activeRide != null || activeOrder != null || activeParcel != null;
 
   @override
   void dispose() {
@@ -135,6 +144,7 @@ class WorkState extends ChangeNotifier {
       online = false;
       offers = const [];
       deliveryOffers = const [];
+      parcelOffers = const [];
       busy = false;
       notifyListeners();
     }
@@ -153,17 +163,23 @@ class WorkState extends ChangeNotifier {
   Future<void> _pollOffers() async {
     // Gjatë një pune aktive nuk kërkohen oferta të reja: shoferi është i zënë.
     if (isBusyWithWork) {
-      if (offers.isNotEmpty || deliveryOffers.isNotEmpty) {
+      if (offers.isNotEmpty || deliveryOffers.isNotEmpty || parcelOffers.isNotEmpty) {
         offers = const [];
         deliveryOffers = const [];
+        parcelOffers = const [];
         notifyListeners();
       }
       return;
     }
     try {
-      final results = await Future.wait([api.driverOffers(), api.courierOffers()]);
+      final results = await Future.wait([
+        api.driverOffers(),
+        api.courierOffers(),
+        api.courierParcelOffers(),
+      ]);
       offers = results[0] as List<RideOffer>;
       deliveryOffers = results[1] as List<CourierOffer>;
+      parcelOffers = results[2] as List<ParcelOffer>;
       lastError = null;
       notifyListeners();
     } on ApiError catch (e) {
@@ -179,17 +195,25 @@ class WorkState extends ChangeNotifier {
   Future<void> _pollActiveRide() async {
     final gen = _workGen;
     try {
-      final results = await Future.wait([api.driverActiveRide(), api.courierActiveOrder()]);
+      final results = await Future.wait([
+        api.driverActiveRide(),
+        api.courierActiveOrder(),
+        api.courierActiveParcel(),
+      ]);
       if (gen != _workGen) return;
       final ride = results[0] as Ride?;
       final order = results[1] as Order?;
+      final parcel = results[2] as Parcel?;
       final changed =
           ride?.id != activeRide?.id ||
           ride?.state != activeRide?.state ||
           order?.id != activeOrder?.id ||
-          order?.state != activeOrder?.state;
+          order?.state != activeOrder?.state ||
+          parcel?.id != activeParcel?.id ||
+          parcel?.state != activeParcel?.state;
       activeRide = ride;
       activeOrder = order;
+      activeParcel = parcel;
       if (changed) notifyListeners();
     } on ApiError catch (e) {
       lastError = e;
@@ -273,6 +297,64 @@ class WorkState extends ChangeNotifier {
       final order = await run();
       // Dorëzimi i kryer ose i lëshuar e liron korrierin për punën e radhës.
       activeOrder = (order.isActive && order.courierId != null) ? order : null;
+      return true;
+    } on ApiError catch (e) {
+      lastError = e;
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  // ------------------------------------------------------------------ pakot
+
+  Future<bool> acceptParcel(ParcelOffer offer) async {
+    busy = true;
+    notifyListeners();
+    try {
+      activeParcel = await api.acceptParcelOffer(offer.id);
+      _workGen++;
+      parcelOffers = const [];
+      return true;
+    } on ApiError catch (e) {
+      lastError = e;
+      unawaited(_pollOffers());
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> declineParcel(ParcelOffer offer) async {
+    parcelOffers = parcelOffers.where((o) => o.id != offer.id).toList();
+    notifyListeners();
+    try {
+      await api.declineParcelOffer(offer.id);
+    } on ApiError {
+      // Serveri e kalon te korrieri tjetër.
+    }
+  }
+
+  Future<bool> pickupParcel({required String code}) =>
+      _parcelStep(() => api.courierParcelPickup(activeParcel!.id, code: code));
+
+  Future<bool> deliverParcel({required String code}) =>
+      _parcelStep(() => api.courierParcelDeliver(activeParcel!.id, code: code));
+
+  Future<bool> releaseParcel({String? reason}) =>
+      _parcelStep(() => api.courierParcelRelease(activeParcel!.id, reason: reason));
+
+  Future<bool> _parcelStep(Future<Parcel> Function() run) async {
+    if (activeParcel == null) return false;
+    busy = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      final parcel = await run();
+      _workGen++;
+      activeParcel = (parcel.isActive && parcel.courierId != null) ? parcel : null;
       return true;
     } on ApiError catch (e) {
       lastError = e;
