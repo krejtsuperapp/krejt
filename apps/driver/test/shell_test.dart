@@ -140,10 +140,13 @@ void main() {
     expect(find.text('Numri i telefonit'), findsOneWidget);
   });
 
-  testWidgets('pa profil të aprovuar nuk shfaqet butoni i hyrjes në punë', (tester) async {
+  testWidgets('pa profil shoferi shfaqet karta e aplikimit, jo butoni i hyrjes në punë', (
+    tester,
+  ) async {
     await tester.pumpWidget(_wrap(const WorkScreen()));
     await tester.pump();
-    expect(find.text('Llogaria është në shqyrtim'), findsOneWidget);
+    expect(find.text('Fillo si shofer ose korrier'), findsOneWidget);
+    expect(find.text('Apliko tani'), findsOneWidget);
     expect(find.text('Fillo punën'), findsNothing);
   });
 
