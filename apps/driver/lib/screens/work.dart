@@ -12,8 +12,9 @@ import 'courier.dart';
 import 'documents.dart';
 import 'offer_card.dart';
 
-/// Ekrani i punës. Një vendim i madh në krye: në punë ose jashtë pune. Nën të, ose kërkesa
-/// që pret përgjigje, ose udhëtimi në rrjedhë, ose arsyeja pse asnjëra nuk ndodh (§27).
+/// Ekrani i punës sipas markës: "Sot" me ndërruesin neon të turnit në krye, tri shifrat e
+/// ditës (nga serveri), pastaj ose kërkesa që pret përgjigje, ose udhëtimi në rrjedhë, ose
+/// arsyeja pse asnjëra nuk ndodh (§27).
 class WorkScreen extends StatelessWidget {
   const WorkScreen({super.key});
 
@@ -22,6 +23,8 @@ class WorkScreen extends StatelessWidget {
     final state = context.watch<AppState>();
     final work = context.watch<WorkState>();
     final driver = state.driver;
+    final earnings = state.earnings;
+    final locale = state.locale;
     final ride = work.activeRide;
     final order = work.activeOrder;
     final offer = work.topOffer;
@@ -29,45 +32,78 @@ class WorkScreen extends StatelessWidget {
 
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(K.s5, K.s4, K.s5, K.s8),
+        padding: const EdgeInsets.fromLTRB(K.s5, K.s3, K.s5, K.s8),
         children: [
           Row(
             children: [
               Expanded(
-                child: Text(
-                  state.me?.displayName ?? '—',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: K.text),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      driver == null
+                          ? (state.me?.displayName ?? '—')
+                          : '${driver.vehicle} · ${driver.vehiclePlate}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, color: K.muted),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      context.t('driver.today'),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4,
+                        color: K.text,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              KBadge(
-                context.t(work.online ? 'driver.online' : 'driver.offline'),
-                tone: work.online ? KTone.ok : KTone.neutral,
-              ),
+              if (state.canGoOnline) _OnlinePill(work: work, categories: driver!.categories),
             ],
           ),
-          if (driver != null) ...[
-            const SizedBox(height: K.s1),
-            Text(
-              '${driver.vehicle} · ${driver.vehiclePlate}',
-              style: const TextStyle(fontSize: 13, color: K.muted),
+          if (earnings != null) ...[
+            const SizedBox(height: K.s4),
+            Row(
+              children: [
+                Expanded(
+                  child: KKpi(
+                    label: context.t('driver.kpi.earnings'),
+                    value: formatMinor(earnings.todayMinor, locale: locale),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: KKpi(
+                    label: context.t('driver.kpi.rides'),
+                    value: '${earnings.ridesToday}',
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: KKpi(
+                    label: context.t('driver.kpi.rating'),
+                    value: driver?.rating == null ? '—' : driver!.rating!.toStringAsFixed(1),
+                    accent: driver?.rating == null ? null : '★',
+                  ),
+                ),
+              ],
             ),
           ],
-          const SizedBox(height: K.s5),
-          if (!state.canGoOnline)
-            _NotApprovedCard(reason: driver?.suspendedReason)
-          else
-            _OnlineToggle(work: work, categories: driver!.categories),
+          const SizedBox(height: K.s4),
+          if (!state.canGoOnline) _NotApprovedCard(reason: driver?.suspendedReason),
           if (work.locationProblem != null) ...[
-            const SizedBox(height: K.s3),
             KError(
               message: context.t(locationProblemKey(work.locationProblem!)),
               icon: Icons.location_off_outlined,
             ),
+            const SizedBox(height: K.s4),
           ],
-          const SizedBox(height: K.s5),
           if (ride != null)
-            KActiveBanner(
-              icon: Icons.local_taxi,
+            KNeonBanner(
+              icon: Icons.directions_car_outlined,
               title: context.t('driver.status.busy'),
               subtitle: context.t(driverRideStateKey(ride.state)),
               onTap: () =>
@@ -75,8 +111,8 @@ class WorkScreen extends StatelessWidget {
                       .push(MaterialPageRoute<void>(builder: (_) => const ActiveRideScreen())),
             )
           else if (order != null)
-            KActiveBanner(
-              icon: Icons.delivery_dining,
+            KNeonBanner(
+              icon: Icons.delivery_dining_outlined,
               title: context.t('courier.nav'),
               subtitle: context.t(courierOrderStateKey(order.state)),
               onTap: () =>
@@ -131,28 +167,76 @@ String driverRideStateKey(RideState s) {
   }
 }
 
-class _OnlineToggle extends StatelessWidget {
-  const _OnlineToggle({required this.work, required this.categories});
+/// Ndërruesi i turnit si pill: neon kur je në punë (prekja të nxjerr), kontur kur je jashtë.
+class _OnlinePill extends StatelessWidget {
+  const _OnlinePill({required this.work, required this.categories});
 
   final WorkState work;
   final List<RideCategory> categories;
 
   @override
-  Widget build(BuildContext context) => KButton(
-    label: context.t(work.online ? 'driver.go_offline' : 'driver.go_online'),
-    icon: work.online ? Icons.pause_circle_outline : Icons.play_circle_outline,
-    busy: work.busy,
-    danger: work.online,
-    onPressed: work.busy
-        ? null
-        : () async {
-            if (work.online) {
-              await work.goOffline();
-            } else {
-              await work.goOnline(categories.map((c) => c.name).toList());
-            }
-          },
-  );
+  Widget build(BuildContext context) {
+    final on = work.online;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: work.busy
+            ? null
+            : () async {
+                if (on) {
+                  await work.goOffline();
+                } else {
+                  await work.goOnline(categories.map((c) => c.name).toList());
+                }
+              },
+        borderRadius: BorderRadius.circular(K.rFull),
+        child: Ink(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: on ? K.brand500 : K.surface,
+            borderRadius: BorderRadius.circular(K.rFull),
+            border: Border.all(color: on ? K.brand500 : K.line2),
+            boxShadow: on
+                ? [BoxShadow(color: K.brand500.withValues(alpha: 0.35), blurRadius: 20)]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (work.busy)
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: on ? K.onBrand : K.brand500,
+                  ),
+                )
+              else
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: on ? K.onBrand : K.muted,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              const SizedBox(width: 8),
+              Text(
+                context.t(on ? 'driver.online' : 'driver.go_online'),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: on ? K.onBrand : K.text,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _NotApprovedCard extends StatelessWidget {
@@ -161,20 +245,23 @@ class _NotApprovedCard extends StatelessWidget {
   final String? reason;
 
   @override
-  Widget build(BuildContext context) => KCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          context.t('driver.pending'),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: K.text),
-        ),
-        const SizedBox(height: K.s2),
-        Text(
-          reason ?? context.t('driver.pending.hint'),
-          style: const TextStyle(fontSize: 14, color: K.textDim, height: 1.45),
-        ),
-      ],
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: K.s4),
+    child: KCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.t('driver.pending'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: K.text),
+          ),
+          const SizedBox(height: K.s2),
+          Text(
+            reason ?? context.t('driver.pending.hint'),
+            style: const TextStyle(fontSize: 14, color: K.textDim, height: 1.45),
+          ),
+        ],
+      ),
     ),
   );
 }

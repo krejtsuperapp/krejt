@@ -1,14 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
 import 'package:provider/provider.dart';
 
+import '../services/location.dart';
 import '../state/app_state.dart';
 import 'food/discover.dart';
+import 'food/menu.dart';
 import 'food/order_tracking.dart';
 import 'ride/destination.dart';
 import 'ride/tracking.dart';
+import 'wallet.dart';
 
 /// Çelësi i përkthimit për një gjendje udhëtimi, i mbajtur në një vend të vetëm
 /// që asnjë ekran të mos shpikë etiketat e veta.
@@ -31,10 +36,61 @@ String rideStateKey(RideState s) {
   }
 }
 
-/// Ballina: udhëtimi aktiv në krye nëse ka, pastaj bilanci, shërbimet dhe historiku i shkurtër.
-/// Shërbimet që nuk janë ndezur në konfigurim shfaqen si të ardhshme, jo të fshehura (§55, §64).
-class HomeScreen extends StatelessWidget {
+/// Ballina sipas markës: përshëndetja, kërkimi, slide-i i vendeve të hapura afër, gjashtë
+/// shërbimet, ajo që është në rrjedhë (udhëtim/porosi), vendet afër dhe historiku i shkurtër.
+/// Slide-i dhe lista "afër teje" mbushen vetëm me vende të vërteta nga serveri; pa vendndodhje
+/// ose pa vende, ato seksione thjesht nuk shfaqen — asnjë ofertë e shpikur (§55).
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  static const _location = LocationService();
+
+  List<Merchant> _nearby = const [];
+  bool _nearbyLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadNearby());
+  }
+
+  /// Vendet afër: një kërkesë e vetme pas hapjes dhe në çdo rifreskim me tërheqje.
+  Future<void> _loadNearby() async {
+    if (!mounted) return;
+    if (!context.read<AppState>().config.flag('food')) return;
+    final position = await _location.current();
+    if (!mounted || !position.isOk) {
+      if (mounted) setState(() => _nearbyLoaded = true);
+      return;
+    }
+    try {
+      final items = await context.read<AppState>().api.merchants(
+        lat: position.point!.lat,
+        lng: position.point!.lng,
+        limit: 12,
+      );
+      if (!mounted) return;
+      setState(() {
+        _nearby = items;
+        _nearbyLoaded = true;
+      });
+    } on ApiError {
+      if (mounted) setState(() => _nearbyLoaded = true);
+    }
+  }
+
+  Future<void> _refresh() async {
+    await Future.wait([context.read<AppState>().refreshHome(), _loadNearby()]);
+  }
+
+  void _open(Widget screen) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,101 +100,77 @@ class HomeScreen extends StatelessWidget {
     final active = state.activeRide;
     final activeOrder = state.activeOrder;
     final past = state.recentRides.where((r) => r.isFinished).take(4).toList();
+    final open = _nearby.where((m) => m.canOrder).toList();
+    final foodOn = state.config.flag('food');
 
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: state.refreshHome,
-        color: K.brand400,
+        onRefresh: _refresh,
+        color: K.brand500,
         backgroundColor: K.surface2,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(K.s5, K.s4, K.s5, K.s8),
+          padding: const EdgeInsets.fromLTRB(K.s5, K.s3, K.s5, K.s8),
           children: [
-            Text(
-              context.t('home.greeting', {'name': me?.displayName ?? '—'}),
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: K.text),
+            _Header(name: me?.displayName ?? '—', city: open.isNotEmpty ? open.first.city : null),
+            const SizedBox(height: K.s4),
+            KSearchBar(
+              hint: context.t('home.search'),
+              onTap: () => _open(
+                active == null ? const DestinationScreen() : TrackingScreen(rideId: active.id),
+              ),
             ),
             const SizedBox(height: K.s4),
-            if (active != null) ...[
-              KActiveBanner(
-                icon: Icons.local_taxi,
-                title: context.t('home.active.ride'),
-                subtitle: context.t(rideStateKey(active.state)),
-                onTap: () => Navigator.of(
-                  context,
-                ).push(MaterialPageRoute<void>(builder: (_) => TrackingScreen(rideId: active.id))),
+            KHeroCarousel(slides: _slides(context, open, locale)),
+            const SizedBox(height: K.s4),
+            _ServicesGrid(
+              rideReady: state.config.flag('rides', fallback: true),
+              foodReady: foodOn,
+              marketReady: state.config.flag('market'),
+              onRide: () => _open(
+                active == null ? const DestinationScreen() : TrackingScreen(rideId: active.id),
               ),
+              onFood: () => _open(const DiscoverScreen()),
+              onMarket: () => _open(const DiscoverScreen()),
+              onPayments: () => _open(const WalletScreen()),
+            ),
+            if (active != null) ...[
               const SizedBox(height: K.s4),
+              KNeonBanner(
+                icon: Icons.directions_car_outlined,
+                title: context.t('home.active.ride'),
+                subtitle: _rideSubtitle(context, active),
+                onTap: () => _open(TrackingScreen(rideId: active.id)),
+              ),
             ],
             if (activeOrder != null) ...[
-              KActiveBanner(
-                icon: Icons.restaurant,
+              const SizedBox(height: K.s4),
+              KNeonBanner(
+                icon: Icons.lunch_dining_outlined,
                 title: context.t('home.active.order'),
                 subtitle: context.t(orderStateKey(activeOrder.state)),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => OrderTrackingScreen(orderId: activeOrder.id),
-                  ),
-                ),
+                onTap: () => _open(OrderTrackingScreen(orderId: activeOrder.id)),
               ),
-              const SizedBox(height: K.s4),
             ],
-            _WalletCard(balanceMinor: me?.wallet.balanceMinor ?? 0, locale: locale),
-            const SizedBox(height: K.s5),
-            KSectionHeader(context.t('home.where')),
-            const SizedBox(height: K.s3),
-            Row(
-              children: [
-                Expanded(
-                  child: _ServiceTile(
-                    icon: Icons.local_taxi_outlined,
-                    label: context.t('home.services.ride'),
-                    ready: state.config.flag('rides', fallback: true),
-                    // Një udhëtim në rrjedhë e çon te ndjekja; përndryshe nis një të ri (§18).
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => active == null
-                            ? const DestinationScreen()
-                            : TrackingScreen(rideId: active.id),
+            if (foodOn && (_nearby.isNotEmpty || !_nearbyLoaded)) ...[
+              KSectionHeader(
+                context.t('home.nearby'),
+                action: context.t('home.see_all'),
+                onAction: () => _open(const DiscoverScreen()),
+              ),
+              SizedBox(
+                height: 212,
+                child: !_nearbyLoaded
+                    ? const KSkeleton(height: 200, count: 1)
+                    : ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        clipBehavior: Clip.none,
+                        itemCount: _nearby.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: K.s3),
+                        itemBuilder: (_, i) => _merchantCard(context, _nearby[i], locale),
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: K.s3),
-                Expanded(
-                  child: _ServiceTile(
-                    icon: Icons.restaurant_outlined,
-                    label: context.t('home.services.food'),
-                    ready: state.config.flag('food'),
-                    onTap: () =>
-                        Navigator.of(context)
-                            .push(MaterialPageRoute<void>(builder: (_) => const DiscoverScreen())),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: K.s3),
-            Row(
-              children: [
-                Expanded(
-                  child: _ServiceTile(
-                    icon: Icons.storefront_outlined,
-                    label: context.t('home.services.market'),
-                    ready: state.config.flag('market'),
-                  ),
-                ),
-                const SizedBox(width: K.s3),
-                Expanded(
-                  child: _ServiceTile(
-                    icon: Icons.account_balance_wallet_outlined,
-                    label: context.t('home.services.wallet'),
-                    ready: true,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: K.s6),
+              ),
+            ],
             KSectionHeader(context.t('home.recent')),
-            const SizedBox(height: K.s3),
             if (past.isEmpty)
               KEmpty(
                 title: context.t('home.rides.empty'),
@@ -156,67 +188,172 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-}
 
-class _WalletCard extends StatelessWidget {
-  const _WalletCard({required this.balanceMinor, required this.locale});
+  String _rideSubtitle(BuildContext context, Ride ride) {
+    final d = ride.driver;
+    if (d == null) return context.t(rideStateKey(ride.state));
+    return '${context.t(rideStateKey(ride.state))} · ${d.vehicle} · ${d.vehiclePlate}';
+  }
 
-  final int balanceMinor;
-  final String locale;
-
-  @override
-  Widget build(BuildContext context) => KCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          context.t('wallet.balance'),
-          style: const TextStyle(fontSize: 13, color: K.muted, fontWeight: FontWeight.w600),
+  /// Slide-et: vendet e hapura me kopertinë (deri në tre), ndryshe një slide i markës.
+  List<KHeroSlide> _slides(BuildContext context, List<Merchant> open, String locale) {
+    final withCover = open.where((m) => m.coverUrl != null).take(3).toList();
+    if (withCover.isEmpty) {
+      return [
+        KHeroSlide(
+          tag: 'KREJT',
+          title: context.t('home.slide.brand'),
+          actionLabel: context.t('home.services.food'),
+          onTap: () => _open(const DiscoverScreen()),
         ),
-        const SizedBox(height: K.s2),
-        KMoney(balanceMinor, locale: locale, size: 32),
-        const SizedBox(height: K.s3),
-        Text(
-          context.t('wallet.closed_loop'),
-          style: const TextStyle(fontSize: 12, color: K.muted, height: 1.4),
+      ];
+    }
+    return [
+      for (final m in withCover)
+        KHeroSlide(
+          tag: '${context.t('food.open')} · ${formatDistance(m.distanceM, locale: locale)}',
+          title: m.name,
+          imageUrl: m.coverUrl,
+          actionLabel: context.t('home.order'),
+          onTap: () => _open(MenuScreen(merchant: m)),
+        ),
+    ];
+  }
+
+  Widget _merchantCard(BuildContext context, Merchant m, String locale) => KMerchantCard(
+    name: m.name,
+    subtitle: [
+      context.t(merchantTypeKey(m.type)),
+      if (m.cuisines.isNotEmpty) m.cuisines.first,
+      formatDistance(m.distanceM, locale: locale),
+    ].join(' · '),
+    imageUrl: m.coverUrl ?? m.logoUrl,
+    rating: m.rating?.toStringAsFixed(1),
+    dimmed: !m.canOrder,
+    chips: [
+      if (!m.canOrder)
+        KChip(context.t('food.closed'))
+      else ...[
+        KChip('${m.prepTimeMin} min'),
+        KChip(
+          m.deliveryFeeMinor == 0
+              ? context.t('food.delivery_fee', {'amount': formatMinor(0, locale: locale)})
+              : formatMinor(m.deliveryFeeMinor, locale: locale),
+          neon: m.deliveryFeeMinor == 0,
         ),
       ],
-    ),
+    ],
+    onTap: () => _open(MenuScreen(merchant: m)),
   );
 }
 
-class _ServiceTile extends StatelessWidget {
-  const _ServiceTile({required this.icon, required this.label, required this.ready, this.onTap});
+class _Header extends StatelessWidget {
+  const _Header({required this.name, this.city});
 
-  final IconData icon;
-  final String label;
-  final bool ready;
-  final VoidCallback? onTap;
+  final String name;
+  final String? city;
 
   @override
-  Widget build(BuildContext context) => KCard(
-    onTap: ready ? onTap : null,
-    padding: const EdgeInsets.all(K.s4),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 26, color: ready ? K.brand400 : K.muted),
-        const SizedBox(height: K.s3),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: ready ? K.text : K.muted,
-          ),
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(context.t('home.welcome'), style: const TextStyle(fontSize: 13, color: K.muted)),
+            const SizedBox(height: 2),
+            Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
+                color: K.text,
+              ),
+            ),
+          ],
         ),
-        if (!ready) ...[
-          const SizedBox(height: K.s2),
-          KBadge(context.t('common.soon'), tone: KTone.neutral),
-        ],
-      ],
-    ),
+      ),
+      if (city != null) KPill(city!, icon: Icons.location_on_outlined, neon: true),
+    ],
   );
+}
+
+class _ServicesGrid extends StatelessWidget {
+  const _ServicesGrid({
+    required this.rideReady,
+    required this.foodReady,
+    required this.marketReady,
+    required this.onRide,
+    required this.onFood,
+    required this.onMarket,
+    required this.onPayments,
+  });
+
+  final bool rideReady;
+  final bool foodReady;
+  final bool marketReady;
+  final VoidCallback onRide;
+  final VoidCallback onFood;
+  final VoidCallback onMarket;
+  final VoidCallback onPayments;
+
+  @override
+  Widget build(BuildContext context) {
+    final soon = context.t('common.soon');
+    final tiles = [
+      KServiceTile(
+        icon: Icons.directions_car_outlined,
+        label: context.t('home.services.ride'),
+        ready: rideReady,
+        soonLabel: soon,
+        onTap: onRide,
+      ),
+      KServiceTile(
+        icon: Icons.lunch_dining_outlined,
+        label: context.t('home.services.food'),
+        ready: foodReady,
+        soonLabel: soon,
+        onTap: onFood,
+      ),
+      KServiceTile(
+        icon: Icons.shopping_basket_outlined,
+        label: context.t('home.services.market'),
+        ready: marketReady,
+        soonLabel: soon,
+        onTap: onMarket,
+      ),
+      KServiceTile(
+        icon: Icons.inventory_2_outlined,
+        label: context.t('home.services.courier'),
+        ready: false,
+        soonLabel: soon,
+      ),
+      KServiceTile(
+        icon: Icons.handyman_outlined,
+        label: context.t('home.services.services'),
+        ready: false,
+        soonLabel: soon,
+      ),
+      KServiceTile(
+        icon: Icons.credit_card_outlined,
+        label: context.t('home.services.payments'),
+        onTap: onPayments,
+      ),
+    ];
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      childAspectRatio: 0.98,
+      children: tiles,
+    );
+  }
 }
 
 class _RideRow extends StatelessWidget {
@@ -232,6 +369,17 @@ class _RideRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: K.s4, vertical: K.s3),
       child: Row(
         children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: K.surface2,
+              borderRadius: BorderRadius.circular(K.rSm),
+              border: Border.all(color: K.line),
+            ),
+            child: const Icon(Icons.directions_car_outlined, size: 18, color: K.textDim),
+          ),
+          const SizedBox(width: K.s3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
