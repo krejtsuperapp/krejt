@@ -292,14 +292,14 @@ func (d *DevLog) SignDev(payload []byte, now time.Time) string {
 	return "t=" + ts + ",v1=" + hex.EncodeToString(mac.Sum(nil))
 }
 
-// NewFromEnv — PAYMENT_PROVIDER: stripe (parazgjedhje) | devlog (vetëm development).
+// NewFromEnv — PAYMENT_PROVIDER: stripe (parazgjedhje) | devlog (development dhe staging; kurrë production).
 func NewFromEnv(env, provider, stripeSecret, stripeWebhookSecret string, log *slog.Logger) (Provider, error) {
 	switch provider {
 	case "stripe", "":
 		return NewStripe(stripeSecret, stripeWebhookSecret)
 	case "devlog":
-		if env != "development" {
-			return nil, fmt.Errorf("payment: devlog lejohet vetëm në development (APP_ENV=%s)", env)
+		if env == "production" {
+			return nil, fmt.Errorf("payment: devlog nuk lejohet në production (APP_ENV=%s)", env)
 		}
 		log.Warn("DEV ONLY — PAYMENT_PROVIDER=devlog: pagesat nuk kalojnë kurrë vetvetiu; suksesi vetëm nga endpoint-i dev")
 		return &DevLog{log: log, secret: "krejt_dev_only_webhook_secret"}, nil

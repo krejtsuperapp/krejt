@@ -1,0 +1,136 @@
+# KREJT — deploy i ripërdorshëm për një mjedis (dev, staging, prod). Thirret nga ci.yml.
+# Hyrja në AWS me OIDC (roli i deploy-it nga Terraform, sekret i mjedisit në GitHub); asnjë çelës
+# i përhershëm. Imazhet ARM64 me tag = SHA (repo-t ECR janë IMMUTABLE); për çdo shërbim regjistrohet
+# revizion i ri task definition-i mbi atë të fundit (që mban mjedisin/sekretet nga Terraform-i)
+# dhe pritet stabiliteti — circuit breaker-i e kthen mbrapsht vetë nëse task-et e reja dështojnë.
+name: deploy-env
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Emri i mjedisit në GitHub (dev | staging | prod): sekretet dhe miratimet vijnë prej tij."
+        required: true
+        type: string
+      name:
+        description: "Prefiksi i burimeve në AWS (krejt-dev, krejt-staging, krejt-prod)."
+        required: true
+        type: string
+      services:
+        description: "Shërbimet që marrin imazh të ri, të ndara me hapësirë."
+        required: false
+        type: string
+        default: "api worker admin partner"
+    outputs:
+      deployed:
+        description: "true nëse deploy-i u krye (roli ishte i vendosur)."
+        value: ${{ jobs.deploy.outputs.deployed }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    outputs:
+      deployed: ${{ steps.cfg.outputs.enabled }}
+    env:
+      AWS_REGION: eu-central-1
+      # Terraform-i e emërton clusterin `${name}-cluster`; emri i mjedisit vetëm nuk mjafton.
+      CLUSTER: ${{ inputs.name }}-cluster
+      DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: kontrollo konfigurimin e deploy-it
+        id: cfg
+        run: |
+          if [ -z "$DEPLOY_ROLE_ARN" ]; then
+            echo "AWS_DEPLOY_ROLE_ARN mungon në secrets të mjedisit ${{ inputs.environment }} — deploy-i kapërcehet (shto output-in deploy_role_arn të Terraform)."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: hyrja në AWS (OIDC)
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: ECR login
+        if: steps.cfg.outputs.enabled == 'true'
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-qemu-action@v3
+        if: steps.cfg.outputs.enabled == 'true'
+      - uses: docker/setup-buildx-action@v3
+        if: steps.cfg.outputs.enabled == 'true'
+
+      # I njëjti imazh për të njëjtin SHA në çdo mjedis: ndërtohet vetëm nëse ende s'është në ECR
+      # (staging-u/prod-i e marrin gati atë që dev-i e provoi).
+      - name: build + push api (arm64)
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          platforms: linux/arm64
+          build-args: |
+            CMD=api
+            APP_VERSION=${{ github.sha }}
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ inputs.name }}/api:${{ github.sha }}
+      - name: build + push worker (arm64)
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          platforms: linux/arm64
+          build-args: |
+            CMD=worker
+            APP_VERSION=${{ github.sha }}
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ inputs.name }}/worker:${{ github.sha }}
+      - name: build + push admin (arm64)
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: admin
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ inputs.name }}/admin:${{ github.sha }}
+      - name: build + push partner (arm64)
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: partner
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ inputs.name }}/partner:${{ github.sha }}
+
+      - name: revizion i ri task definition + update-service
+        if: steps.cfg.outputs.enabled == 'true'
+        id: rollout
+        run: |
+          set -euo pipefail
+          rolled=""
+          for svc in ${{ inputs.services }}; do
+            # Shërbimi ekziston vetëm pasi Terraform-i ta ketë krijuar; pa të, kapërcehet pa gabim.
+            if [ "$(aws ecs describe-services --cluster "$CLUSTER" --services "${{ inputs.name }}-${svc}" --query 'length(services[?status==`ACTIVE`])' --output text)" != "1" ]; then
+              echo "$svc: shërbimi nuk ekziston ende — kapërcehet"
+              continue
+            fi
+            image="${{ steps.ecr.outputs.registry }}/${{ inputs.name }}/${svc}:${{ github.sha }}"
+            aws ecs describe-task-definition --task-definition "${{ inputs.name }}-${svc}" --query taskDefinition > td.json
+            jq --arg img "$image" --arg ver "${{ github.sha }}" '.containerDefinitions[0].image = $img
+              | (.containerDefinitions[0].environment // []) |= map(if .name == "KREJT_APP_VERSION" then .value = $ver else . end)
+              | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' td.json > td-new.json
+            arn=$(aws ecs register-task-definition --cli-input-json file://td-new.json --query 'taskDefinition.taskDefinitionArn' --output text)
+            echo "$svc → $arn"
+            aws ecs update-service --cluster "$CLUSTER" --service "${{ inputs.name }}-${svc}" --task-definition "$arn" > /dev/null
+            rolled="$rolled ${{ inputs.name }}-${svc}"
+          done
+          echo "services=${rolled# }" >> "$GITHUB_OUTPUT"
+      - name: prit stabilitetin (rollback automatik nga circuit breaker nëse dështon)
+        if: steps.cfg.outputs.enabled == 'true' && steps.rollout.outputs.services != ''
+        run: aws ecs wait services-stable --cluster "$CLUSTER" --services ${{ steps.rollout.outputs.services }}

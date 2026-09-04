@@ -125,14 +125,14 @@ func (d *DevLog) Capture(ev Event) {
 }
 func (d *DevLog) Close(context.Context) error { return nil }
 
-// NewFromEnv — ANALYTICS_PROVIDER: posthog (parazgjedhje) | devlog (vetëm development).
+// NewFromEnv — ANALYTICS_PROVIDER: posthog (parazgjedhje) | devlog (development dhe staging; kurrë production).
 func NewFromEnv(env, provider, key, host string, log *slog.Logger) (Provider, error) {
 	switch provider {
 	case "posthog", "":
 		return NewPostHog(key, host, log)
 	case "devlog":
-		if env != "development" {
-			return nil, fmt.Errorf("analytics: devlog lejohet vetëm në development (APP_ENV=%s)", env)
+		if env == "production" {
+			return nil, fmt.Errorf("analytics: devlog nuk lejohet në production (APP_ENV=%s)", env)
 		}
 		log.Warn("DEV ONLY — ANALYTICS_PROVIDER=devlog: ngjarjet vetëm logohen")
 		return &DevLog{log: log}, nil

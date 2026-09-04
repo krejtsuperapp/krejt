@@ -107,112 +107,20 @@ jobs:
         working-directory: infra/terraform/envs/dev
         run: terraform init -backend=false -input=false && terraform validate
 
-  # Deploy në dev pas çdo bashkimi në main, vetëm kur të 4 portat kalojnë (§70). Hyrja në AWS me OIDC
-  # (roli krejt-dev-github-deploy nga Terraform); asnjë çelës i përhershëm në GitHub. Imazhet ARM64,
-  # tag = SHA (repo-t ECR janë IMMUTABLE); revizion i ri task definition-i → update-service → pritje stabiliteti.
+  # Deploy në dev pas çdo bashkimi në main, vetëm kur të 4 portat kalojnë (§70). Hapat jetojnë te
+  # deploy-env.yml, që staging-u dhe prod-i të përdorin saktësisht të njëjtën rrjedhë.
   deploy-dev:
-    runs-on: ubuntu-latest
     needs: [backend, container, secrets, terraform]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    environment: dev
+    # Workflow-i i thirrur kërkon id-token (OIDC); pa këtë leje te thirrësi, CI-ja dështon në nisje.
     permissions:
       id-token: write
       contents: read
-    env:
-      AWS_REGION: eu-central-1
-      # Terraform-i e emërton clusterin `${name}-cluster`; emri i mjedisit vetëm nuk mjafton.
-      CLUSTER: krejt-dev-cluster
-      DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: kontrollo konfigurimin e deploy-it
-        id: cfg
-        run: |
-          if [ -z "$DEPLOY_ROLE_ARN" ]; then
-            echo "AWS_DEPLOY_ROLE_ARN mungon në secrets të mjedisit dev — deploy-i kapërcehet (shto output-in deploy_role_arn të Terraform)."
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: hyrja në AWS (OIDC)
-        if: steps.cfg.outputs.enabled == 'true'
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-      - name: ECR login
-        if: steps.cfg.outputs.enabled == 'true'
-        id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
-      - uses: docker/setup-qemu-action@v3
-        if: steps.cfg.outputs.enabled == 'true'
-      - uses: docker/setup-buildx-action@v3
-        if: steps.cfg.outputs.enabled == 'true'
-      - name: build + push api (arm64)
-        if: steps.cfg.outputs.enabled == 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: backend
-          platforms: linux/arm64
-          build-args: |
-            CMD=api
-            APP_VERSION=${{ github.sha }}
-          push: true
-          tags: ${{ steps.ecr.outputs.registry }}/krejt-dev/api:${{ github.sha }}
-      - name: build + push worker (arm64)
-        if: steps.cfg.outputs.enabled == 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: backend
-          platforms: linux/arm64
-          build-args: |
-            CMD=worker
-            APP_VERSION=${{ github.sha }}
-          push: true
-          tags: ${{ steps.ecr.outputs.registry }}/krejt-dev/worker:${{ github.sha }}
-      # Panelet (Next.js standalone) shkojnë në të njëjtin cluster, pas të njëjtës ALB.
-      - name: build + push admin (arm64)
-        if: steps.cfg.outputs.enabled == 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: admin
-          platforms: linux/arm64
-          push: true
-          tags: ${{ steps.ecr.outputs.registry }}/krejt-dev/admin:${{ github.sha }}
-      - name: build + push partner (arm64)
-        if: steps.cfg.outputs.enabled == 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: partner
-          platforms: linux/arm64
-          push: true
-          tags: ${{ steps.ecr.outputs.registry }}/krejt-dev/partner:${{ github.sha }}
-      - name: revizion i ri task definition + update-service (api, worker, panelet)
-        if: steps.cfg.outputs.enabled == 'true'
-        id: rollout
-        run: |
-          set -euo pipefail
-          rolled=""
-          for svc in api worker admin partner; do
-            # Panelet ekzistojnë vetëm pasi Terraform-i t'i ketë krijuar; pa shërbim, kapërcehen pa gabim.
-            if [ "$(aws ecs describe-services --cluster "$CLUSTER" --services "krejt-dev-${svc}" --query 'length(services[?status==`ACTIVE`])' --output text)" != "1" ]; then
-              echo "$svc: shërbimi nuk ekziston ende — kapërcehet"
-              continue
-            fi
-            image="${{ steps.ecr.outputs.registry }}/krejt-dev/${svc}:${{ github.sha }}"
-            aws ecs describe-task-definition --task-definition "krejt-dev-${svc}" --query taskDefinition > td.json
-            jq --arg img "$image" --arg ver "${{ github.sha }}" '.containerDefinitions[0].image = $img
-              | (.containerDefinitions[0].environment // []) |= map(if .name == "KREJT_APP_VERSION" then .value = $ver else . end)
-              | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' td.json > td-new.json
-            arn=$(aws ecs register-task-definition --cli-input-json file://td-new.json --query 'taskDefinition.taskDefinitionArn' --output text)
-            echo "$svc → $arn"
-            aws ecs update-service --cluster "$CLUSTER" --service "krejt-dev-${svc}" --task-definition "$arn" > /dev/null
-            rolled="$rolled krejt-dev-${svc}"
-          done
-          echo "services=${rolled# }" >> "$GITHUB_OUTPUT"
-      - name: prit stabilitetin (rollback automatik nga circuit breaker nëse dështon)
-        if: steps.cfg.outputs.enabled == 'true'
-        run: aws ecs wait services-stable --cluster "$CLUSTER" --services ${{ steps.rollout.outputs.services }}
+    uses: ./.github/workflows/deploy-env.yml
+    with:
+      environment: dev
+      name: krejt-dev
+    secrets: inherit
 
   # Pas deploy-it: udhëtim i plotë nga API-ja me numrat e provës. Nëse rrjedha thyhet, deploy-i
   # shënohet i kuq edhe pse kontejneri u ngrit. Pa sekrete: numrat e provës punojnë vetëm në dev.
@@ -228,6 +136,35 @@ jobs:
         run: BASE=https://dev.krejt.app node tests/e2e/ride.mjs
       - name: porosi ushqimi kundrejt dev-it
         run: BASE=https://dev.krejt.app node tests/e2e/food.mjs
+
+  # Staging: vetëm SHA-ja që kaloi provën e plotë në dev. Numrat e provës nuk ekzistojnë atje
+  # (jashtë development serveri i refuzon), ndaj prova është shëndeti dhe versioni i shërbyer.
+  deploy-staging:
+    needs: [smoke-dev]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Workflow-i i thirrur kërkon id-token (OIDC); pa këtë leje te thirrësi, CI-ja dështon në nisje.
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/deploy-env.yml
+    with:
+      environment: staging
+      name: krejt-staging
+    secrets: inherit
+
+  health-staging:
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: needs.deploy-staging.outputs.deployed == 'true'
+    steps:
+      - name: shëndeti dhe versioni në staging
+        run: |
+          set -euo pipefail
+          base="${{ vars.KREJT_STAGING_BASE_URL || 'https://staging.krejt.app' }}"
+          curl -fsS --max-time 20 "$base/healthz" && echo
+          v=$(curl -fsS --max-time 20 "$base/api/v1/version")
+          echo "$v"
+          echo "$v" | grep -q '"version":"${{ github.sha }}"' || { echo "::error::staging s'po shërben SHA-në e këtij deploy-i"; exit 1; }
 
   # Me dorë (workflow_dispatch): një minutë ngarkese e lehtë kundrejt dev-it me k6, që pragjet e
   # vonesës të maten rregullisht dhe jo vetëm para nisjes. Nuk ekzekutohet vetë: dev-i ka një detyrë.
