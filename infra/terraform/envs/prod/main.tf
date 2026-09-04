@@ -103,6 +103,8 @@ module "ecs" {
   api_desired_count        = var.api_desired_count
   worker_desired_count     = var.worker_desired_count
   centrifugo_desired_count = var.centrifugo_desired_count
+  panel_hosts              = var.panel_hosts
+  panel_desired_count      = var.panel_desired_count
   tags                     = local.tags
 }
 
@@ -201,4 +203,28 @@ module "monitoring" {
   aurora_cluster_id           = "${var.name}-aurora"
   guardduty_enabled           = var.guardduty_enabled
   tags                        = local.tags
+}
+
+# --- certifikata e paneleve (admin.*, partner.*) ---------------------------------------
+# E ndarë nga certifikata e API-së me qëllim: API-ja nuk pret asnjë sekondë sa panelet
+# validohen, dhe nje ndryshim hostesh te panelet nuk e rilëshon certifikatën e API-së.
+# Radha: apply → `terraform output panel_acm_validation_records` → CNAME-t te Cloudflare
+# me proxy të fikur → ISSUED → `panel_cert_ready = true` → apply → CNAME-t e host-eve te
+# ALB-ja me proxy të ndezur.
+resource "aws_acm_certificate" "panels" {
+  count                     = length(var.panel_hosts) > 0 ? 1 : 0
+  domain_name               = values(var.panel_hosts)[0]
+  subject_alternative_names = slice(values(var.panel_hosts), 1, length(var.panel_hosts))
+  validation_method         = "DNS"
+  tags                      = local.tags
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_lb_listener_certificate" "panels" {
+  count           = var.panel_cert_ready && length(var.panel_hosts) > 0 ? 1 : 0
+  listener_arn    = module.ecs.https_listener_arn
+  certificate_arn = aws_acm_certificate.panels[0].arn
 }
