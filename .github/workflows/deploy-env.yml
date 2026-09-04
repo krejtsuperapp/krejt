@@ -25,6 +25,9 @@ on:
       deployed:
         description: "true nëse deploy-i u krye (roli ishte i vendosur)."
         value: ${{ jobs.deploy.outputs.deployed }}
+      live:
+        description: "true nëse shërbimi api ka desiredCount > 0, pra ka çfarë të kontrollohet."
+        value: ${{ jobs.deploy.outputs.live }}
 
 permissions:
   id-token: write
@@ -36,6 +39,7 @@ jobs:
     environment: ${{ inputs.environment }}
     outputs:
       deployed: ${{ steps.cfg.outputs.enabled }}
+      live: ${{ steps.live.outputs.live }}
     env:
       AWS_REGION: eu-central-1
       # Terraform-i e emërton clusterin `${name}-cluster`; emri i mjedisit vetëm nuk mjafton.
@@ -130,3 +134,21 @@ jobs:
       - name: prit stabilitetin (rollback automatik nga circuit breaker nëse dështon)
         if: steps.cfg.outputs.enabled == 'true' && steps.rollout.outputs.services != ''
         run: aws ecs wait services-stable --cluster "$CLUSTER" --services ${{ steps.rollout.outputs.services }}
+      # Një mjedis me desiredCount = 0 nuk ka çfarë t'i përgjigjet një kontrolli shëndeti. Pyetet
+      # vetë ECS-ja e jo një variabël që dikush duhet ta mbajë mend: kur mjedisi hapet, kontrolli
+      # ndizet vetë.
+      - name: a ka task-e në punë?
+        if: steps.cfg.outputs.enabled == 'true'
+        id: live
+        run: |
+          set -euo pipefail
+          svc="${{ inputs.name }}-api"
+          n=$(aws ecs describe-services --cluster "$CLUSTER" --services "$svc" --query 'services[0].desiredCount' --output text 2>/dev/null || echo 0)
+          if [ "$n" = "None" ] || [ -z "$n" ]; then n=0; fi
+          echo "$svc desiredCount = $n"
+          if [ "$n" -gt 0 ]; then
+            echo "live=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "live=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::mjedisi nuk ka task-e në punë — kontrolli i shëndetit kapërcehet"
+          fi
