@@ -13,6 +13,8 @@ import 'food/menu.dart';
 import 'food/order_tracking.dart';
 import 'notifications.dart';
 import 'parcels/new_parcel.dart';
+import 'services/new_request.dart';
+import 'services/request_tracking.dart';
 import 'parcels/parcel_tracking.dart';
 import 'ride/destination.dart';
 import 'ride/tracking.dart';
@@ -103,6 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final active = state.activeRide;
     final activeOrder = state.activeOrder;
     final activeParcel = state.activeParcel;
+    final activeService = state.activeService;
     final past = state.recentRides.where((r) => r.isFinished).take(4).toList();
     final open = _nearby.where((m) => m.canOrder).toList();
     final foodOn = state.config.flag('food');
@@ -131,11 +134,17 @@ class _HomeScreenState extends State<HomeScreen> {
               foodReady: foodOn,
               marketReady: state.config.flag('market', fallback: true),
               courierReady: state.config.flag('parcels', fallback: true),
+              servicesReady: state.config.flag('services', fallback: true),
               onRide: () => _open(
                 active == null ? const DestinationScreen() : TrackingScreen(rideId: active.id),
               ),
               onFood: () => _open(const DiscoverScreen()),
               onMarket: () => _open(const DiscoverScreen(mode: DiscoverMode.market)),
+              onServices: () => _open(
+                activeService == null
+                    ? const NewServiceRequestScreen()
+                    : ServiceTrackingScreen(requestId: activeService.id),
+              ),
               onCourier: () => _open(
                 activeParcel == null
                     ? const NewParcelScreen()
@@ -150,6 +159,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: context.t('home.active.ride'),
                 subtitle: _rideSubtitle(context, active),
                 onTap: () => _open(TrackingScreen(rideId: active.id)),
+              ),
+            ],
+            if (activeService != null) ...[
+              const SizedBox(height: K.s4),
+              KNeonBanner(
+                icon: Icons.handyman_outlined,
+                title: context.t('service.active'),
+                subtitle: context.t(serviceStateKey(activeService.state)),
+                onTap: () => _open(ServiceTrackingScreen(requestId: activeService.id)),
               ),
             ],
             if (activeParcel != null) ...[
@@ -328,10 +346,12 @@ class _ServicesGrid extends StatelessWidget {
     required this.foodReady,
     required this.marketReady,
     required this.courierReady,
+    required this.servicesReady,
     required this.onRide,
     required this.onFood,
     required this.onMarket,
     required this.onCourier,
+    required this.onServices,
     required this.onPayments,
   });
 
@@ -339,10 +359,12 @@ class _ServicesGrid extends StatelessWidget {
   final bool foodReady;
   final bool marketReady;
   final bool courierReady;
+  final bool servicesReady;
   final VoidCallback onRide;
   final VoidCallback onFood;
   final VoidCallback onMarket;
   final VoidCallback onCourier;
+  final VoidCallback onServices;
   final VoidCallback onPayments;
 
   @override
@@ -380,8 +402,9 @@ class _ServicesGrid extends StatelessWidget {
       KServiceTile(
         icon: Icons.handyman_outlined,
         label: context.t('home.services.services'),
-        ready: false,
+        ready: servicesReady,
         soonLabel: soon,
+        onTap: onServices,
       ),
       KServiceTile(
         icon: Icons.credit_card_outlined,

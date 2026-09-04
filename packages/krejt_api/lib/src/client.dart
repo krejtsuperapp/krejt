@@ -10,6 +10,7 @@ import 'models/order.dart';
 import 'models/parcel.dart';
 import 'models/places.dart';
 import 'models/promo.dart';
+import 'models/service.dart';
 import 'models/ride.dart';
 import 'models/user.dart';
 import 'models/wallet.dart';
@@ -350,6 +351,61 @@ class KrejtApi {
       _post('/api/v1/realtime/subscribe', body: {'channel': channel});
 
   // --------------------------------------------------------------------- rides
+
+  // --------------------------------------------------------------- shërbimet
+
+  Future<List<ServiceCategory>> serviceCategories() async {
+    final rows = await _getList('/api/v1/services/categories', 'items');
+    return rows.map(ServiceCategory.fromJson).toList();
+  }
+
+  Future<ServiceRequest> createServiceRequest({
+    required String categoryId,
+    required String title,
+    required String description,
+    required String addressLine1,
+    required LatLng address,
+    required String paymentMethod,
+    String? addressInstructions,
+    DateTime? preferredAt,
+    List<String> photoKeys = const [],
+    String? idempotencyKey,
+  }) async => ServiceRequest.fromJson(
+    await _post(
+      '/api/v1/services/requests',
+      idempotencyKey: idempotencyKey ?? newIdempotencyKey(),
+      body: {
+        'category_id': categoryId,
+        'title': title,
+        'description': description,
+        'address_line1': addressLine1,
+        'address': address.toJson(),
+        'payment_method': paymentMethod,
+        'address_instructions': ?addressInstructions,
+        'preferred_at': ?preferredAt?.toUtc().toIso8601String(),
+        if (photoKeys.isNotEmpty) 'photo_keys': photoKeys,
+      },
+    ),
+  );
+
+  Future<ServiceRequest> serviceRequest(String id) async =>
+      ServiceRequest.fromJson(await _get('/api/v1/services/requests/$id'));
+
+  Future<List<ServiceRequest>> serviceRequests({int limit = 20}) async {
+    final rows = await _getList('/api/v1/services/requests', 'items', query: {'limit': limit});
+    return rows.map(ServiceRequest.fromJson).toList();
+  }
+
+  /// Klienti zgjedh një ofertë; çmimi i saj bëhet çmimi i punës.
+  Future<ServiceRequest> acceptServiceOffer(String requestId, String offerId) async =>
+      ServiceRequest.fromJson(
+        await _post('/api/v1/services/requests/$requestId/accept', body: {'offer_id': offerId}),
+      );
+
+  Future<ServiceRequest> cancelServiceRequest(String id, {String? reason}) async =>
+      ServiceRequest.fromJson(
+        await _post('/api/v1/services/requests/$id/cancel', body: {'reason': ?reason}),
+      );
 
   // ------------------------------------------------------------------ kupona
 

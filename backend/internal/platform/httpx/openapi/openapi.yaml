@@ -30,6 +30,7 @@ tags:
   - name: places
   - name: parcels
   - name: promos
+  - name: services
   - name: wallet
   - name: payments
   - name: support
@@ -168,6 +169,86 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [channel], properties: { channel: { type: string, example: "ride:6f1c…" } } } } } }
       responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RealtimeToken" } } } }, "403": { $ref: "#/components/responses/Err" } }
 
+  /api/v1/services/categories:
+    get: { tags: [services], summary: Kategoritë e shërbimeve, responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/ServiceCategory" } } } } } } } } }
+  /api/v1/services/requests:
+    post:
+      tags: [services]
+      summary: Kërkesë e re shërbimi (Idempotency-Key i detyrueshëm)
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceRequestInput" } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceRequest" } } } }, "422": { $ref: "#/components/responses/Err" } }
+    get:
+      tags: [services]
+      summary: Kërkesat e klientit
+      parameters: [{ $ref: "#/components/parameters/Limit" }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/ServiceRequest" } } } } } } } }
+  /api/v1/services/requests/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [services], summary: "Kërkesa (klienti e sheh me ofertat derisa zgjedh)", responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceRequest" } } } }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/services/requests/{id}/accept:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [services]
+      summary: Pranon një ofertë (kërkesa bëhet e rezervuar)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [offer_id], properties: { offer_id: { type: string, format: uuid } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceRequest" } } } }, "402": { $ref: "#/components/responses/Err" }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/services/requests/{id}/cancel:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [services]
+      summary: Anulon kërkesën (para se puna të nisë)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { reason: { type: string, maxLength: 200 } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceRequest" } } } }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/services/provider:
+    post:
+      tags: [services]
+      summary: Apliko si mjeshtër (miratimi nga OPERATIONS)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [categories, city], properties: { categories: { type: array, items: { type: string } }, business_name: { type: string }, bio: { type: string }, city: { type: string }, phone_public: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceProvider" } } } }, "422": { $ref: "#/components/responses/Err" } }
+    get: { tags: [services], summary: Profili i mjeshtrit, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceProvider" } } } }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/services/provider/open:
+    get:
+      tags: [services]
+      summary: "Punët e hapura në kategoritë e mjeshtrit (pa adresë të saktë derisa oferta pranohet)"
+      parameters: [{ $ref: "#/components/parameters/Limit" }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/ServiceOpenRequest" } } } } } } }, "403": { $ref: "#/components/responses/Err" } }
+  /api/v1/services/provider/jobs:
+    get:
+      tags: [services]
+      summary: Punët e mjeshtrit
+      parameters: [{ $ref: "#/components/parameters/Limit" }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/ServiceRequest" } } } } } } } }
+  /api/v1/services/provider/requests/{id}/offer:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [services]
+      summary: Dërgo ose përditëso ofertën
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [price_minor], properties: { price_minor: { type: integer }, note: { type: string, maxLength: 300 }, can_start_at: { type: string, format: date-time } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceOffer" } } } }, "403": { $ref: "#/components/responses/Err" }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/services/provider/offers/{id}/withdraw:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post: { tags: [services], summary: Tërhiq ofertën, responses: { "204": { description: OK }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/services/provider/requests/{id}/start:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post: { tags: [services], summary: Puna nisi, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceRequest" } } } }, "409": { $ref: "#/components/responses/Err" } } }
+  /api/v1/services/provider/requests/{id}/complete:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post: { tags: [services], summary: Puna përfundoi (shlyerja në ledger), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceRequest" } } } }, "409": { $ref: "#/components/responses/Err" } } }
+  /api/v1/services/provider/requests/{id}/release:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [services]
+      summary: Mjeshtri heq dorë para nisjes (kërkesa kthehet e hapur)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { reason: { type: string, maxLength: 200 } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceRequest" } } } }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/admin/service-providers/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    patch:
+      tags: [services]
+      summary: Mirato ose pezullo një mjeshtër (OPERATIONS)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status], properties: { status: { type: string, enum: [pending, approved, suspended] }, reason: { type: string, maxLength: 200 } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ServiceProvider" } } } }, "404": { $ref: "#/components/responses/Err" } }
   /api/v1/coupons/check:
     post:
       tags: [promos]
@@ -820,6 +901,28 @@ components:
             retryable: { type: boolean }
             fields: { type: object, additionalProperties: { type: string }, description: "Gabime për fushë (§57): {\"email\": \"invalid\"}" }
     Locale: { type: string, enum: [sq, en, de] }
+    ServiceCategory:
+      type: object
+      properties: { id: { type: string }, name_key: { type: string }, sort: { type: integer } }
+    ServiceProviderCard:
+      type: object
+      properties: { user_id: { type: string, format: uuid }, name: { type: string }, business_name: { type: [string, "null"] }, city: { type: string }, rating: { type: [number, "null"] }, rating_count: { type: integer }, jobs_done: { type: integer } }
+    ServiceProvider:
+      type: object
+      properties: { user_id: { type: string, format: uuid }, status: { type: string, enum: [pending, approved, suspended] }, categories: { type: array, items: { type: string } }, business_name: { type: [string, "null"] }, bio: { type: [string, "null"] }, city: { type: string }, phone_public: { type: [string, "null"] }, rating: { type: [number, "null"] }, rating_count: { type: integer }, jobs_done: { type: integer }, suspended_reason: { type: [string, "null"] }, created_at: { type: string, format: date-time } }
+    ServiceOffer:
+      type: object
+      properties: { id: { type: string, format: uuid }, request_id: { type: string, format: uuid }, provider_id: { type: string, format: uuid }, price_minor: { type: integer }, currency: { type: string }, note: { type: [string, "null"] }, can_start_at: { type: [string, "null"], format: date-time }, state: { type: string }, created_at: { type: string, format: date-time }, provider: { $ref: "#/components/schemas/ServiceProviderCard" } }
+    ServiceRequestInput:
+      type: object
+      required: [category_id, title, description, address_line1, address, payment_method]
+      properties: { category_id: { type: string }, title: { type: string, maxLength: 80 }, description: { type: string, maxLength: 1000 }, address_line1: { type: string }, address: { $ref: "#/components/schemas/Point" }, address_instructions: { type: string }, preferred_at: { type: string, format: date-time }, photo_keys: { type: array, items: { type: string }, maxItems: 5 }, payment_method: { type: string, enum: [cash, wallet] } }
+    ServiceRequest:
+      type: object
+      properties: { id: { type: string, format: uuid }, code: { type: string }, customer_id: { type: string, format: uuid }, category_id: { type: string }, provider_id: { type: [string, "null"], format: uuid }, state: { type: string, enum: [open, booked, in_progress, completed, cancelled, no_offers] }, title: { type: string }, description: { type: string }, address_line1: { type: string }, address: { $ref: "#/components/schemas/Point" }, address_instructions: { type: [string, "null"] }, preferred_at: { type: [string, "null"], format: date-time }, photo_keys: { type: array, items: { type: string } }, payment_method: { type: string }, payment_status: { type: string }, price_minor: { type: [integer, "null"] }, currency: { type: string }, cancelled_by: { type: [string, "null"] }, cancellation_reason: { type: [string, "null"] }, created_at: { type: string, format: date-time }, booked_at: { type: [string, "null"], format: date-time }, started_at: { type: [string, "null"], format: date-time }, completed_at: { type: [string, "null"], format: date-time }, cancelled_at: { type: [string, "null"], format: date-time }, provider: { $ref: "#/components/schemas/ServiceProviderCard" }, offers: { type: array, items: { $ref: "#/components/schemas/ServiceOffer" } } }
+    ServiceOpenRequest:
+      type: object
+      properties: { id: { type: string, format: uuid }, code: { type: string }, category_id: { type: string }, title: { type: string }, description: { type: string }, city: { type: string }, distance_m: { type: integer }, preferred_at: { type: [string, "null"], format: date-time }, photo_keys: { type: array, items: { type: string } }, created_at: { type: string, format: date-time }, my_offer: { $ref: "#/components/schemas/ServiceOffer" } }
     CouponApplied:
       type: object
       properties: { code: { type: string }, kind: { type: string, enum: [percent, fixed] }, discount_minor: { type: integer } }

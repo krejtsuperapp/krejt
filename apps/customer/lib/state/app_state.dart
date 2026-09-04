@@ -46,6 +46,7 @@ class AppState extends ChangeNotifier {
   Ride? activeRide;
   Order? activeOrder;
   Parcel? activeParcel;
+  ServiceRequest? activeService;
   int unreadNotifications = 0;
   List<Ride> recentRides = const [];
   String locale = 'sq';
@@ -216,6 +217,23 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshServices() async {
+    try {
+      final items = await api.serviceRequests(limit: 5);
+      ServiceRequest? active;
+      for (final r in items) {
+        if (r.isActive) {
+          active = r;
+          break;
+        }
+      }
+      activeService = active;
+      notifyListeners();
+    } on ApiError {
+      // Pamja e vjetër mbetet; rifreskohet në veprimin e radhës.
+    }
+  }
+
   Future<void> refreshParcels() async {
     try {
       activeParcel = await api.activeParcel();
@@ -231,6 +249,7 @@ class AppState extends ChangeNotifier {
       refreshRides(),
       refreshOrders(),
       refreshParcels(),
+      refreshServices(),
       refreshNotifications(),
     ]);
   }
@@ -263,6 +282,7 @@ class AppState extends ChangeNotifier {
     activeRide = null;
     activeOrder = null;
     activeParcel = null;
+    activeService = null;
     unreadNotifications = 0;
     recentRides = const [];
     phase = BootPhase.signedOut;
