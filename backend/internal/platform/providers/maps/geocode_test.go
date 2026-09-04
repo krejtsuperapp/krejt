@@ -4,12 +4,14 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"krejt.app/backend/internal/domain/geo"
 )
 
-func TestMapboxSearchParsesAndFiltersToKosovo(t *testing.T) {
+// Rruga rezervë: kur Search Box nuk kthen asgjë, gjeokodimi mban kërkimin e adresave në këmbë.
+func TestMapboxGeocodeSearchFiltersToKosovo(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("country") != "xk" || r.URL.Query().Get("proximity") == "" {
 			t.Errorf("parametrat: %s", r.URL.RawQuery)
@@ -25,7 +27,7 @@ func TestMapboxSearchParsesAndFiltersToKosovo(t *testing.T) {
 	m.geocode = srv.URL
 	m.http = srv.Client()
 	near := geo.Point{Lat: 42.66, Lng: 21.16}
-	out, err := m.Search(context.Background(), "sheshi", &near, 5)
+	out, err := m.searchGeocode(context.Background(), "sheshi", &near, 5)
 	if err != nil || len(out) != 1 || out[0].Name != "Sheshi Nënë Tereza" || out[0].Kind != "poi" {
 		t.Fatalf("out=%+v err=%v", out, err)
 	}
@@ -69,5 +71,53 @@ func TestDevEstimateSearchAndReverse(t *testing.T) {
 	r, _ := d.Directions(context.Background(), near, geo.Point{Lat: 42.65, Lng: 21.15})
 	if len(r.Path) != 3 {
 		t.Fatalf("path=%v", r.Path)
+	}
+}
+
+// Search Box kthen pika me koordinata te gjeometria; ato duhen lexuar si [lng, lat] dhe filtruar
+// te Kosova, sepse proximity vetëm i rendit, nuk i kufizon rezultatet.
+func TestMapboxSearchBoxReturnsPOIs(t *testing.T) {
+	var gotTypes string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotTypes = r.URL.Query().Get("types")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"features":[
+		  {"geometry":{"coordinates":[21.15951,42.66158]},"properties":{"name":"Newborn Monument","full_address":"XK, 10000 Prishtinë","feature_type":"poi"}},
+		  {"geometry":{"coordinates":[20.4573,44.7872]},"properties":{"name":"Newborn Beograd","place_formatted":"Serbia","feature_type":"poi"}},
+		  {"geometry":{"coordinates":[]},"properties":{"name":"Pa koordinata","feature_type":"poi"}}
+		]}`))
+	}))
+	defer srv.Close()
+	m := NewMapbox("pk.test")
+	m.searchBox = srv.URL
+	m.http = srv.Client()
+	near := geo.Point{Lat: 42.66, Lng: 21.16}
+	out, err := m.Search(context.Background(), "newborn", &near, 5)
+	if err != nil || len(out) != 1 {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	if out[0].Name != "Newborn Monument" || out[0].Kind != "poi" || out[0].Point.Lat != 42.66158 {
+		t.Fatalf("pika: %+v", out[0])
+	}
+	if !strings.Contains(gotTypes, "poi") {
+		t.Fatalf("types pa poi: %q", gotTypes)
+	}
+}
+
+// Kur Search Box bie, kërkimi nuk kthen gabim: kalon te gjeokodimi.
+func TestMapboxSearchFallsBackToGeocode(t *testing.T) {
+	box := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer box.Close()
+	geoSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"features":[{"properties":{"name":"Rr. Luan Haradinaj","feature_type":"street","coordinates":{"longitude":21.16,"latitude":42.66}}}]}`))
+	}))
+	defer geoSrv.Close()
+	m := NewMapbox("pk.test")
+	m.searchBox, m.geocode, m.http = box.URL, geoSrv.URL, box.Client()
+	out, err := m.Search(context.Background(), "luan", nil, 5)
+	if err != nil || len(out) != 1 || out[0].Kind != "street" {
+		t.Fatalf("out=%+v err=%v", out, err)
 	}
 }
