@@ -38,11 +38,17 @@ module "storage" {
   tags        = local.tags
 }
 
-# Imazhet publike (logo, produkte, profile) — bucket i veçantë + CloudFront.
+# Imazhet publike (logo, produkte, profile) — bucket i veçantë + CloudFront (kur llogaria
+# të jetë verifikuar nga AWS Support; deri atëherë i shërben API-ja).
 module "media" {
-  source      = "../../modules/media"
-  bucket_name = var.media_bucket_name
-  tags        = local.tags
+  source             = "../../modules/media"
+  bucket_name        = var.media_bucket_name
+  cloudfront_enabled = var.media_cloudfront_enabled
+  tags               = local.tags
+}
+
+locals {
+  media_base_url = module.media.base_url != "" ? module.media.base_url : "${var.public_base_url}/api/v1/media/objects"
 }
 
 module "messaging" {
@@ -65,7 +71,7 @@ module "ecs" {
   assets_bucket_arn        = module.storage.bucket_arn
   media_bucket_name        = module.media.bucket_name
   media_bucket_arn         = module.media.bucket_arn
-  media_base_url           = module.media.base_url
+  media_base_url           = local.media_base_url
   queue_urls               = module.messaging.queue_urls
   queue_arns               = values(module.messaging.queue_arns)
   domain_events_topic_arn  = module.messaging.domain_events_topic_arn
