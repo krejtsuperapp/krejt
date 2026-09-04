@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_design/krejt_design.dart';
@@ -6,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/location.dart';
 import '../../state/app_state.dart';
+import '../food/cart_bar.dart';
 import '../food/menu.dart';
 
 /// Marketi si shërbim më vete, jo si Ushqimi me një flamur.
@@ -34,6 +37,9 @@ const _categories = <({String type, String labelKey, IconData icon})>[
 class _MarketScreenState extends State<MarketScreen> {
   static const _location = LocationService();
 
+  final _search = TextEditingController();
+  Timer? _debounce;
+
   List<Merchant> _items = const [];
   String _type = 'grocery';
   LatLng? _at;
@@ -45,6 +51,20 @@ class _MarketScreenState extends State<MarketScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _search.dispose();
+    super.dispose();
+  }
+
+  /// Kërkimi pret gjysmë sekonde pas shkronjës së fundit, që të mos dërgojë një kërkesë për çdo
+  /// prekje — njësoj si te Ushqimi.
+  void _onQueryChanged(String _) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), _load);
   }
 
   Future<void> _load() async {
@@ -65,10 +85,12 @@ class _MarketScreenState extends State<MarketScreen> {
       at = position.point;
     }
     try {
+      final q = _search.text.trim();
       final items = await context.read<AppState>().api.merchants(
         lat: at!.lat,
         lng: at.lng,
         type: _type,
+        query: q.isEmpty ? null : q,
         limit: 30,
       );
       if (!mounted) return;
@@ -110,7 +132,17 @@ class _MarketScreenState extends State<MarketScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(K.s5, K.s3, K.s5, K.s3),
+              padding: const EdgeInsets.fromLTRB(K.s5, K.s2, K.s5, K.s3),
+              child: KField(
+                label: context.t('common.search'),
+                controller: _search,
+                hint: context.t('market.search'),
+                onChanged: _onQueryChanged,
+                onSubmitted: (_) => _load(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(K.s5, 0, K.s5, K.s3),
               child: Row(
                 children: [
                   for (final c in _categories) ...[
@@ -128,6 +160,7 @@ class _MarketScreenState extends State<MarketScreen> {
               ),
             ),
             Expanded(child: _body(context, open, closed)),
+            const CartBar(),
           ],
         ),
       ),

@@ -1,3 +1,10 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:krejt_customer/screens/food/cart_bar.dart';
+import 'package:krejt_customer/state/app_state.dart';
+import 'package:krejt_design/krejt_design.dart';
+import 'package:krejt_l10n/krejt_l10n.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_customer/screens/food/discover.dart';
@@ -25,6 +32,7 @@ Merchant _merchant(String id, {bool open = true, int minOrder = 500}) => Merchan
 });
 
 void main() {
+  _cartBarTests();
   group('shporta', () {
     test('zërat e njëjtë bashkohen në një rresht të vetëm', () {
       final cart = CartState()..startAt(_merchant('m1'));
@@ -129,5 +137,44 @@ void main() {
       expect(order('picked_up').canCancel, isFalse);
       expect(order('delivered').isActive, isFalse);
     });
+  });
+}
+
+/// Shiriti i shportës: shfaqet vetëm kur ka çka të tregojë, dhe mban emrin e lokalit — pa të,
+/// «3 artikuj» nuk i thotë përdoruesit se ku e la porosinë.
+void _cartBarTests() {
+  Widget wrap(CartState cart) => MultiProvider(
+    providers: [
+      ChangeNotifierProvider<CartState>.value(value: cart),
+      ChangeNotifierProvider<AppState>(create: (_) => AppState()),
+    ],
+    child: MaterialApp(
+      theme: krejtTheme(),
+      locale: const Locale('sq'),
+      supportedLocales: kSupportedLocales,
+      localizationsDelegates: const [
+        KL10n.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: const Scaffold(body: Column(children: [Spacer(), CartBar()])),
+    ),
+  );
+
+  testWidgets('shporta bosh nuk zë vend fare', (tester) async {
+    await tester.pumpWidget(wrap(CartState()));
+    await tester.pumpAndSettle();
+    expect(find.text('Shporta'), findsNothing);
+  });
+
+  testWidgets('shporta me artikuj tregon sasinë dhe lokalin', (tester) async {
+    final cart = CartState()..startAt(_merchant('m1'));
+    cart.add(CartLine(product: _product('p1'), optionIds: const [], quantity: 2));
+    await tester.pumpWidget(wrap(cart));
+    await tester.pumpAndSettle();
+    expect(find.text('Shporta'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('Vendi m1'), findsOneWidget);
   });
 }
