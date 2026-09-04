@@ -45,6 +45,7 @@ class AppState extends ChangeNotifier {
   Me? me;
   Ride? activeRide;
   Order? activeOrder;
+  Parcel? activeParcel;
   List<Ride> recentRides = const [];
   String locale = 'sq';
   ApiError? bootError;
@@ -198,8 +199,17 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshParcels() async {
+    try {
+      activeParcel = await api.activeParcel();
+      notifyListeners();
+    } on ApiError {
+      // Pamja e vjetër mbetet; rifreskohet në veprimin e radhës.
+    }
+  }
+
   Future<void> refreshHome() async {
-    await Future.wait([refreshMe(), refreshRides(), refreshOrders()]);
+    await Future.wait([refreshMe(), refreshRides(), refreshOrders(), refreshParcels()]);
   }
 
   /// Ruajtja e profilit kthen përdoruesin e ri nga serveri; ekranet e shohin menjëherë.
@@ -228,6 +238,7 @@ class AppState extends ChangeNotifier {
     me = null;
     activeRide = null;
     activeOrder = null;
+    activeParcel = null;
     recentRides = const [];
     phase = BootPhase.signedOut;
     notifyListeners();

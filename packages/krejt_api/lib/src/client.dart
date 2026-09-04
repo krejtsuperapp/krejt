@@ -7,6 +7,7 @@ import 'errors.dart';
 import 'models/config.dart';
 import 'models/driver.dart';
 import 'models/order.dart';
+import 'models/parcel.dart';
 import 'models/places.dart';
 import 'models/ride.dart';
 import 'models/user.dart';
@@ -348,6 +349,97 @@ class KrejtApi {
       _post('/api/v1/realtime/subscribe', body: {'channel': channel});
 
   // --------------------------------------------------------------------- rides
+
+  // ----------------------------------------------------------------- parcels
+
+  /// Çmimi i dërgesës së pakos; vlen dy minuta.
+  Future<ParcelQuote> quoteParcel({
+    required String size,
+    required LatLng pickup,
+    required LatLng dropoff,
+    String? pickupAddress,
+    String? dropoffAddress,
+  }) async => ParcelQuote.fromJson(
+    await _post(
+      '/api/v1/parcels/quote',
+      body: {
+        'size': size,
+        'pickup': pickup.toJson(),
+        'dropoff': dropoff.toJson(),
+        'pickup_address': ?pickupAddress,
+        'dropoff_address': ?dropoffAddress,
+      },
+    ),
+  );
+
+  Future<Parcel> createParcel({
+    required String quoteId,
+    required String paymentMethod,
+    required String recipientName,
+    required String recipientPhone,
+    String? pickupContactName,
+    String? pickupContactPhone,
+    String? note,
+    String? idempotencyKey,
+  }) async => Parcel.fromJson(
+    await _post(
+      '/api/v1/parcels',
+      idempotencyKey: idempotencyKey ?? newIdempotencyKey(),
+      body: {
+        'quote_id': quoteId,
+        'payment_method': paymentMethod,
+        'recipient_name': recipientName,
+        'recipient_phone': recipientPhone,
+        'pickup_contact_name': ?pickupContactName,
+        'pickup_contact_phone': ?pickupContactPhone,
+        'note': ?note,
+      },
+    ),
+  );
+
+  Future<Parcel> parcel(String id) async => Parcel.fromJson(await _get('/api/v1/parcels/$id'));
+
+  /// Pakoja aktive e klientit; null kur nuk ka.
+  Future<Parcel?> activeParcel() async => _parcelOrNull(await _get('/api/v1/parcels/active'));
+
+  Future<List<Parcel>> parcelHistory({int limit = 20}) async {
+    final rows = await _getList('/api/v1/parcels', 'items', query: {'limit': limit});
+    return rows.map(Parcel.fromJson).toList();
+  }
+
+  Future<Parcel> cancelParcel(String id, {String? reason}) async =>
+      Parcel.fromJson(await _post('/api/v1/parcels/$id/cancel', body: {'reason': ?reason}));
+
+  // korrieri
+  Future<List<ParcelOffer>> courierParcelOffers() async {
+    final rows = await _getList('/api/v1/courier/parcel-offers', 'items');
+    return rows.map(ParcelOffer.fromJson).toList();
+  }
+
+  Future<Parcel> acceptParcelOffer(String offerId) async =>
+      Parcel.fromJson(await _post('/api/v1/courier/parcel-offers/$offerId/accept'));
+
+  Future<void> declineParcelOffer(String offerId) async {
+    await _post('/api/v1/courier/parcel-offers/$offerId/decline');
+  }
+
+  Future<Parcel?> courierActiveParcel() async =>
+      _parcelOrNull(await _get('/api/v1/courier/parcels/active'));
+
+  static Parcel? _parcelOrNull(Map<String, dynamic> j) {
+    final p = _unwrap(j, 'parcel');
+    return p == null ? null : Parcel.fromJson(p);
+  }
+
+  Future<Parcel> courierParcelPickup(String id, {required String code}) async =>
+      Parcel.fromJson(await _post('/api/v1/courier/parcels/$id/pickup', body: {'code': code}));
+
+  Future<Parcel> courierParcelDeliver(String id, {required String code}) async =>
+      Parcel.fromJson(await _post('/api/v1/courier/parcels/$id/deliver', body: {'code': code}));
+
+  Future<Parcel> courierParcelRelease(String id, {String? reason}) async => Parcel.fromJson(
+    await _post('/api/v1/courier/parcels/$id/release', body: {'reason': ?reason}),
+  );
 
   // ------------------------------------------------------------------ places
 
