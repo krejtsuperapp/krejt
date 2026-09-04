@@ -669,6 +669,8 @@ const Map<String, String> _sq = {
   'errors.payments.not_refundable': 'Kjo pagesë nuk kthehet dot.',
   'errors.payments.provider_unavailable':
       'Pagesa nuk kryhet dot tani. Provo pas pak ose paguaj cash.',
+  'errors.payments.topup_unavailable':
+      'Mbushja me kartë nuk është hapur ende. Pagesa me cash punon normalisht.',
   'errors.payments.webhook_signature': 'Njoftimi i pagesës nuk u verifikua.',
   'errors.payouts.batch_state': 'Pagesa e shoferëve nuk është në këtë hap.',
   'errors.payouts.iban_invalid': 'IBAN-i nuk është i saktë.',
@@ -1350,6 +1352,8 @@ const Map<String, String> _en = {
   'errors.payments.not_refundable': 'This payment can\'t be refunded.',
   'errors.payments.provider_unavailable':
       'Payments aren\'t available right now. Try again shortly or pay cash.',
+  'errors.payments.topup_unavailable':
+      'Card top-up is not open yet. Paying in cash works as usual.',
   'errors.payments.webhook_signature': 'The payment notification couldn\'t be verified.',
   'errors.payouts.batch_state': 'The payout batch isn\'t at this step.',
   'errors.payouts.iban_invalid': 'The IBAN isn\'t valid.',
@@ -2036,6 +2040,8 @@ const Map<String, String> _de = {
   'errors.payments.not_refundable': 'Diese Zahlung kann nicht erstattet werden.',
   'errors.payments.provider_unavailable':
       'Zahlungen sind gerade nicht möglich. Versuche es gleich noch einmal oder zahle bar.',
+  'errors.payments.topup_unavailable':
+      'Aufladen per Karte ist noch nicht möglich. Barzahlung funktioniert wie gewohnt.',
   'errors.payments.webhook_signature': 'Die Zahlungsbenachrichtigung konnte nicht geprüft werden.',
   'errors.payouts.batch_state': 'Die Auszahlungsrunde ist nicht in diesem Schritt.',
   'errors.payouts.iban_invalid': 'Die IBAN ist ungültig.',

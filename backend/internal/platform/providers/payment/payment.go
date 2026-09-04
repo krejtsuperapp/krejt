@@ -60,6 +60,9 @@ type WebhookEvent struct {
 
 var ErrBadSignature = errors.New("payment: nënshkrim webhook-u i pavlefshëm")
 
+// ErrDisabled — nuk ka ofrues pagese: cash-i dhe kuleta punojnë, mbushja me kartë jo.
+var ErrDisabled = errors.New("payment: pagesat me kartë nuk janë të hapura")
+
 type Provider interface {
 	Name() string
 	CreateIntent(ctx context.Context, in IntentRequest) (IntentResult, error)
@@ -255,6 +258,26 @@ func normalizeStripeStatus(s string) string {
 	return "created"
 }
 
+// --- None: nisje vetëm me cash --------------------------------------------------------
+// Pa ofrues pagese aplikacioni punon me cash dhe me kuletë; vetëm mbushja me kartë refuzohet,
+// hapur dhe me arsyen e vet. Lejohet në prodhim: mospasja e kartës nuk është shtirje.
+
+type NoneProvider struct{}
+
+func (NoneProvider) Name() string { return "none" }
+
+func (NoneProvider) CreateIntent(context.Context, IntentRequest) (IntentResult, error) {
+	return IntentResult{}, ErrDisabled
+}
+
+func (NoneProvider) Refund(context.Context, RefundRequest) (RefundResult, error) {
+	return RefundResult{}, ErrDisabled
+}
+
+func (NoneProvider) ParseWebhook([]byte, string, time.Time) (WebhookEvent, error) {
+	return WebhookEvent{}, ErrBadSignature
+}
+
 // --- DevLog (VETËM development) -----------------------------------------------------
 // Krijon qëllime "pi_dev_…" pa asnjë ofrues; suksesi vjen VETËM nga endpoint-i dev i simulimit të
 // webhook-ut (POST /api/v1/dev/payments/{id}/{succeed|fail}) — asnjë pagesë nuk "kalon" vetvetiu.
@@ -292,11 +315,15 @@ func (d *DevLog) SignDev(payload []byte, now time.Time) string {
 	return "t=" + ts + ",v1=" + hex.EncodeToString(mac.Sum(nil))
 }
 
-// NewFromEnv — PAYMENT_PROVIDER: stripe (parazgjedhje) | devlog (development dhe staging; kurrë production).
+// NewFromEnv — PAYMENT_PROVIDER: stripe (parazgjedhje) | none (vetëm cash/kuletë, edhe në prodhim) |
+// devlog (development dhe staging; kurrë production).
 func NewFromEnv(env, provider, stripeSecret, stripeWebhookSecret string, log *slog.Logger) (Provider, error) {
 	switch provider {
 	case "stripe", "":
 		return NewStripe(stripeSecret, stripeWebhookSecret)
+	case "none":
+		log.Info("payment: PAYMENT_PROVIDER=none — vetëm cash dhe kuletë; mbushja me kartë e mbyllur")
+		return NoneProvider{}, nil
 	case "devlog":
 		if env == "production" {
 			return nil, fmt.Errorf("payment: devlog nuk lejohet në production (APP_ENV=%s)", env)
