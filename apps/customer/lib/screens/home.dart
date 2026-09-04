@@ -11,6 +11,7 @@ import '../state/app_state.dart';
 import 'food/discover.dart';
 import 'food/menu.dart';
 import 'food/order_tracking.dart';
+import 'notifications.dart';
 import 'parcels/new_parcel.dart';
 import 'parcels/parcel_tracking.dart';
 import 'ride/destination.dart';
@@ -315,6 +316,8 @@ class _Header extends StatelessWidget {
         ),
       ),
       if (city != null) KPill(city!, icon: Icons.location_on_outlined, neon: true),
+      const SizedBox(width: K.s2),
+      const NotificationsButton(),
     ],
   );
 }

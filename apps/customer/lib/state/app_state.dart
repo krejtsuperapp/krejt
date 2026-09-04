@@ -46,6 +46,7 @@ class AppState extends ChangeNotifier {
   Ride? activeRide;
   Order? activeOrder;
   Parcel? activeParcel;
+  int unreadNotifications = 0;
   List<Ride> recentRides = const [];
   String locale = 'sq';
   ApiError? bootError;
@@ -199,6 +200,22 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Numëratori i ziles. E vendos kutia e njoftimeve kur lexon listën, dhe ballina kur rifreskohet.
+  void setUnread(int value) {
+    if (unreadNotifications == value) return;
+    unreadNotifications = value;
+    notifyListeners();
+  }
+
+  Future<void> refreshNotifications() async {
+    try {
+      final items = await api.notifications(limit: 30);
+      setUnread(items.where((n) => n.unread).length);
+    } on ApiError {
+      // Zilja mbetet siç ishte; rifreskohet në hapjen e radhës.
+    }
+  }
+
   Future<void> refreshParcels() async {
     try {
       activeParcel = await api.activeParcel();
@@ -209,7 +226,13 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> refreshHome() async {
-    await Future.wait([refreshMe(), refreshRides(), refreshOrders(), refreshParcels()]);
+    await Future.wait([
+      refreshMe(),
+      refreshRides(),
+      refreshOrders(),
+      refreshParcels(),
+      refreshNotifications(),
+    ]);
   }
 
   /// Ruajtja e profilit kthen përdoruesin e ri nga serveri; ekranet e shohin menjëherë.
@@ -230,6 +253,7 @@ class AppState extends ChangeNotifier {
   /// Njoftimi (§47) është shtytje: gjendja merret nga serveri, që modeli të mbetet një.
   void _onPush(Map<String, dynamic> data, {required bool opened}) {
     unawaited(refreshRides());
+    unawaited(refreshNotifications());
   }
 
   Future<void> signOut() async {
@@ -239,6 +263,7 @@ class AppState extends ChangeNotifier {
     activeRide = null;
     activeOrder = null;
     activeParcel = null;
+    unreadNotifications = 0;
     recentRides = const [];
     phase = BootPhase.signedOut;
     notifyListeners();
