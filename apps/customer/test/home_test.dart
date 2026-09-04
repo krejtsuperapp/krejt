@@ -101,9 +101,9 @@ void main() {
   testWidgets('shërbimi i fikur nga konfigurimi shfaqet si i ardhshëm', (tester) async {
     await tester.pumpWidget(_wrap(const HomeScreen()));
     await tester.pumpAndSettle();
-    // Ushqimi dhe marketi janë të fikur në konfigurimin e paracaktuar; korrieri dhe shërbimet
-    // janë ende të pandërtuara, ndaj shënohen gjithmonë "së shpejti".
-    expect(find.text('Së shpejti'), findsNWidgets(2));
+    // Ushqimi varet nga flamuri i serverit dhe në konfigurimin e paracaktuar është i fikur, ndaj
+    // vetëm ai shënohet "së shpejti"; të gjitha shërbimet e tjera janë të hapura.
+    expect(find.text('Së shpejti'), findsOneWidget);
   });
 
   testWidgets('llogaria tregon inicialet dhe gjuhën aktive', (tester) async {

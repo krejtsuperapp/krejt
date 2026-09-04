@@ -36,6 +36,7 @@ import (
 	"krejt.app/backend/internal/modules/realtime"
 	"krejt.app/backend/internal/modules/reviews"
 	"krejt.app/backend/internal/modules/rides"
+	servicesmod "krejt.app/backend/internal/modules/services"
 	"krejt.app/backend/internal/modules/support"
 	"krejt.app/backend/internal/modules/users"
 	"krejt.app/backend/internal/modules/wallet"
@@ -265,6 +266,7 @@ func main() {
 	mediaSvc.Routes(mux, requireAuth)
 	places.New(mapsProvider, rdb).Routes(mux, requireAuth)
 	parcels.New(pool, ledgerSvc, mapsProvider).WithLocation(locSvc).WithPromos(promosSvc).Routes(mux, requireAuth, requireDriver)
+	servicesmod.New(pool, ledgerSvc).Routes(mux, requireAuth, requireOps)
 	admin.New(pool, rdb, ledgerSvc).Routes(mux, requireStaff, requireAdmin)
 	if fs, ok := store.(*storage.DevFS); ok {
 		documents.DevRoutes(mux, fs) // vetëm development (devfs)
