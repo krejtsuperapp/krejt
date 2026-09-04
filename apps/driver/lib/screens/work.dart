@@ -8,6 +8,7 @@ import '../services/location.dart';
 import '../state/app_state.dart';
 import '../state/work_state.dart';
 import 'active_ride.dart';
+import 'apply.dart';
 import 'courier.dart';
 import 'documents.dart';
 import 'offer_card.dart';
@@ -99,7 +100,10 @@ class WorkScreen extends StatelessWidget {
             ),
           ],
           const SizedBox(height: K.s4),
-          if (!state.canGoOnline) _NotApprovedCard(reason: driver?.suspendedReason),
+          if (driver == null)
+            const _ApplyCard()
+          else if (!state.canGoOnline)
+            _NotApprovedCard(reason: driver.suspendedReason),
           if (work.locationProblem != null) ...[
             KError(
               message: context.t(locationProblemKey(work.locationProblem!)),
@@ -258,6 +262,41 @@ class _OnlinePill extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Përdoruesi ende s'ka aplikuar: një kartë e vetme me hapin e parë, pa "në pritje" të rremë.
+class _ApplyCard extends StatelessWidget {
+  const _ApplyCard();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: K.s4),
+    child: KCard(
+      highlight: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.t('driver.apply.card.title'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: K.text),
+          ),
+          const SizedBox(height: K.s2),
+          Text(
+            context.t('driver.apply.card.hint'),
+            style: const TextStyle(fontSize: 14, color: K.textDim, height: 1.45),
+          ),
+          const SizedBox(height: K.s4),
+          KButton(
+            label: context.t('driver.apply.card.action'),
+            icon: Icons.arrow_forward,
+            onPressed: () =>
+                Navigator.of(context)
+                    .push(MaterialPageRoute<void>(builder: (_) => const ApplyScreen())),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _NotApprovedCard extends StatelessWidget {

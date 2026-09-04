@@ -129,6 +129,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Pas aplikimit: profili i ri merret nga serveri që ekrani i punës ta shohë menjëherë.
+  Future<void> refreshDriver() async {
+    await _loadDriver();
+    notifyListeners();
+  }
+
   Future<void> _loadDriver() async {
     try {
       driver = await api.driverProfile();
