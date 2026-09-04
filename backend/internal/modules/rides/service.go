@@ -36,6 +36,13 @@ var (
 	ErrOfferGone                = &httpx.APIError{Code: "OFFER_GONE", MessageKey: "errors.rides.offer_gone", HTTPStatus: http.StatusConflict}
 )
 
+// Businesses — sa i duhet udhëtimit nga KREJT Business: a lejohet ky shpenzim, dhe nga cila
+// llogari. Ndërfaqe e ngushtë me qëllim — udhëtimi nuk ka pse të njohë punonjësit ose faturat.
+type Businesses interface {
+	Authorize(ctx context.Context, businessID, userID uuid.UUID, amount int64) (string, error)
+	RecordCharge(ctx context.Context, tx pgx.Tx, businessID, userID uuid.UUID, kind string, subjectID, ledgerTx uuid.UUID, amount int64) error
+}
+
 // Flags — feature flags (§65): `rides.request` = çaktivizim emergjent i shërbimit.
 type Flags interface {
 	Enabled(ctx context.Context, key string, userID uuid.UUID) bool
@@ -51,6 +58,7 @@ type Service struct {
 	pricing  *pricing.Service
 	flags    Flags
 	velocity Velocity
+	business Businesses
 	qr       QRSigner
 	now      func() time.Time
 }
@@ -86,39 +94,49 @@ func (s *Service) WithVelocity(v Velocity) *Service {
 	return s
 }
 
+// WithBusiness — pa të, metoda `business` refuzohet si e padisponueshme në vend që të dështojë
+// më vonë me një gabim që përdoruesi nuk e kupton.
+func (s *Service) WithBusiness(b Businesses) *Service {
+	s.business = b
+	return s
+}
+
 // Ride — pamja e udhëtimit (e njëjta për klientin dhe shoferin; klienti sheh shoferin, jo komisionin).
 type Ride struct {
-	ID                   uuid.UUID   `json:"id"`
-	CustomerID           uuid.UUID   `json:"customer_id"`
-	DriverID             *uuid.UUID  `json:"driver_id"`
-	CategoryID           string      `json:"category"`
-	State                string      `json:"state"`
-	PaymentMethod        string      `json:"payment_method"`
-	PaymentStatus        string      `json:"payment_status"`
-	Pickup               geo.Point   `json:"pickup"`
-	PickupAddress        *string     `json:"pickup_address"`
-	Dropoff              geo.Point   `json:"dropoff"`
-	DropoffAddress       *string     `json:"dropoff_address"`
-	DistanceM            int         `json:"distance_m"`
-	DurationS            int         `json:"duration_s"`
-	PriceQuotedMinor     int64       `json:"price_quoted_minor"`
-	PriceFinalMinor      *int64      `json:"price_final_minor"`
-	CommissionMinor      *int64      `json:"-"`
-	CancellationFeeMinor int64       `json:"cancellation_fee_minor"`
-	Currency             string      `json:"currency"`
-	Note                 *string     `json:"note"`
-	MatchingAttempts     int         `json:"-"`
-	CancelledBy          *string     `json:"cancelled_by"`
-	CancellationReason   *string     `json:"cancellation_reason"`
-	RequestedAt          time.Time   `json:"requested_at"`
-	AssignedAt           *time.Time  `json:"assigned_at"`
-	ArrivedAt            *time.Time  `json:"arrived_at"`
-	StartedAt            *time.Time  `json:"started_at"`
-	CompletedAt          *time.Time  `json:"completed_at"`
-	CancelledAt          *time.Time  `json:"cancelled_at"`
-	QuoteID              uuid.UUID   `json:"-"`
-	PickupCode           *string     `json:"pickup_code,omitempty"` // vetëm për klientin (§25)
-	Driver               *DriverCard `json:"driver,omitempty"`
+	ID                   uuid.UUID  `json:"id"`
+	CustomerID           uuid.UUID  `json:"customer_id"`
+	DriverID             *uuid.UUID `json:"driver_id"`
+	CategoryID           string     `json:"category"`
+	State                string     `json:"state"`
+	PaymentMethod        string     `json:"payment_method"`
+	PaymentStatus        string     `json:"payment_status"`
+	Pickup               geo.Point  `json:"pickup"`
+	PickupAddress        *string    `json:"pickup_address"`
+	Dropoff              geo.Point  `json:"dropoff"`
+	DropoffAddress       *string    `json:"dropoff_address"`
+	DistanceM            int        `json:"distance_m"`
+	DurationS            int        `json:"duration_s"`
+	PriceQuotedMinor     int64      `json:"price_quoted_minor"`
+	PriceFinalMinor      *int64     `json:"price_final_minor"`
+	CommissionMinor      *int64     `json:"-"`
+	CancellationFeeMinor int64      `json:"cancellation_fee_minor"`
+	Currency             string     `json:"currency"`
+	Note                 *string    `json:"note"`
+	MatchingAttempts     int        `json:"-"`
+	CancelledBy          *string    `json:"cancelled_by"`
+	CancellationReason   *string    `json:"cancellation_reason"`
+	RequestedAt          time.Time  `json:"requested_at"`
+	AssignedAt           *time.Time `json:"assigned_at"`
+	ArrivedAt            *time.Time `json:"arrived_at"`
+	StartedAt            *time.Time `json:"started_at"`
+	CompletedAt          *time.Time `json:"completed_at"`
+	CancelledAt          *time.Time `json:"cancelled_at"`
+	QuoteID              uuid.UUID  `json:"-"`
+	PickupCode           *string    `json:"pickup_code,omitempty"` // vetëm për klientin (§25)
+	// Ndërmarrja që e paguan; mbahet te udhëtimi e nuk lexohet nga anëtarësia në kohën e faturimit,
+	// sepse një punonjës mund të largohet pasi ka udhëtuar dhe ai udhëtim mbetet i saj.
+	BusinessID *uuid.UUID  `json:"business_id,omitempty"`
+	Driver     *DriverCard `json:"driver,omitempty"`
 }
 
 // DriverCard — çfarë sheh klienti për shoferin (§18 driver profile) + lokacioni i gjallë.
@@ -137,14 +155,14 @@ type DriverCard struct {
 const rideCols = `id, customer_id, driver_id, category_id, state, payment_method, payment_status,
 	pickup_lat, pickup_lng, pickup_address, dropoff_lat, dropoff_lng, dropoff_address, distance_m, duration_s,
 	price_quoted_minor, price_final_minor, commission_minor, cancellation_fee_minor, currency, note, matching_attempts,
-	cancelled_by, cancellation_reason, requested_at, assigned_at, arrived_at, started_at, completed_at, cancelled_at, quote_id, pickup_code`
+	cancelled_by, cancellation_reason, requested_at, assigned_at, arrived_at, started_at, completed_at, cancelled_at, quote_id, pickup_code, business_id`
 
 func scanRide(row pgx.Row) (*Ride, error) {
 	var r Ride
 	if err := row.Scan(&r.ID, &r.CustomerID, &r.DriverID, &r.CategoryID, &r.State, &r.PaymentMethod, &r.PaymentStatus,
 		&r.Pickup.Lat, &r.Pickup.Lng, &r.PickupAddress, &r.Dropoff.Lat, &r.Dropoff.Lng, &r.DropoffAddress, &r.DistanceM, &r.DurationS,
 		&r.PriceQuotedMinor, &r.PriceFinalMinor, &r.CommissionMinor, &r.CancellationFeeMinor, &r.Currency, &r.Note, &r.MatchingAttempts,
-		&r.CancelledBy, &r.CancellationReason, &r.RequestedAt, &r.AssignedAt, &r.ArrivedAt, &r.StartedAt, &r.CompletedAt, &r.CancelledAt, &r.QuoteID, &r.PickupCode); err != nil {
+		&r.CancelledBy, &r.CancellationReason, &r.RequestedAt, &r.AssignedAt, &r.ArrivedAt, &r.StartedAt, &r.CompletedAt, &r.CancelledAt, &r.QuoteID, &r.PickupCode, &r.BusinessID); err != nil {
 		return nil, err
 	}
 	r.Currency = strings.TrimSpace(r.Currency)
@@ -153,8 +171,10 @@ func scanRide(row pgx.Row) (*Ride, error) {
 
 type RequestInput struct {
 	QuoteID       uuid.UUID `json:"quote_id"`
-	PaymentMethod string    `json:"payment_method"` // cash | wallet (card: pas modulit payments)
+	PaymentMethod string    `json:"payment_method"` // cash | wallet | business (card: pas modulit payments)
 	Note          string    `json:"note"`
+	// Kërkohet vetëm me metodën `business`; anëtarësia dhe kufiri verifikohen para krijimit.
+	BusinessID *uuid.UUID `json:"business_id"`
 }
 
 // Request — krijon kërkesën nga një quote (çmimi vjen nga serveri), idempotente me Idempotency-Key.
@@ -166,6 +186,13 @@ func (s *Service) Request(ctx context.Context, a principal.Actor, idemKey string
 	}
 	switch in.PaymentMethod {
 	case "cash", "wallet":
+	case "business":
+		// Ndërmarrja jepet gjithmonë me metodën e vet; pa të, udhëtimi do të mbetej i papagueshëm.
+		if in.BusinessID == nil {
+			fields["business_id"] = "required"
+		} else if s.business == nil {
+			return nil, ErrPaymentMethodUnavailable
+		}
 	case "card":
 		return nil, ErrPaymentMethodUnavailable
 	default:
@@ -217,14 +244,22 @@ func (s *Service) Request(ctx context.Context, a principal.Actor, idemKey string
 				return ErrInsufficientFunds
 			}
 		}
+		if in.PaymentMethod == "business" {
+			// Anëtarësia, kufiri mujor dhe bilanci kontrollohen para se udhëtimi të ekzistojë:
+			// një shofer i caktuar një udhëtimi që nuk paguhet dot është kohë e humbur e tij.
+			if _, err := s.business.Authorize(ctx, *in.BusinessID, a.UserID, q.PriceMinor); err != nil {
+				return err
+			}
+		}
 		r, err := scanRide(tx.QueryRow(ctx, `
 			INSERT INTO rides (customer_id, quote_id, service_area_id, category_id, state, payment_method,
 			  pickup_lat, pickup_lng, pickup_address, dropoff_lat, dropoff_lng, dropoff_address,
-			  distance_m, duration_s, price_quoted_minor, currency, note, idempotency_key, pickup_code)
-			VALUES ($1,$2,$3,$4,'matching',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING `+rideCols,
+			  distance_m, duration_s, price_quoted_minor, currency, note, idempotency_key, pickup_code, business_id)
+			VALUES ($1,$2,$3,$4,'matching',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING `+rideCols,
 			a.UserID, q.ID, q.AreaID, q.CategoryID, in.PaymentMethod,
 			q.Pickup.Lat, q.Pickup.Lng, q.PickupAddress, q.Dropoff.Lat, q.Dropoff.Lng, q.DropoffAddress,
-			q.DistanceM, q.DurationS, q.PriceMinor, q.Currency, nullable(in.Note), idemKey, newPickupCode()))
+			q.DistanceM, q.DurationS, q.PriceMinor, q.Currency, nullable(in.Note), idemKey, newPickupCode(),
+			in.BusinessID))
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {

@@ -194,7 +194,7 @@ func (s *Service) SpentThisMonth(ctx context.Context, businessID, userID uuid.UU
 
 // RecordCharge — rreshti i shpenzimit, brenda të njëjtit transaksion me regjistrimin te libri.
 // Të ndara, njëri mund të mbetej pa tjetrin dhe fatura mujore nuk do të përputhej me librin.
-func RecordCharge(ctx context.Context, tx pgx.Tx, businessID, userID uuid.UUID, kind string, subjectID, ledgerTx uuid.UUID, amount int64) error {
+func (s *Service) RecordCharge(ctx context.Context, tx pgx.Tx, businessID, userID uuid.UUID, kind string, subjectID, ledgerTx uuid.UUID, amount int64) error {
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO business_charges (business_id, user_id, kind, subject_id, amount_minor, tx_id)
 		VALUES ($1, $2, $3, $4, $5, $6)

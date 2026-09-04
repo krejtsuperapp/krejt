@@ -394,7 +394,7 @@ paths:
       tags: [rides]
       summary: Krijo kërkesë udhëtimi nga një quote (Idempotency-Key i detyrueshëm)
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
-      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [quote_id, payment_method], properties: { quote_id: { type: string, format: uuid }, payment_method: { type: string, enum: [cash, wallet] }, note: { type: string, maxLength: 200 } } } } } }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [quote_id, payment_method], properties: { quote_id: { type: string, format: uuid }, payment_method: { type: string, enum: [cash, wallet, business] }, business_id: { type: string, format: uuid, description: I detyrueshëm me metodën business }, note: { type: string, maxLength: 200 } } } } } }
       responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "402": { $ref: "#/components/responses/Err" }, "409": { $ref: "#/components/responses/Err" }, "422": { $ref: "#/components/responses/Err" }, "503": { $ref: "#/components/responses/Err" } }
     get:
       tags: [rides]
