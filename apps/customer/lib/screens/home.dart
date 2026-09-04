@@ -6,11 +6,9 @@ import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
 import 'package:provider/provider.dart';
 
-import '../services/location.dart';
 import '../state/app_state.dart';
-import 'activity.dart';
 import 'food/discover.dart';
-import 'food/menu.dart';
+import 'market/market.dart';
 import 'food/order_tracking.dart';
 import 'notifications.dart';
 import 'parcels/new_parcel.dart';
@@ -42,10 +40,14 @@ String rideStateKey(RideState s) {
   }
 }
 
-/// Ballina sipas markës: përshëndetja, kërkimi, slide-i i vendeve të hapura afër, gjashtë
-/// shërbimet, ajo që është në rrjedhë (udhëtim/porosi), vendet afër dhe historiku i shkurtër.
-/// Slide-i dhe lista "afër teje" mbushen vetëm me vende të vërteta nga serveri; pa vendndodhje
-/// ose pa vende, ato seksione thjesht nuk shfaqen — asnjë ofertë e shpikur (§55).
+/// Ballina është vetëm pikënisje: përshëndetja, çka është në rrjedhë tani, dhe hyrja te secili
+/// shërbim. Nuk mban përmbajtjen e asnjë shërbimi — as restorante, as histori, as kërkim që në
+/// të vërtetë do të thotë "udhëtim". Secili shërbim e ka ekranin e vet të plotë me kërkimin,
+/// gjendjet dhe historinë e veta; historia e përbashkët jeton te skeda Aktiviteti.
+///
+/// Kjo është arkitektura e Gojek-ut, Grab-it dhe Careem-it, dhe arsyeja është e thjeshtë: sapo
+/// ballina nis të mbajë përmbajtje të një shërbimi, të tjerët e kërkojnë të njëjtën gjë dhe
+/// asnjë prej tyre nuk mbetet i përdorshëm.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -54,45 +56,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const _location = LocationService();
-
-  List<Merchant> _nearby = const [];
-  bool _nearbyLoaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadNearby());
-  }
-
-  /// Vendet afër: një kërkesë e vetme pas hapjes dhe në çdo rifreskim me tërheqje.
-  Future<void> _loadNearby() async {
-    if (!mounted) return;
-    if (!context.read<AppState>().config.flag('food')) return;
-    final position = await _location.current();
-    if (!mounted || !position.isOk) {
-      if (mounted) setState(() => _nearbyLoaded = true);
-      return;
-    }
-    try {
-      final items = await context.read<AppState>().api.merchants(
-        lat: position.point!.lat,
-        lng: position.point!.lng,
-        limit: 12,
-      );
-      if (!mounted) return;
-      setState(() {
-        _nearby = items;
-        _nearbyLoaded = true;
-      });
-    } on ApiError {
-      if (mounted) setState(() => _nearbyLoaded = true);
-    }
-  }
-
-  Future<void> _refresh() async {
-    await Future.wait([context.read<AppState>().refreshHome(), _loadNearby()]);
-  }
+  Future<void> _refresh() => context.read<AppState>().refreshHome();
 
   void _open(Widget screen) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
@@ -102,14 +66,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final me = state.me;
-    final locale = state.locale;
     final active = state.activeRide;
     final activeOrder = state.activeOrder;
     final activeParcel = state.activeParcel;
     final activeService = state.activeService;
-    final past = state.recentRides.where((r) => r.isFinished).take(4).toList();
-    final open = _nearby.where((m) => m.canOrder).toList();
-    final foodOn = state.config.flag('food');
 
     return SafeArea(
       child: RefreshIndicator(
@@ -119,20 +79,51 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(K.s5, K.s3, K.s5, K.s8),
           children: [
-            _Header(name: me?.displayName ?? '—', city: open.isNotEmpty ? open.first.city : null),
-            const SizedBox(height: K.s4),
-            KSearchBar(
-              hint: context.t('home.search'),
-              onTap: () => _open(
-                active == null ? const DestinationScreen() : TrackingScreen(rideId: active.id),
+            _Header(name: me?.displayName ?? '—'),
+            // Çka është në rrjedhë rri para gjithçkaje: kur ke një udhëtim në ecje, asgjë tjetër
+            // në këtë ekran nuk të intereson.
+            if (active != null) ...[
+              const SizedBox(height: K.s4),
+              KNeonBanner(
+                icon: Icons.directions_car_outlined,
+                title: context.t('home.active.ride'),
+                subtitle: _rideSubtitle(context, active),
+                onTap: () => _open(TrackingScreen(rideId: active.id)),
               ),
-            ),
+            ],
+            if (activeOrder != null) ...[
+              const SizedBox(height: K.s4),
+              KNeonBanner(
+                icon: Icons.lunch_dining_outlined,
+                title: context.t('home.active.order'),
+                subtitle: context.t(orderStateKey(activeOrder.state)),
+                onTap: () => _open(OrderTrackingScreen(orderId: activeOrder.id)),
+              ),
+            ],
+            if (activeParcel != null) ...[
+              const SizedBox(height: K.s4),
+              KNeonBanner(
+                icon: Icons.inventory_2_outlined,
+                title: context.t('parcel.active'),
+                subtitle: context.t(parcelStateKey(activeParcel.state)),
+                onTap: () => _open(ParcelTrackingScreen(parcelId: activeParcel.id)),
+              ),
+            ],
+            if (activeService != null) ...[
+              const SizedBox(height: K.s4),
+              KNeonBanner(
+                icon: Icons.handyman_outlined,
+                title: context.t('service.active'),
+                subtitle: context.t(serviceStateKey(activeService.state)),
+                onTap: () => _open(ServiceTrackingScreen(requestId: activeService.id)),
+              ),
+            ],
             const SizedBox(height: K.s4),
-            KHeroCarousel(slides: _slides(context, open, locale)),
+            KHeroCarousel(slides: _slides(context)),
             const SizedBox(height: K.s4),
             _ServicesGrid(
               rideReady: state.config.flag('rides', fallback: true),
-              foodReady: foodOn,
+              foodReady: state.config.flag('food'),
               marketReady: state.config.flag('market', fallback: true),
               courierReady: state.config.flag('parcels', fallback: true),
               servicesReady: state.config.flag('services', fallback: true),
@@ -140,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 active == null ? const DestinationScreen() : TrackingScreen(rideId: active.id),
               ),
               onFood: () => _open(const DiscoverScreen()),
-              onMarket: () => _open(const DiscoverScreen(mode: DiscoverMode.market)),
+              onMarket: () => _open(const MarketScreen()),
               onServices: () => _open(
                 activeService == null
                     ? const NewServiceRequestScreen()
@@ -153,78 +144,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               onPayments: () => _open(const WalletScreen()),
             ),
-            if (active != null) ...[
-              const SizedBox(height: K.s4),
-              KNeonBanner(
-                icon: Icons.directions_car_outlined,
-                title: context.t('home.active.ride'),
-                subtitle: _rideSubtitle(context, active),
-                onTap: () => _open(TrackingScreen(rideId: active.id)),
-              ),
-            ],
-            if (activeService != null) ...[
-              const SizedBox(height: K.s4),
-              KNeonBanner(
-                icon: Icons.handyman_outlined,
-                title: context.t('service.active'),
-                subtitle: context.t(serviceStateKey(activeService.state)),
-                onTap: () => _open(ServiceTrackingScreen(requestId: activeService.id)),
-              ),
-            ],
-            if (activeParcel != null) ...[
-              const SizedBox(height: K.s4),
-              KNeonBanner(
-                icon: Icons.inventory_2_outlined,
-                title: context.t('parcel.active'),
-                subtitle: context.t(parcelStateKey(activeParcel.state)),
-                onTap: () => _open(ParcelTrackingScreen(parcelId: activeParcel.id)),
-              ),
-            ],
-            if (activeOrder != null) ...[
-              const SizedBox(height: K.s4),
-              KNeonBanner(
-                icon: Icons.lunch_dining_outlined,
-                title: context.t('home.active.order'),
-                subtitle: context.t(orderStateKey(activeOrder.state)),
-                onTap: () => _open(OrderTrackingScreen(orderId: activeOrder.id)),
-              ),
-            ],
-            if (foodOn && (_nearby.isNotEmpty || !_nearbyLoaded)) ...[
-              KSectionHeader(
-                context.t('home.nearby'),
-                action: context.t('home.see_all'),
-                onAction: () => _open(const DiscoverScreen()),
-              ),
-              SizedBox(
-                height: 212,
-                child: !_nearbyLoaded
-                    ? const KSkeleton(height: 200, count: 1)
-                    : ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        clipBehavior: Clip.none,
-                        itemCount: _nearby.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: K.s3),
-                        itemBuilder: (_, i) => _merchantCard(context, _nearby[i], locale),
-                      ),
-              ),
-            ],
-            KSectionHeader(
-              context.t('home.recent'),
-              action: context.t('home.see_all'),
-              onAction: () => _open(const ActivityScreen()),
-            ),
-            if (past.isEmpty)
-              KEmpty(
-                title: context.t('home.rides.empty'),
-                message: context.t('home.rides.empty.hint'),
-                icon: Icons.route_outlined,
-              )
-            else
-              for (final r in past)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: K.s2),
-                  child: _RideRow(ride: r, locale: locale),
-                ),
           ],
         ),
       ),
@@ -238,81 +157,42 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// Slide-et: vendet e hapura me kopertinë (deri në tre), ndryshe një slide i markës.
-  List<KHeroSlide> _slides(BuildContext context, List<Merchant> open, String locale) {
-    final withCover = open.where((m) => m.coverUrl != null).take(3).toList();
-    if (withCover.isEmpty) {
-      // Pa foto nga partnerët, karuseli tregon vetë shërbimet me fotot e paketuara — asnjë
-      // shifër dhe asnjë ofertë e shpikur, vetëm ajo që aplikacioni bën vërtet.
-      final active = context.read<AppState>().activeRide;
-      return [
-        KHeroSlide(
-          tag: 'KREJT',
-          title: context.t('onboarding.s1.title'),
-          assetImage: 'assets/onboarding/01.jpg',
-          actionLabel: context.t('home.services.ride'),
-          onTap: () =>
-              _open(active == null ? const DestinationScreen() : TrackingScreen(rideId: active.id)),
-        ),
-        KHeroSlide(
-          tag: 'KREJT',
-          title: context.t('onboarding.s2.title'),
-          assetImage: 'assets/onboarding/02.jpg',
-          actionLabel: context.t('home.services.food'),
-          onTap: () => _open(const DiscoverScreen()),
-        ),
-        KHeroSlide(
-          tag: 'KREJT',
-          title: context.t('onboarding.s4.title'),
-          assetImage: 'assets/onboarding/04.jpg',
-          actionLabel: context.t('home.services.courier'),
-          onTap: () => _open(const NewParcelScreen()),
-        ),
-      ];
-    }
+  /// Karuseli tregon vetë shërbimet me fotot e paketuara. Kopertinat e restoranteve i takojnë
+  /// ekranit të Ushqimit: në ballinë ato do të ishin përsëri një shërbim që fle në shtratin e
+  /// të tjerëve. Asnjë shifër dhe asnjë ofertë e shpikur — vetëm ajo që aplikacioni bën vërtet.
+  List<KHeroSlide> _slides(BuildContext context) {
+    final active = context.read<AppState>().activeRide;
     return [
-      for (final m in withCover)
-        KHeroSlide(
-          tag: '${context.t('food.open')} · ${formatDistance(m.distanceM, locale: locale)}',
-          title: m.name,
-          imageUrl: m.coverUrl,
-          actionLabel: context.t('home.order'),
-          onTap: () => _open(MenuScreen(merchant: m)),
-        ),
+      KHeroSlide(
+        tag: 'KREJT',
+        title: context.t('onboarding.s1.title'),
+        assetImage: 'assets/onboarding/01.jpg',
+        actionLabel: context.t('home.services.ride'),
+        onTap: () =>
+            _open(active == null ? const DestinationScreen() : TrackingScreen(rideId: active.id)),
+      ),
+      KHeroSlide(
+        tag: 'KREJT',
+        title: context.t('onboarding.s2.title'),
+        assetImage: 'assets/onboarding/02.jpg',
+        actionLabel: context.t('home.services.food'),
+        onTap: () => _open(const DiscoverScreen()),
+      ),
+      KHeroSlide(
+        tag: 'KREJT',
+        title: context.t('onboarding.s4.title'),
+        assetImage: 'assets/onboarding/04.jpg',
+        actionLabel: context.t('home.services.courier'),
+        onTap: () => _open(const NewParcelScreen()),
+      ),
     ];
   }
-
-  Widget _merchantCard(BuildContext context, Merchant m, String locale) => KMerchantCard(
-    name: m.name,
-    subtitle: [
-      context.t(merchantTypeKey(m.type)),
-      if (m.cuisines.isNotEmpty) m.cuisines.first,
-      formatDistance(m.distanceM, locale: locale),
-    ].join(' · '),
-    imageUrl: m.coverUrl ?? m.logoUrl,
-    rating: m.rating?.toStringAsFixed(1),
-    dimmed: !m.canOrder,
-    chips: [
-      if (!m.canOrder)
-        KChip(context.t('food.closed'))
-      else ...[
-        KChip('${m.prepTimeMin} min'),
-        KChip(
-          m.deliveryFeeMinor == 0
-              ? context.t('food.delivery_fee', {'amount': formatMinor(0, locale: locale)})
-              : formatMinor(m.deliveryFeeMinor, locale: locale),
-          neon: m.deliveryFeeMinor == 0,
-        ),
-      ],
-    ],
-    onTap: () => _open(MenuScreen(merchant: m)),
-  );
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.name, this.city});
+  const _Header({required this.name});
 
   final String name;
-  final String? city;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -338,7 +218,6 @@ class _Header extends StatelessWidget {
           ],
         ),
       ),
-      if (city != null) KPill(city!, icon: Icons.location_on_outlined, neon: true),
       const SizedBox(width: K.s2),
       const NotificationsButton(),
     ],
@@ -429,61 +308,6 @@ class _ServicesGrid extends StatelessWidget {
         mainAxisExtent: 140,
       ),
       children: tiles,
-    );
-  }
-}
-
-class _RideRow extends StatelessWidget {
-  const _RideRow({required this.ride, required this.locale});
-
-  final Ride ride;
-  final String locale;
-
-  @override
-  Widget build(BuildContext context) {
-    final where = ride.dropoffAddress ?? formatDistance(ride.distanceM, locale: locale);
-    return KCard(
-      padding: const EdgeInsets.symmetric(horizontal: K.s4, vertical: K.s3),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: K.surface2,
-              borderRadius: BorderRadius.circular(K.rSm),
-              border: Border.all(color: K.line),
-            ),
-            child: const Icon(Icons.directions_car_outlined, size: 18, color: K.textDim),
-          ),
-          const SizedBox(width: K.s3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  where,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: K.text),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  context.t(rideStateKey(ride.state)),
-                  style: const TextStyle(fontSize: 12, color: K.muted),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: K.s3),
-          KMoney(
-            ride.priceMinor,
-            locale: locale,
-            size: 16,
-            strikethrough: ride.state == RideState.cancelled,
-          ),
-        ],
-      ),
     );
   }
 }

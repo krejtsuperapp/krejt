@@ -5,10 +5,13 @@ import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
 import 'account/account.dart';
+import 'activity.dart';
 import 'home.dart';
 import 'wallet.dart';
 
-/// Tri destinacione, jo më shumë: ballina, paratë, llogaria. Çdo gjë tjetër hapet nga këto.
+/// Katër destinacione: ballina (çka bëj tani), aktiviteti (çka kam bërë), paratë, llogaria.
+/// Historia u ngjit nga ballina te skeda e vet sepse ballina duhet të mbetet vetëm pikënisje —
+/// sapo mban listën e njërit shërbim, të tjerët e kërkojnë të njëjtën gjë.
 class CustomerShell extends StatefulWidget {
   const CustomerShell({super.key});
 
@@ -33,7 +36,7 @@ class _CustomerShellState extends State<CustomerShell> {
       backgroundColor: K.bg,
       body: IndexedStack(
         index: _index,
-        children: const [HomeScreen(), WalletScreen(), AccountScreen()],
+        children: const [HomeScreen(), ActivityScreen(), WalletScreen(), AccountScreen()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -43,6 +46,11 @@ class _CustomerShellState extends State<CustomerShell> {
             icon: const Icon(Icons.home_outlined),
             selectedIcon: const Icon(Icons.home),
             label: context.t('nav.home'),
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.receipt_long_outlined),
+            selectedIcon: const Icon(Icons.receipt_long),
+            label: context.t('activity.title'),
           ),
           NavigationDestination(
             icon: const Icon(Icons.account_balance_wallet_outlined),
