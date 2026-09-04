@@ -1086,15 +1086,28 @@ class KrejtApi {
   Future<SupportTicket> supportTicket(String id) async =>
       SupportTicket.fromJson(await _get('/api/v1/support/tickets/$id'));
 
+  /// Tiketa mund t'i referohet një udhëtimi, porosie, pakoje ose kërkese — së shumti njërës.
+  /// Pa referencë, agjenti do të pyeste "për cilën porosi?" dhe biseda do të niste një hap prapa.
   Future<SupportTicket> createTicket({
     required String category,
     required String subject,
     required String body,
     String? rideId,
+    String? orderId,
+    String? parcelId,
+    String? requestId,
   }) async => SupportTicket.fromJson(
     await _post(
       '/api/v1/support/tickets',
-      body: {'category': category, 'subject': subject, 'body': body, 'ride_id': ?rideId},
+      body: {
+        'category': category,
+        'subject': subject,
+        'body': body,
+        'ride_id': ?rideId,
+        'order_id': ?orderId,
+        'parcel_id': ?parcelId,
+        'request_id': ?requestId,
+      },
     ),
   );
 

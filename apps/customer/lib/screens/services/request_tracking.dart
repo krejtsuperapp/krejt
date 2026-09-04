@@ -6,6 +6,8 @@ import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
 import 'package:provider/provider.dart';
 
+import 'package:krejt_screens/krejt_screens.dart';
+
 import '../../state/app_state.dart';
 import 'new_request.dart';
 
@@ -275,6 +277,19 @@ class _ServiceTrackingScreenState extends State<ServiceTrackingScreen> {
       const SizedBox(height: K.s5),
       _Timeline(request: r),
       const SizedBox(height: K.s5),
+      KOutlineButton(
+        label: context.t('account.support'),
+        icon: Icons.support_agent_outlined,
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => SupportScreen(
+              api: context.read<AppState>().api,
+              about: const TicketSubject(category: 'other').copyWith(requestId: r.id),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(height: K.s3),
       if (r.canCancel)
         KOutlineButton(
           label: context.t('service.cancel'),
