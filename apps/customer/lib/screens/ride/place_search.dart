@@ -126,7 +126,11 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
   @override
   Widget build(BuildContext context) {
     final query = _query.text.trim();
-    final h = MediaQuery.sizeOf(context).height;
+    // Hapësira që mbetet vërtet, jo ekrani i plotë: fusha ka autofocus, ndaj tastiera është aty
+    // që nga çelja dhe merr rreth dy të pestat. Matja e ekranit të plotë e bënte listën të
+    // kërkonte më shumë se sa ekziston.
+    final media = MediaQuery.of(context);
+    final free = media.size.height - media.viewInsets.bottom;
     return KSheet(
       title: widget.title,
       padding: const EdgeInsets.fromLTRB(K.s5, K.s2, K.s5, K.s4),
@@ -144,7 +148,7 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
           ),
           const SizedBox(height: K.s3),
           ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: h * 0.5),
+            constraints: BoxConstraints(maxHeight: free * 0.55),
             child: ListView(
               shrinkWrap: true,
               children: [
