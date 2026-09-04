@@ -632,6 +632,9 @@ const Map<String, String> _sq = {
 
   // ushqimi dhe dorëzimi (A5)
   'food.title': 'Ushqim',
+  'food.reorder': 'Porosit prapë',
+  'food.reorder.gone': 'Asnjë artikull i kësaj porosie nuk shitet më sot.',
+  'food.reorder.missing': 'Nuk u shtuan: {items}',
   'food.search': 'Kërko restorant ose pjatë',
   'food.empty': 'Ende s\'ka vende afër teje',
   'food.empty.hint': 'Po hapim zona të reja. Provo më vonë.',
@@ -1411,6 +1414,9 @@ const Map<String, String> _en = {
   'driver.bank.verified': 'Verified',
 
   'food.title': 'Food',
+  'food.reorder': 'Order again',
+  'food.reorder.gone': 'None of the items from that order are available today.',
+  'food.reorder.missing': 'Not added: {items}',
   'food.search': 'Search a place or a dish',
   'food.empty': 'Nothing open near you yet',
   'food.empty.hint': 'We are opening new areas. Try again later.',
@@ -2197,6 +2203,9 @@ const Map<String, String> _de = {
   'driver.bank.verified': 'Verifiziert',
 
   'food.title': 'Essen',
+  'food.reorder': 'Erneut bestellen',
+  'food.reorder.gone': 'Keiner der Artikel aus dieser Bestellung ist heute verfügbar.',
+  'food.reorder.missing': 'Nicht hinzugefügt: {items}',
   'food.search': 'Ort oder Gericht suchen',
   'food.empty': 'In deiner Nähe ist noch nichts offen',
   'food.empty.hint': 'Wir öffnen neue Gebiete. Versuche es später.',

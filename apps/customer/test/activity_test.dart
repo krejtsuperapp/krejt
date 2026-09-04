@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_customer/screens/activity.dart';
+import 'package:krejt_customer/screens/food/reorder.dart';
 
 Ride _ride(String at, {String state = 'completed'}) => Ride.fromJson({
   'id': 'r1',
@@ -53,6 +54,7 @@ ServiceRequest _service(String at) => ServiceRequest.fromJson({
 });
 
 void main() {
+  _reorderTests();
   test('të katër shërbimet bashkohen në një listë, nga më e reja te më e vjetra', () {
     final out = mergeActivity(
       rides: [_ride('2026-09-01T10:00:00Z')],
@@ -109,5 +111,84 @@ void main() {
     expect(keys.length, ActivityKind.values.length);
     expect(keys.every((k) => k.startsWith('home.services.')), isTrue);
     expect(ActivityKind.values.map(activityIcon).toSet().length, ActivityKind.values.length);
+  });
+}
+
+/// Riporositja: çmimet dhe disponueshmëria vijnë nga menuja e sotme, kurrë nga porosia e ruajtur.
+void _reorderTests() {
+  Product prod(String id, {bool available = true, List<String> options = const []}) =>
+      Product.fromJson({
+        'id': id,
+        'merchant_id': 'm1',
+        'name': 'Pjata $id',
+        'price_minor': 500,
+        'currency': 'EUR',
+        'available': available,
+        'modifiers': [
+          if (options.isNotEmpty)
+            {
+              'id': 'g1',
+              'name': 'Shtesa',
+              'options': [
+                for (final o in options) {'id': o, 'name': o, 'price_delta_minor': 0},
+              ],
+            },
+        ],
+      });
+
+  Order orderWith(List<Map<String, dynamic>> items) => Order.fromJson({
+    'id': 'o1',
+    'code': 'K1',
+    'merchant_id': 'm1',
+    'merchant_name': 'Te Syla',
+    'state': 'delivered',
+    'fulfillment': 'delivery',
+    'total_minor': 1000,
+    'currency': 'EUR',
+    'created_at': '2026-09-03T10:00:00Z',
+    'items': items,
+  });
+
+  Menu menuOf(List<Product> products) =>
+      Menu(merchantId: 'm1', categories: const [], products: products);
+
+  test('artikujt e hequr nga menuja nuk shtohen dhe emërtohen', () {
+    final order = orderWith([
+      {'id': 'i1', 'product_id': 'p1', 'name': 'Qebapa', 'quantity': 2},
+      {'id': 'i2', 'product_id': 'p9', 'name': 'Sallatë e vjetër', 'quantity': 1},
+    ]);
+    final out = rebuildCart(order, menuOf([prod('p1')]));
+    expect(out.lines.length, 1);
+    expect(out.lines.single.quantity, 2);
+    expect(out.missing, ['Sallatë e vjetër']);
+  });
+
+  test('artikulli i palejuar sot trajtohet si i munguar', () {
+    final order = orderWith([
+      {'id': 'i1', 'product_id': 'p1', 'name': 'Qebapa', 'quantity': 1},
+    ]);
+    final out = rebuildCart(order, menuOf([prod('p1', available: false)]));
+    expect(out.isEmpty, isTrue);
+    expect(out.missing, ['Qebapa']);
+  });
+
+  test('opsionet që nuk ekzistojnë më bien, produkti mbetet', () {
+    final order = orderWith([
+      {
+        'id': 'i1',
+        'product_id': 'p1',
+        'name': 'Qebapa',
+        'quantity': 1,
+        'option_ids': ['kajmak', 'i_hequr'],
+      },
+    ]);
+    final out = rebuildCart(
+      order,
+      menuOf([
+        prod('p1', options: ['kajmak']),
+      ]),
+    );
+    expect(out.lines.single.optionIds, ['kajmak']);
+    expect(out.missing, isEmpty);
   });
 }

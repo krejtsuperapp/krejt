@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
 import 'food/order_tracking.dart';
+import 'food/reorder.dart';
 import 'home.dart' show rideStateKey;
 import 'parcels/parcel_tracking.dart';
 import 'ride/tracking.dart';
@@ -37,6 +38,7 @@ class ActivityEntry {
     required this.cancelled,
     required this.open,
     this.amountMinor,
+    this.reorder,
   });
 
   final ActivityKind kind;
@@ -48,6 +50,10 @@ class ActivityEntry {
 
   /// Ekrani që hapet me prekje; ndërtohet vonë, që lista të mos mbajë katër ekrane në kujtesë.
   final Widget Function() open;
+
+  /// Vetëm porositë e dorëzuara: rindërton shportën nga menuja e sotme. Null do të thotë se
+  /// rreshti nuk e mban dot këtë veprim — një udhëtim nuk "riporositet".
+  final Future<void> Function(BuildContext)? reorder;
 }
 
 /// Bashkon të katër historitë në një listë të vetme, nga më e reja te më e vjetra.
@@ -80,6 +86,9 @@ List<ActivityEntry> mergeActivity({
         cancelled: o.state == OrderState.cancelled || o.state == OrderState.rejected,
         amountMinor: o.totalMinor,
         open: () => OrderTrackingScreen(orderId: o.id),
+        reorder: o.state == OrderState.delivered && o.items.isNotEmpty
+            ? (context) => reorderOrder(context, o)
+            : null,
       ),
     for (final p in parcels)
       ActivityEntry(
@@ -368,7 +377,27 @@ class _Row extends StatelessWidget {
           ),
           if (amount != null) ...[
             const SizedBox(width: K.s3),
-            KMoney(amount, locale: locale, size: 16, strikethrough: entry.cancelled),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                KMoney(amount, locale: locale, size: 16, strikethrough: entry.cancelled),
+                if (entry.reorder != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: InkWell(
+                      onTap: () => entry.reorder!(context),
+                      child: Text(
+                        context.t('food.reorder'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: K.brand400,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ],
       ),
