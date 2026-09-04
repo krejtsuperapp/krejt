@@ -567,7 +567,7 @@ class KrejtApi {
       '/api/v1/media/upload-url',
       body: {
         'kind': kind,
-        if (targetId != null) 'target_id': targetId,
+        'target_id': ?targetId,
         'content_type': contentType,
         'size_bytes': bytes.length,
       },

@@ -59,7 +59,7 @@ jobs:
       # Çdo message_key i ri i serverit duhet të ketë përkthim në aplikacione (sq/en/de), përndryshe
       # përdoruesi sheh "Diçka shkoi keq" në vend të arsyes së vërtetë.
       - name: çelësat e gabimeve kanë përkthim
-        working-directory: ..
+        working-directory: ${{ github.workspace }}
         run: node tests/l10n/error-keys.mjs
 
   container:
