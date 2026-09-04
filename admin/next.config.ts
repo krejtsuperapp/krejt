@@ -2,6 +2,8 @@ import type { NextConfig } from 'next';
 
 const config: NextConfig = {
   reactStrictMode: true,
+  // Imazh Docker i vogël për ECS: vetëm skedarët që i duhen serverit (Dockerfile).
+  output: 'standalone',
   // Paneli i Operacioneve nuk shërben imazhe të jashtme dhe nuk ka nevojë për optimizim figurash.
   images: { unoptimized: true },
   async headers() {

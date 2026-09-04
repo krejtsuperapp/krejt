@@ -83,6 +83,11 @@ type Config struct {
 	DevFSDir        string
 	PublicBaseURL   string // URL-ja publike e API-së (për devfs dhe linqe)
 
+	// imazhet publike (§43): bucket i veçantë nga asetet private, i lexuar përmes CloudFront-it.
+	// Në development me devfs mund të mbeten bosh: objektet shërbehen nga vetë API-ja.
+	MediaBucket  string // S3_MEDIA_BUCKET
+	MediaBaseURL string // MEDIA_BASE_URL (p.sh. https://dxxxx.cloudfront.net)
+
 	// pagesat (§24): PAYMENT_PROVIDER stripe | devlog (vetëm development); sekretet nga krejt/<env>/payment-provider
 	PaymentProvider     string
 	StripeSecretKey     string
@@ -137,6 +142,8 @@ func Load() (*Config, error) {
 		AssetsBucket:              os.Getenv("S3_ASSETS_BUCKET"),
 		DevFSDir:                  os.Getenv("DEVFS_DIR"),
 		PublicBaseURL:             getenv("PUBLIC_BASE_URL", "http://localhost:8080"),
+		MediaBucket:               os.Getenv("S3_MEDIA_BUCKET"),
+		MediaBaseURL:              os.Getenv("MEDIA_BASE_URL"),
 		PaymentProvider:           getenv("PAYMENT_PROVIDER", "stripe"),
 		StripeSecretKey:           os.Getenv("STRIPE_SECRET_KEY"),
 		StripeWebhookSecret:       os.Getenv("STRIPE_WEBHOOK_SECRET"),
@@ -166,6 +173,14 @@ func Load() (*Config, error) {
 	// I njëjti kufi si te ofruesit e provës: lehtësimet e dev-it nuk kalojnë dot më tej.
 	if !c.DocumentsRequired && c.Env != "development" {
 		return nil, errors.New("config: DOCUMENTS_REQUIRED=false lejohet vetëm në development")
+	}
+	// Imazhet publike: me devfs i shërben vetë API-ja; me S3 duhet bucket-i dhe baza e CloudFront-it,
+	// përndryshe ngarkimet do të pranoheshin dhe imazhet nuk do të shfaqeshin kurrë.
+	if c.StorageProvider == "devfs" && c.MediaBaseURL == "" {
+		c.MediaBaseURL = strings.TrimRight(c.PublicBaseURL, "/") + "/api/v1/dev/uploads"
+	}
+	if c.Env != "development" && (c.MediaBucket == "" || c.MediaBaseURL == "") {
+		return nil, errors.New("config: S3_MEDIA_BUCKET dhe MEDIA_BASE_URL duhen jashtë development")
 	}
 	if (len(c.DevTestPhones) > 0 || len(c.DevTestAdminPhones) > 0 || c.DevTestOTP != "") && c.Env != "development" {
 		return nil, errors.New("config: DEV_TEST_PHONES / DEV_TEST_OTP lejohen vetëm në development")

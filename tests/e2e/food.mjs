@@ -138,6 +138,44 @@ let product = null;
 }
 console.log(`     produkti ${product.id} · ${(product.price_minor / 100).toFixed(2)}`);
 
+// ---- 2b. imazhet publike: logoja e tregtarit dhe imazhi i produktit (S3 + CloudFront) --------
+// Një PNG 1×1 i vërtetë: serveri verifikon llojin dhe madhësinë pas ngarkimit.
+const png = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64',
+);
+async function uploadImage(kind, targetId, who) {
+  const signed = step(
+    `${who}: URL e nënshkruar (${kind})`,
+    await call('/api/v1/media/upload-url', { method: 'POST', token: owner, body: { kind, target_id: targetId, content_type: 'image/png', size_bytes: png.length } }),
+    (r) => r.status === 200 && r.json.object_key && r.json.upload?.url,
+  );
+  const put = await fetch(signed.upload.url, {
+    method: signed.upload.method || 'PUT',
+    headers: { ...(signed.upload.headers ?? {}), 'Content-Type': 'image/png' },
+    body: png,
+  });
+  step(`${who}: PUT te bucket-i`, { status: put.status, json: {} }, (r) => r.status < 300);
+  return step(
+    `${who}: konfirmimi (${kind})`,
+    await call('/api/v1/media', { method: 'POST', token: owner, body: { object_key: signed.object_key } }),
+    (r) => r.status === 201 && r.json.object_key === signed.object_key,
+  );
+}
+const logo = await uploadImage('merchant_logo', merchant.id, 'tregtari');
+await uploadImage('product_image', product.id, 'tregtari');
+{
+  const pub = step('publiku: tregtari me logo', await call(`/api/v1/merchants/${merchant.slug}`), (r) => r.status === 200);
+  const hasUrl = typeof pub.logo_url === 'string' && pub.logo_url.endsWith(logo.object_key);
+  step('publiku: logo_url e vendosur', { status: hasUrl ? 200 : 500, json: { logo_url: pub.logo_url ?? null } }, () => hasUrl);
+  if (logo.url) {
+    const img = await fetch(logo.url);
+    step('CloudFront: imazhi lexohet', { status: img.status, json: { type: img.headers.get('content-type') } }, (r) => r.status === 200);
+  } else {
+    console.log('     (MEDIA_BASE_URL ende bosh në server: URL-ja publike nuk u provua)');
+  }
+}
+
 // Pastrim: një porosi aktive e mbetur te kurieri (nga një provë e ndërprerë) e përjashton atë
 // nga ofertat e reja; lirohet para se të fillojë prova.
 {

@@ -10,6 +10,7 @@ import (
 
 	"krejt.app/backend/internal/domain/money"
 	"krejt.app/backend/internal/platform/httpx"
+	"krejt.app/backend/internal/platform/media"
 )
 
 // Me — profili i përdoruesit (§16 Profile): identiteti, kapacitetet, bilanci i wallet-it të mbyllur
@@ -22,6 +23,7 @@ type Me struct {
 	Locale       string     `json:"locale"`
 	Capabilities []string   `json:"capabilities"`
 	Wallet       WalletView `json:"wallet"`
+	PhotoURL     *string    `json:"photo_url"` // publike (CloudFront); null pa foto
 	CreatedAt    time.Time  `json:"created_at"`
 }
 
@@ -33,9 +35,11 @@ type WalletView struct {
 
 func (s *Service) Me(ctx context.Context, userID uuid.UUID) (*Me, error) {
 	var m Me
+	var photoKey *string
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, phone_e164, email, full_name, locale, created_at FROM users WHERE id = $1 AND status = 'active'`, userID).
-		Scan(&m.ID, &m.Phone, &m.Email, &m.FullName, &m.Locale, &m.CreatedAt)
+		SELECT id, phone_e164, email, full_name, locale, photo_key, created_at FROM users WHERE id = $1 AND status = 'active'`, userID).
+		Scan(&m.ID, &m.Phone, &m.Email, &m.FullName, &m.Locale, &photoKey, &m.CreatedAt)
+	m.PhotoURL = media.URL(photoKey)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, httpx.ErrUnauthorized
 	}

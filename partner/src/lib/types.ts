@@ -22,6 +22,9 @@ export type Merchant = {
   prep_time_min: number;
   accepting_orders: boolean;
   open_now: boolean;
+  /// Publike (CloudFront); null pa imazh.
+  logo_url: string | null;
+  cover_url: string | null;
 };
 
 export type OrderItem = {
@@ -77,6 +80,7 @@ export type Product = {
   available: boolean;
   unit: string;
   modifiers: ModifierGroup[];
+  image_url: string | null;
 };
 
 export type MenuCategory = { id: string; name: string; sort: number; active: boolean };

@@ -71,3 +71,38 @@
   font-size: 15px;
   color: var(--text-dim);
 }
+
+/* Imazhi i produktit: i vogël, majtas; ngarkohet me një prekje. */
+.lead {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.thumb {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.thumbEmpty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fileInput {
+  display: none;
+}

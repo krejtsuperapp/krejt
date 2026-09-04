@@ -6,6 +6,10 @@ variable "private_subnet_ids" { type = list(string) }
 variable "kms_key_arn" { type = string }
 variable "assets_bucket_name" { type = string }
 variable "assets_bucket_arn" { type = string }
+# Imazhet publike (§43): bucket i veçantë, lexim përmes CloudFront-it (moduli media).
+variable "media_bucket_name" { type = string }
+variable "media_bucket_arn" { type = string }
+variable "media_base_url" { type = string }
 variable "queue_urls" { type = map(string) }
 variable "queue_arns" { type = list(string) }
 variable "domain_events_topic_arn" { type = string }
@@ -183,4 +187,16 @@ variable "otlp_endpoint" {
   description = "Endpoint-i OTLP i Grafana Cloud (bosh = pa eksport gjurmësh/metrikash)."
   type        = string
   default     = ""
+}
+
+# Panelet (Next.js) pas ALB-së, të ndara sipas host-it: { admin = "admin.dev.krejt.app", partner = "…" }.
+# Bosh = mjedisi nuk i publikon panelet.
+variable "panel_hosts" {
+  type    = map(string)
+  default = {}
+}
+
+variable "panel_desired_count" {
+  type    = number
+  default = 1
 }

@@ -8,7 +8,16 @@
 
 ## Rikthimi (§71)
 - Aurora: backup automatik + PITR (`backup_retention_period` në modulin data). Rikthim: `restore-db-cluster-to-point-in-time`
-  → cluster i ri → ndërro `DB_WRITER_HOST` (Terraform var) → deploy. Ushtrohet një herë në Fazën 0 (DoD).
+  → cluster i ri → ndërro `DB_WRITER_HOST` (Terraform var) → deploy.
+- **Ushtrimi i rikthimit** (`infra/terraform/drills/aurora-restore`): ngre një cluster të përkohshëm nga kopja
+  e momentit të fundit, me Data API, dhe verifikon me SQL pa hyrë në VPC:
+  `terraform init && terraform plan -out drill.tfplan -var source_cluster=krejt-dev-aurora && terraform apply drill.tfplan`,
+  pastaj `aws rds-data execute-statement --resource-arn <cluster_arn> --secret-arn <secret_arn> --database krejt --sql "select count(*) from users"`,
+  në fund `terraform plan -destroy -out d.tfplan … && terraform apply d.tfplan`. Nëse Data API del e fikur pas
+  rikthimit (ndodh: rikthimi e injoron), një `plan`/`apply` i dytë e ndez.
+- Ushtrimi i fundit: **04.09.2026**, dev — cluster i gatshëm pas 7 min, kopja e plotë (5 përdorues, 25 udhëtime,
+  12 porosi, 59 regjistrime ledger-i, udhëtimi i fundit 22:31 UTC i një nate më parë), pastaj u shkatërrua.
+  Përsërite çdo tremujor dhe pas çdo ndryshimi të modulit `data`.
 - Redis: gjendje kalimtare (GEO, kufij, sesione live) — humbja e tij nuk humb para; shoferët dalin online sërish.
 - S3: versionim aktiv; fshirja e gabuar kthehet nga versioni i mëparshëm.
 - Sekretet: Secrets Manager me KMS; rotacion manual (JWT: gjenero çelës të ri, vendos, ri-nis; sesionet mbeten se

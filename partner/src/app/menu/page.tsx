@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useSession } from '@/components/session-provider';
 import { Badge, Button, Card, Empty, ErrorState, Loading } from '@/components/ui';
-import { api } from '@/lib/api';
+import { api, uploadMedia } from '@/lib/api';
 import { errorText } from '@/lib/errors';
 import { money } from '@/lib/format';
 import { Menu, Product } from '@/lib/types';
@@ -32,6 +32,21 @@ export default function MenuPage() {
     setFailure(null);
     try {
       await api.patch(`merchant/${merchant.id}/products/${product.id}/availability`, { available });
+      refresh();
+    } catch (e) {
+      setFailure(errorText(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /// Imazhi shkon drejt në magazinë; serveri e lidh me produktin dhe menuja publike e merr
+  /// menjëherë (cache-i zbrazet në server).
+  async function setImage(product: Product, file: File) {
+    setBusy(product.id);
+    setFailure(null);
+    try {
+      await uploadMedia('product_image', product.id, file);
       refresh();
     } catch (e) {
       setFailure(errorText(e));
@@ -84,6 +99,7 @@ export default function MenuPage() {
                     product={p}
                     busy={busy === p.id}
                     onToggle={() => setAvailable(p, !p.available)}
+                    onImage={(file) => setImage(p, file)}
                   />
                 ))}
               </Section>
@@ -98,6 +114,7 @@ export default function MenuPage() {
                   product={p}
                   busy={busy === p.id}
                   onToggle={() => setAvailable(p, !p.available)}
+                  onImage={(file) => setImage(p, file)}
                 />
               ))}
             </Section>
@@ -121,32 +138,59 @@ function ProductRow({
   product,
   busy,
   onToggle,
+  onImage,
 }: {
   product: Product;
   busy: boolean;
   onToggle: () => void;
+  onImage: (file: File) => void;
 }) {
+  const input = useRef<HTMLInputElement>(null);
   return (
     <Card tone={product.available ? 'ok' : 'muted'}>
       <div className={styles.row}>
-        <div className={styles.info}>
-          <strong className={product.available ? styles.name : styles.nameOff}>
-            {product.name}
-          </strong>
-          <span className={`${styles.price} num`}>
-            {money(product.price_minor, product.currency)}
-          </span>
+        <div className={styles.lead}>
+          {product.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className={styles.thumb} src={product.image_url} alt="" />
+          ) : (
+            <div className={`${styles.thumb} ${styles.thumbEmpty}`}>Pa imazh</div>
+          )}
+          <div className={styles.info}>
+            <strong className={product.available ? styles.name : styles.nameOff}>
+              {product.name}
+            </strong>
+            <span className={`${styles.price} num`}>
+              {money(product.price_minor, product.currency)}
+            </span>
+          </div>
         </div>
         {!product.available && <Badge tone="muted">Fikur</Badge>}
       </div>
-      <Button
-        size="lg"
-        variant={product.available ? 'danger' : 'primary'}
-        busy={busy}
-        onClick={onToggle}
-      >
-        {product.available ? 'Fike' : 'Ndize'}
-      </Button>
+      <input
+        ref={input}
+        className={styles.fileInput}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onImage(file);
+          e.target.value = '';
+        }}
+      />
+      <div className={styles.actions}>
+        <Button
+          size="lg"
+          variant={product.available ? 'danger' : 'primary'}
+          busy={busy}
+          onClick={onToggle}
+        >
+          {product.available ? 'Fike' : 'Ndize'}
+        </Button>
+        <Button size="lg" variant="ghost" busy={busy} onClick={() => input.current?.click()}>
+          {product.image_url ? 'Ndrysho imazhin' : 'Shto imazh'}
+        </Button>
+      </div>
     </Card>
   );
 }

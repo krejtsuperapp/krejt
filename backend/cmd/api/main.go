@@ -23,6 +23,7 @@ import (
 	"krejt.app/backend/internal/modules/fraud"
 	"krejt.app/backend/internal/modules/ledger"
 	"krejt.app/backend/internal/modules/location"
+	"krejt.app/backend/internal/modules/media"
 	"krejt.app/backend/internal/modules/merchants"
 	"krejt.app/backend/internal/modules/notifications"
 	"krejt.app/backend/internal/modules/orders"
@@ -42,6 +43,7 @@ import (
 	"krejt.app/backend/internal/platform/httpx"
 	"krejt.app/backend/internal/platform/httpx/openapi"
 	"krejt.app/backend/internal/platform/logx"
+	mediaurl "krejt.app/backend/internal/platform/media"
 	otelx "krejt.app/backend/internal/platform/otel"
 	"krejt.app/backend/internal/platform/providers/maps"
 	"krejt.app/backend/internal/platform/providers/payment"
@@ -132,6 +134,20 @@ func main() {
 	if err != nil {
 		log.Error("storage provider", "err", err)
 		os.Exit(1)
+	}
+	// Imazhet publike rrinë në bucket të veçantë (lexim përmes CloudFront-it); me devfs ndajnë
+	// të njëjtën dosje lokale, që rrugët e dev-it të mbeten një.
+	mediaStore := store
+	if cfg.StorageProvider != "devfs" && cfg.MediaBucket != "" {
+		mediaStore, err = storage.NewS3(ctx, cfg.Region, cfg.MediaBucket)
+		if err != nil {
+			log.Error("media storage", "err", err)
+			os.Exit(1)
+		}
+	}
+	mediaurl.SetBaseURL(cfg.MediaBaseURL)
+	if cfg.MediaBaseURL == "" {
+		log.Warn("MEDIA_BASE_URL mungon: imazhet publike nuk do të kenë URL")
 	}
 
 	payProvider, err := payment.NewFromEnv(cfg.Env, cfg.PaymentProvider, cfg.StripeSecretKey, cfg.StripeWebhookSecret, log)
@@ -235,9 +251,13 @@ func main() {
 	payouts.New(pool, ledgerSvc).Routes(mux, requireDriver, requireFinance)
 	merchantsSvc := merchants.New(pool, pricingSvc)
 	merchantsSvc.Routes(mux, authSvc.OptionalAuth(), requireAuth, requireOps)
-	catalog.New(pool, merchantsSvc).Routes(mux, authSvc.OptionalAuth(), requireAuth)
+	// Një instancë e vetme e katalogut: cache-i i menusë jeton në të, dhe imazhet e produkteve
+	// duhet ta zbrazin pikërisht atë që shërben GET /menu.
 	catalogSvc := catalog.New(pool, merchantsSvc)
+	catalogSvc.Routes(mux, authSvc.OptionalAuth(), requireAuth)
 	orders.New(pool, ledgerSvc, catalogSvc, merchantsSvc).WithLocation(locSvc).Routes(mux, requireAuth, requireDriver)
+	mediaSvc := media.New(pool, mediaStore, merchantsSvc).WithMenuInvalidator(catalogSvc)
+	mediaSvc.Routes(mux, requireAuth)
 	admin.New(pool, rdb, ledgerSvc).Routes(mux, requireStaff, requireAdmin)
 	if fs, ok := store.(*storage.DevFS); ok {
 		documents.DevRoutes(mux, fs) // vetëm development (devfs)

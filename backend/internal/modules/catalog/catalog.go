@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"krejt.app/backend/internal/platform/httpx"
+	"krejt.app/backend/internal/platform/media"
 	"krejt.app/backend/internal/platform/principal"
 )
 
@@ -61,6 +62,7 @@ type Product struct {
 	PriceMinor  int64           `json:"price_minor"`
 	Currency    string          `json:"currency"`
 	ImageKey    *string         `json:"image_key"`
+	ImageURL    *string         `json:"image_url"` // publike (CloudFront); null pa imazh
 	Available   bool            `json:"available"`
 	Unit        string          `json:"unit"`
 	Tags        []string        `json:"tags"`
@@ -103,6 +105,9 @@ func (s *Service) requireStaff(ctx context.Context, a principal.Actor, merchantI
 	_, err := s.member.Membership(ctx, a.UserID, merchantID)
 	return err
 }
+
+// InvalidateMenu — për modulet që e ndryshojnë menunë nga jashtë (imazhet e produkteve).
+func (s *Service) InvalidateMenu(merchantID uuid.UUID) { s.invalidate(merchantID) }
 
 func (s *Service) invalidate(merchantID uuid.UUID) {
 	s.mu.Lock()
@@ -261,6 +266,7 @@ func scanProduct(row pgx.Row) (*Product, error) {
 		return nil, err
 	}
 	p.Currency = strings.TrimSpace(p.Currency)
+	p.ImageURL = media.URL(p.ImageKey)
 	p.Modifiers = []ModifierGroup{}
 	return &p, nil
 }

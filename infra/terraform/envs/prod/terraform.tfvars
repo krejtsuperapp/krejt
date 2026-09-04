@@ -4,6 +4,7 @@ environment = "prod"
 name        = "krejt-prod"
 
 assets_bucket_name = "krejt-assets-prod-7k2m9q"
+media_bucket_name  = "krejt-media-prod-7k2m9q"
 
 # ARN-ja e certifikatës për api.krejt.app, e lëshuar në eu-central-1.
 acm_certificate_arn = ""

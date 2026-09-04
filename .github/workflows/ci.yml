@@ -56,6 +56,11 @@ jobs:
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
       - name: build
         run: CGO_ENABLED=0 go build ./...
+      # Çdo message_key i ri i serverit duhet të ketë përkthim në aplikacione (sq/en/de), përndryshe
+      # përdoruesi sheh "Diçka shkoi keq" në vend të arsyes së vërtetë.
+      - name: çelësat e gabimeve kanë përkthim
+        working-directory: ${{ github.workspace }}
+        run: node tests/l10n/error-keys.mjs
 
   container:
     runs-on: ubuntu-latest
@@ -165,22 +170,49 @@ jobs:
             APP_VERSION=${{ github.sha }}
           push: true
           tags: ${{ steps.ecr.outputs.registry }}/krejt-dev/worker:${{ github.sha }}
-      - name: revizion i ri task definition + update-service (api, worker)
+      # Panelet (Next.js standalone) shkojnë në të njëjtin cluster, pas të njëjtës ALB.
+      - name: build + push admin (arm64)
         if: steps.cfg.outputs.enabled == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: admin
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/krejt-dev/admin:${{ github.sha }}
+      - name: build + push partner (arm64)
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: partner
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/krejt-dev/partner:${{ github.sha }}
+      - name: revizion i ri task definition + update-service (api, worker, panelet)
+        if: steps.cfg.outputs.enabled == 'true'
+        id: rollout
         run: |
           set -euo pipefail
-          for svc in api worker; do
+          rolled=""
+          for svc in api worker admin partner; do
+            # Panelet ekzistojnë vetëm pasi Terraform-i t'i ketë krijuar; pa shërbim, kapërcehen pa gabim.
+            if [ "$(aws ecs describe-services --cluster "$CLUSTER" --services "krejt-dev-${svc}" --query 'length(services[?status==`ACTIVE`])' --output text)" != "1" ]; then
+              echo "$svc: shërbimi nuk ekziston ende — kapërcehet"
+              continue
+            fi
             image="${{ steps.ecr.outputs.registry }}/krejt-dev/${svc}:${{ github.sha }}"
             aws ecs describe-task-definition --task-definition "krejt-dev-${svc}" --query taskDefinition > td.json
-            jq --arg img "$image" '.containerDefinitions[0].image = $img
+            jq --arg img "$image" --arg ver "${{ github.sha }}" '.containerDefinitions[0].image = $img
+              | (.containerDefinitions[0].environment // []) |= map(if .name == "KREJT_APP_VERSION" then .value = $ver else . end)
               | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' td.json > td-new.json
             arn=$(aws ecs register-task-definition --cli-input-json file://td-new.json --query 'taskDefinition.taskDefinitionArn' --output text)
             echo "$svc → $arn"
             aws ecs update-service --cluster "$CLUSTER" --service "krejt-dev-${svc}" --task-definition "$arn" > /dev/null
+            rolled="$rolled krejt-dev-${svc}"
           done
+          echo "services=${rolled# }" >> "$GITHUB_OUTPUT"
       - name: prit stabilitetin (rollback automatik nga circuit breaker nëse dështon)
         if: steps.cfg.outputs.enabled == 'true'
-        run: aws ecs wait services-stable --cluster "$CLUSTER" --services krejt-dev-api krejt-dev-worker
+        run: aws ecs wait services-stable --cluster "$CLUSTER" --services ${{ steps.rollout.outputs.services }}
 
   # Pas deploy-it: udhëtim i plotë nga API-ja me numrat e provës. Nëse rrjedha thyhet, deploy-i
   # shënohet i kuq edhe pse kontejneri u ngrit. Pa sekrete: numrat e provës punojnë vetëm në dev.

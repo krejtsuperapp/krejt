@@ -1,15 +1,83 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useSession } from '@/components/session-provider';
 import { Badge, Button, Card, Field, Toggle } from '@/components/ui';
-import { api } from '@/lib/api';
+import { api, MediaKind, removeMedia, uploadMedia } from '@/lib/api';
 import { errorText } from '@/lib/errors';
 import { money } from '@/lib/format';
 import { Merchant } from '@/lib/types';
 
 import styles from './settings.module.css';
+
+/// Logoja dhe kopertina: një imazh, dy veprime. Skedari shkon drejt në magazinë me URL të
+/// nënshkruar; serveri e lidh me vendin dhe klientët e shohin brenda pak sekondash.
+function MediaItem({
+  label,
+  kind,
+  url,
+  merchantId,
+  logo = false,
+  onDone,
+}: {
+  label: string;
+  kind: MediaKind;
+  url: string | null;
+  merchantId: string;
+  logo?: boolean;
+  onDone: (failure: string | null) => Promise<void> | void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function run(action: () => Promise<unknown>) {
+    setBusy(true);
+    try {
+      await action();
+      await onDone(null);
+    } catch (e) {
+      await onDone(errorText(e));
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = '';
+    }
+  }
+
+  const preview = `${styles.mediaPreview} ${logo ? styles.mediaLogo : ''}`;
+  return (
+    <div className={styles.mediaItem}>
+      <span className={styles.mediaLabel}>{label}</span>
+      {url ? (
+        // Imazhi vjen nga CloudFront me URL të qëndrueshme; next/image s'ka çfarë të optimizojë këtu.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className={preview} src={url} alt={label} />
+      ) : (
+        <div className={`${preview} ${styles.mediaEmpty}`}>Pa imazh</div>
+      )}
+      <input
+        ref={input}
+        className={styles.fileInput}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void run(() => uploadMedia(kind, merchantId, file));
+        }}
+      />
+      <div className={styles.actions}>
+        <Button busy={busy} onClick={() => input.current?.click()}>
+          {url ? 'Ndrysho' : 'Ngarko'}
+        </Button>
+        {url && (
+          <Button variant="ghost" busy={busy} onClick={() => run(() => removeMedia(kind, merchantId))}>
+            Hiq
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /// Cilësimet që ndryshon vetë vendi gjatë ditës. Çmimet dhe tarifat nuk hyjnë këtu:
 /// ato i vendos marrëveshja dhe i ndryshon KREJT-i, që klienti të mos gjejë çmim tjetër
@@ -84,6 +152,37 @@ export default function SettingsPage() {
             >
               Ruaj
             </Button>
+          </div>
+        </Card>
+
+        <Card>
+          <h2>Brendimi</h2>
+          <p className={styles.help}>
+            Logoja shfaqet te lista e vendeve, kopertina në krye të menusë. JPEG, PNG ose WebP,
+            deri 5 MB; kopertina del më mirë në raport 3:2.
+          </p>
+          <div className={styles.media}>
+            <MediaItem
+              label="Logo"
+              kind="merchant_logo"
+              url={merchant.logo_url ?? null}
+              merchantId={merchant.id}
+              logo
+              onDone={async (f) => {
+                setFailure(f);
+                if (!f) await reload();
+              }}
+            />
+            <MediaItem
+              label="Kopertina"
+              kind="merchant_cover"
+              url={merchant.cover_url ?? null}
+              merchantId={merchant.id}
+              onDone={async (f) => {
+                setFailure(f);
+                if (!f) await reload();
+              }}
+            />
           </div>
         </Card>
 

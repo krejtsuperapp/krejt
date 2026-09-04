@@ -4,6 +4,7 @@ environment = "staging"
 name        = "krejt-staging"
 
 assets_bucket_name = "krejt-assets-staging-7k2m9q"
+media_bucket_name  = "krejt-media-staging-7k2m9q"
 
 # ARN-ja e certifikatës për staging.krejt.app, e lëshuar në eu-central-1.
 # Pa të, ALB-ja nuk ngrihet. Plotësohet pas hapit 2 të runbook-ut.

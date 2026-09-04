@@ -36,6 +36,22 @@ module "storage" {
   tags        = local.tags
 }
 
+# Imazhet publike (logo, produkte, profile) — bucket i veçantë + CloudFront. Në dev lejohen edhe
+# panelet lokale si origjina të ngarkimit.
+module "media" {
+  source       = "../../modules/media"
+  bucket_name  = var.media_bucket_name
+  cors_origins = ["https://krejt.app", "https://*.krejt.app", "http://localhost:3200", "http://localhost:3300"]
+  # Llogaria e re AWS e refuzon CloudFront-in derisa AWS Support ta verifikojë (rast i hapur
+  # 04.09.2026). Deri atëherë imazhet i shërben API-ja; kthehet në true pas verifikimit.
+  cloudfront_enabled = var.media_cloudfront_enabled
+  tags               = local.tags
+}
+
+locals {
+  media_base_url = module.media.base_url != "" ? module.media.base_url : "${var.public_base_url}/api/v1/media/objects"
+}
+
 module "messaging" {
   source          = "../../modules/messaging"
   name            = var.name
@@ -54,6 +70,9 @@ module "ecs" {
   kms_key_arn              = module.security.kms_key_arn
   assets_bucket_name       = module.storage.bucket_name
   assets_bucket_arn        = module.storage.bucket_arn
+  media_bucket_name        = module.media.bucket_name
+  media_bucket_arn         = module.media.bucket_arn
+  media_base_url           = local.media_base_url
   queue_urls               = module.messaging.queue_urls
   queue_arns               = values(module.messaging.queue_arns)
   domain_events_topic_arn  = module.messaging.domain_events_topic_arn
@@ -87,6 +106,7 @@ module "ecs" {
   api_max_count            = var.api_max_count
   worker_desired_count     = var.worker_desired_count
   centrifugo_desired_count = var.centrifugo_desired_count
+  panel_hosts              = var.panel_hosts
   tags                     = local.tags
 }
 
@@ -167,6 +187,30 @@ locals {
   # Certifikata e vetë Terraform-it ka përparësi; `acm_certificate_arn` mbetet për një
   # certifikatë të lëshuar diku tjetër.
   certificate_arn = var.domain_name == "" ? var.acm_certificate_arn : one(aws_acm_certificate.api[*].arn)
+}
+
+# --- certifikata e paneleve (admin.*, partner.*) ---------------------------------------
+# Certifikatë e dytë, e ndarë nga ajo e API-së: kështu API-ja nuk ndalet asnjë sekondë ndërsa
+# panelet presin validimin. Lidhet me listener-in vetëm kur është ISSUED (panel_cert_ready).
+# Hapat: apply → `terraform output panel_acm_validation_records` → CNAME-t te Cloudflare me
+# proxy të fikur → statusi ISSUED → `panel_cert_ready = true` → apply → CNAME-t admin/partner
+# → ALB me proxy të ndezur.
+resource "aws_acm_certificate" "panels" {
+  count                     = length(var.panel_hosts) > 0 ? 1 : 0
+  domain_name               = values(var.panel_hosts)[0]
+  subject_alternative_names = slice(values(var.panel_hosts), 1, length(var.panel_hosts))
+  validation_method         = "DNS"
+  tags                      = local.tags
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_lb_listener_certificate" "panels" {
+  count           = var.panel_cert_ready && length(var.panel_hosts) > 0 ? 1 : 0
+  listener_arn    = module.ecs.https_listener_arn
+  certificate_arn = aws_acm_certificate.panels[0].arn
 }
 
 # --- monitorimi dhe siguria (§57, §71): alarme te email-i, CloudTrail, GuardDuty ----------

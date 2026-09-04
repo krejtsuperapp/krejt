@@ -10,3 +10,4 @@ export 'src/components/fields.dart';
 export 'src/components/states.dart';
 export 'src/components/money.dart';
 export 'src/components/sheet.dart';
+export 'src/components/images.dart';

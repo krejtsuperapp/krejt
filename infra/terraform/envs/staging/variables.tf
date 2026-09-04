@@ -18,6 +18,10 @@ variable "name" {
 variable "assets_bucket_name" {
   type = string
 }
+variable "media_bucket_name" {
+  description = "Bucket-i i imazheve publike (lexohet përmes CloudFront-it). Emri është global në S3."
+  type        = string
+}
 
 variable "domain_name" {
   description = "Domeni i API-së për këtë mjedis. Bosh = certifikata nuk krijohet nga Terraform."
