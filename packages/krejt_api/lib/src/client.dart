@@ -682,6 +682,18 @@ class KrejtApi {
   Future<ChatMessage> sendRideMessage(String id, String body) async =>
       ChatMessage.fromJson(await _post('/api/v1/rides/$id/chat', body: {'body': body}));
 
+  /// Vlerësimi i një porosie: shkruan mesataren e lokalit te serveri. Pa këtë, ylli te lista e
+  /// Ushqimit do të mbetej një vend bosh që nuk e mbush kurrë askush.
+  Future<void> reviewOrder(String id, {required int rating, List<String>? tags, String? comment}) =>
+      _post(
+        '/api/v1/orders/$id/review',
+        body: {
+          'rating': rating,
+          'tags': ?tags,
+          if (comment != null && comment.isNotEmpty) 'comment': comment,
+        },
+      );
+
   Future<void> reviewRide(String id, {required int rating, List<String>? tags, String? comment}) =>
       _post(
         '/api/v1/rides/$id/review',

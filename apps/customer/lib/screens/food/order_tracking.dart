@@ -11,6 +11,7 @@ import 'package:krejt_screens/krejt_screens.dart';
 
 import '../../state/app_state.dart';
 import '../ride/map_scaffold.dart';
+import 'order_review.dart';
 
 String orderStateKey(OrderState s) {
   switch (s) {
@@ -311,7 +312,20 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             danger: true,
             onPressed: _cancelling ? null : _cancel,
           )
-        else if (!order.isActive)
+        else if (order.state == OrderState.delivered) ...[
+          KButton(
+            label: context.t('order.review.title'),
+            icon: Icons.star_outline_rounded,
+            onPressed: () =>
+                Navigator.of(context)
+                    .push(MaterialPageRoute<bool>(builder: (_) => OrderReviewScreen(order: order))),
+          ),
+          const SizedBox(height: K.s3),
+          KOutlineButton(
+            label: context.t('common.close'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ] else if (!order.isActive)
           KButton(label: context.t('common.close'), onPressed: () => Navigator.of(context).pop()),
       ],
     );
