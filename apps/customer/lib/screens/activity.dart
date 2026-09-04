@@ -147,6 +147,10 @@ class _ActivityScreenState extends State<ActivityScreen> {
   ActivityKind? _filter;
   ApiError? _error;
   bool _loading = true;
+  bool _loadingMore = false;
+
+  /// A mbeti diçka më e vjetër. Nis e vërtetë dhe fiket kur asnjë burim nuk kthen më asgjë.
+  bool _more = true;
 
   @override
   void initState() {
@@ -154,8 +158,14 @@ class _ActivityScreenState extends State<ActivityScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  Future<void> _load() async {
-    if (mounted) setState(() => _loading = true);
+  static const _pageSize = 30;
+
+  /// Të katër burimet faqosen me të njëjtin kursor: koha e rreshtit më të vjetër që shihet.
+  /// Meqë secili burim është i renditur sipas kohës, "para kësaj kohe" e vazhdon secilin aty ku
+  /// mbeti, pa dublikate dhe pa mbajtur katër kursorë të veçantë.
+  Future<void> _load({DateTime? before}) async {
+    final more = before != null;
+    if (mounted) setState(() => more ? _loadingMore = true : _loading = true);
     final state = context.read<AppState>();
     final api = state.api;
     final cfg = state.config;
@@ -173,12 +183,21 @@ class _ActivityScreenState extends State<ActivityScreen> {
       }
     }
 
-    final rides = guard(cfg.flag('rides', fallback: true), () => api.rideHistory(limit: 30));
-    final orders = guard(cfg.flag('food'), () => api.orderHistory(limit: 30));
-    final parcels = guard(cfg.flag('parcels', fallback: true), () => api.parcelHistory(limit: 30));
+    final rides = guard(
+      cfg.flag('rides', fallback: true),
+      () => api.rideHistory(limit: _pageSize, before: before),
+    );
+    final orders = guard(
+      cfg.flag('food'),
+      () => api.orderHistory(limit: _pageSize, before: before),
+    );
+    final parcels = guard(
+      cfg.flag('parcels', fallback: true),
+      () => api.parcelHistory(limit: _pageSize, before: before),
+    );
     final services = guard(
       cfg.flag('services', fallback: true),
-      () => api.serviceRequests(limit: 30),
+      () => api.serviceRequests(limit: _pageSize, before: before),
     );
     final entries = mergeActivity(
       rides: await rides,
@@ -190,11 +209,14 @@ class _ActivityScreenState extends State<ActivityScreen> {
     if (!mounted) return;
 
     setState(() {
-      _all = entries;
+      _all = more ? [..._all, ...entries] : entries;
       _loading = false;
+      _loadingMore = false;
+      // Asnjë rresht më i vjetër do të thotë se lista mbaroi vërtet.
+      _more = entries.isNotEmpty;
       // Gabimi shfaqet vetëm kur nuk mbeti asgjë për të treguar; ndryshe lista flet vetë.
-      _error = entries.isEmpty ? failure : null;
-      if (_filter != null && !entries.any((e) => e.kind == _filter)) _filter = null;
+      _error = _all.isEmpty ? failure : null;
+      if (_filter != null && !_all.any((e) => e.kind == _filter)) _filter = null;
     });
   }
 
@@ -266,20 +288,36 @@ class _ActivityScreenState extends State<ActivityScreen> {
                             ),
                     )
                   : RefreshIndicator(
-                      onRefresh: _load,
+                      onRefresh: () => _load(),
                       color: K.brand400,
                       backgroundColor: K.surface2,
                       child: ListView.builder(
                         padding: const EdgeInsets.fromLTRB(K.s5, K.s2, K.s5, K.s8),
-                        itemCount: visible.length,
-                        itemBuilder: (_, i) => Padding(
-                          padding: const EdgeInsets.only(bottom: K.s2),
-                          child: _Row(
-                            entry: visible[i],
-                            locale: locale,
-                            onTap: () => _open(visible[i]),
-                          ),
-                        ),
+                        // Rreshti i fundit është butoni "më shumë", kur ka ende çka të sillet.
+                        itemCount: visible.length + (_more ? 1 : 0),
+                        itemBuilder: (_, i) {
+                          if (i == visible.length) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: K.s3),
+                              child: _loadingMore
+                                  ? const KSkeleton(height: 44, count: 1)
+                                  : KOutlineButton(
+                                      label: context.t('common.more'),
+                                      onPressed: _all.isEmpty
+                                          ? null
+                                          : () => _load(before: _all.last.at),
+                                    ),
+                            );
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: K.s2),
+                            child: _Row(
+                              entry: visible[i],
+                              locale: locale,
+                              onTap: () => _open(visible[i]),
+                            ),
+                          );
+                        },
                       ),
                     ),
             ),

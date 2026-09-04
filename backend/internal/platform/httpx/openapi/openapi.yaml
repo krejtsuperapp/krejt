@@ -202,7 +202,7 @@ paths:
     get:
       tags: [services]
       summary: Kërkesat e klientit
-      parameters: [{ $ref: "#/components/parameters/Limit" }]
+      parameters: [{ $ref: "#/components/parameters/Limit" }, { $ref: "#/components/parameters/Before" }]
       responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/ServiceRequest" } } } } } } } }
   /api/v1/services/requests/{id}:
     parameters: [{ $ref: "#/components/parameters/Id" }]

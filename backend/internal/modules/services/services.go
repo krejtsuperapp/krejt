@@ -462,11 +462,16 @@ func (s *Service) offers(ctx context.Context, requestID uuid.UUID) ([]Offer, err
 	return out, rows.Err()
 }
 
-func (s *Service) History(ctx context.Context, a principal.Actor, limit int) ([]Request, error) {
+// History — kërkesat e mia, nga më e reja. `before` e vazhdon listën aty ku mbeti: pa të,
+// historia e një përdoruesi të vjetër ndalej te faqja e parë pa asnjë mënyrë për të parë më tej.
+func (s *Service) History(ctx context.Context, a principal.Actor, before *time.Time, limit int) ([]Request, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
-	rows, err := s.pool.Query(ctx, `SELECT `+requestCols+` FROM service_requests WHERE customer_id = $1 ORDER BY created_at DESC LIMIT $2`, a.UserID, limit)
+	rows, err := s.pool.Query(ctx, `SELECT `+requestCols+`
+		FROM service_requests
+		WHERE customer_id = $1 AND ($3::timestamptz IS NULL OR created_at < $3)
+		ORDER BY created_at DESC LIMIT $2`, a.UserID, limit, before)
 	if err != nil {
 		return nil, err
 	}
