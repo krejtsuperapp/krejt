@@ -77,6 +77,7 @@ type Order struct {
 	CustomerID          uuid.UUID  `json:"customer_id"`
 	MerchantID          uuid.UUID  `json:"merchant_id"`
 	MerchantName        string     `json:"merchant_name,omitempty"`
+	MerchantLocation    *geo.Point `json:"merchant_location,omitempty"` // për hartën e ndjekjes
 	CourierID           *uuid.UUID `json:"courier_id"`
 	State               string     `json:"state"`
 	Fulfillment         string     `json:"fulfillment"`
@@ -369,8 +370,14 @@ func (s *Service) withItems(ctx context.Context, o *Order) (*Order, error) {
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	if o.MerchantName == "" {
-		_ = s.pool.QueryRow(ctx, `SELECT name FROM merchants WHERE id = $1`, o.MerchantID).Scan(&o.MerchantName)
+	// Emri dhe pozicioni i partnerit: harta e ndjekjes i vizaton pa thirrje tjetër.
+	var mname string
+	var mlat, mlng float64
+	if err := s.pool.QueryRow(ctx, `SELECT name, lat, lng FROM merchants WHERE id = $1`, o.MerchantID).Scan(&mname, &mlat, &mlng); err == nil {
+		if o.MerchantName == "" {
+			o.MerchantName = mname
+		}
+		o.MerchantLocation = &geo.Point{Lat: mlat, Lng: mlng}
 	}
 	return o, nil
 }

@@ -40,6 +40,7 @@ func New(pool *pgxpool.Pool, pub rt.Provider, tokens *rt.TokenIssuer) *Service {
 func RideChannel(rideID uuid.UUID) string     { return "ride:" + rideID.String() }
 func DriverChannel(driverID uuid.UUID) string { return "driver:" + driverID.String() }
 func UserChannel(userID uuid.UUID) string     { return "user:" + userID.String() }
+func OrderChannel(orderID uuid.UUID) string   { return "order:" + orderID.String() }
 
 // Authorize — a mund të abonohet aktori në kanal? (kurrë sipas fjalës së klientit)
 func (s *Service) Authorize(ctx context.Context, a principal.Actor, channel string) (bool, error) {
@@ -60,6 +61,12 @@ func (s *Service) Authorize(ctx context.Context, a principal.Actor, channel stri
 	case "ride":
 		var allowed bool
 		err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM rides WHERE id = $1 AND (customer_id = $2 OR driver_id = $2))`, id, a.UserID).Scan(&allowed)
+		return allowed, err
+	case "order":
+		// klienti i porosisë, korrieri i saj ose stafi i partnerit
+		var allowed bool
+		err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM orders o WHERE o.id = $1 AND (o.customer_id = $2 OR o.courier_id = $2
+			OR EXISTS (SELECT 1 FROM merchant_staff ms WHERE ms.merchant_id = o.merchant_id AND ms.user_id = $2)))`, id, a.UserID).Scan(&allowed)
 		return allowed, err
 	}
 	return false, nil

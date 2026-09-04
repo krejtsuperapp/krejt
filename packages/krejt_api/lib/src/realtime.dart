@@ -108,5 +108,6 @@ class RealtimeClient {
 
 /// Kanalet, në të njëjtën formë si te serveri (`realtime.RideChannel` etj.).
 String rideChannel(String rideId) => 'ride:$rideId';
+String orderChannel(String orderId) => 'order:$orderId';
 String driverChannel(String driverId) => 'driver:$driverId';
 String userChannel(String userId) => 'user:$userId';

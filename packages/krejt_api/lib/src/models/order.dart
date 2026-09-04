@@ -390,6 +390,8 @@ class Order {
     required this.totalMinor,
     required this.currency,
     this.addressText,
+    this.address,
+    this.merchantLocation,
     this.note,
     required this.prepTimeMin,
     this.readyAtEstimate,
@@ -416,6 +418,10 @@ class Order {
   final int totalMinor;
   final String currency;
   final String? addressText;
+
+  /// Pika e dorëzimit dhe e partnerit — për hartën e ndjekjes; mungojnë te marrja në vend.
+  final LatLng? address;
+  final LatLng? merchantLocation;
   final String? note;
   final int prepTimeMin;
   final DateTime? readyAtEstimate;
@@ -448,6 +454,12 @@ class Order {
     totalMinor: (j['total_minor'] as num?)?.toInt() ?? 0,
     currency: (j['currency'] ?? 'EUR').toString(),
     addressText: j['address_text']?.toString() ?? j['address_instructions']?.toString(),
+    address: j['address'] is Map
+        ? LatLng.fromJson(Map<String, dynamic>.from(j['address'] as Map))
+        : null,
+    merchantLocation: j['merchant_location'] is Map
+        ? LatLng.fromJson(Map<String, dynamic>.from(j['merchant_location'] as Map))
+        : null,
     note: j['note']?.toString(),
     prepTimeMin: (j['prep_time_min'] as num?)?.toInt() ?? 0,
     readyAtEstimate: DateTime.tryParse(j['ready_at_estimate']?.toString() ?? ''),

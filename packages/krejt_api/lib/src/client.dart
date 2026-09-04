@@ -7,6 +7,7 @@ import 'errors.dart';
 import 'models/config.dart';
 import 'models/driver.dart';
 import 'models/order.dart';
+import 'models/places.dart';
 import 'models/ride.dart';
 import 'models/user.dart';
 import 'models/wallet.dart';
@@ -347,6 +348,30 @@ class KrejtApi {
       _post('/api/v1/realtime/subscribe', body: {'channel': channel});
 
   // --------------------------------------------------------------------- rides
+
+  // ------------------------------------------------------------------ places
+
+  /// Vende dhe adresa brenda Kosovës; afërsia i rendit më afër përdoruesit.
+  Future<List<Place>> searchPlaces(String q, {LatLng? near, int limit = 8}) async {
+    final rows = await _getList(
+      '/api/v1/places/search',
+      'items',
+      query: {'q': q, 'limit': limit, 'lat': ?near?.lat, 'lng': ?near?.lng},
+    );
+    return rows.map(Place.fromJson).toList();
+  }
+
+  /// Adresa e një pike (pika e marrjes nga GPS-i); null kur ofruesi nuk njeh asgjë aty.
+  Future<Place?> reversePlace(LatLng point) async {
+    final m = await _get('/api/v1/places/reverse', query: {'lat': point.lat, 'lng': point.lng});
+    final place = m['place'];
+    return place is Map ? Place.fromJson(Map<String, dynamic>.from(place)) : null;
+  }
+
+  /// Gjeometria e rrugës për hartën; çmimin e jep vetëm quote-i.
+  Future<RoutePath> routePath(LatLng from, LatLng to) async => RoutePath.fromJson(
+    await _post('/api/v1/places/route', body: {'from': from.toJson(), 'to': to.toJson()}),
+  );
 
   Future<QuoteResult> quoteRide({
     required LatLng pickup,

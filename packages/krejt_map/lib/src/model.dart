@@ -79,3 +79,20 @@ class MapBounds {
 
   MapPoint get center => MapPoint((south + north) / 2, (west + east) / 2);
 }
+
+/// Krahasime të lira për `didUpdateWidget`/`shouldRepaint`: vizatimi përsëritet vetëm kur
+/// ndryshon diçka që shihet.
+bool sameMarkers(List<MapMarker> a, List<MapMarker> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i].point != b[i].point || a[i].kind != b[i].kind) return false;
+  }
+  return true;
+}
+
+bool samePath(List<MapPoint>? a, List<MapPoint>? b) {
+  if (identical(a, b)) return true;
+  if (a == null || b == null) return false;
+  if (a.length != b.length) return false;
+  return a.isEmpty || (a.first == b.first && a.last == b.last);
+}

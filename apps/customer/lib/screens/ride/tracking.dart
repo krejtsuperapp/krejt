@@ -10,11 +10,12 @@ import 'package:provider/provider.dart';
 import '../../state/app_state.dart';
 import '../home.dart';
 import 'chat.dart';
+import 'map_scaffold.dart';
 import 'review.dart';
 
-/// Ndjekja e udhëtimit. Gjendja vjen nga kanali i gjallë (§42): çdo ngjarje e udhëtimit
-/// rifreskon gjendjen nga serveri, ndërsa pozicioni i shoferit zbatohet drejtpërdrejt te harta.
-/// Pyetja periodike mbetet si rrugë rezervë, më e rrallë — pa lidhje, ekrani punon njësoj.
+/// Ndjekja e udhëtimit mbi hartë të plotë. Gjendja vjen nga kanali i gjallë (§42): çdo ngjarje
+/// e udhëtimit rifreskon gjendjen nga serveri, ndërsa pozicioni i shoferit zbatohet drejtpërdrejt
+/// te harta. Pyetja periodike mbetet si rrugë rezervë — pa lidhje, ekrani punon njësoj.
 class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key, required this.rideId});
 
@@ -34,9 +35,11 @@ class _TrackingScreenState extends State<TrackingScreen> {
   /// Pozicioni i fundit i shoferit nga kanali; më i freskët se ai i profilit të udhëtimit.
   LatLng? _driverAt;
   Ride? _ride;
+  List<MapPoint>? _path;
   ApiError? _error;
   bool _cancelling = false;
   bool _reviewShown = false;
+  bool _routeAsked = false;
 
   @override
   void initState() {
@@ -75,6 +78,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
         _ride = ride;
         _error = null;
       });
+      if (!_routeAsked) unawaited(_route(ride));
       if (ride.isFinished) {
         _timer?.cancel();
         unawaited(context.read<AppState>().refreshHome());
@@ -83,6 +87,18 @@ class _TrackingScreenState extends State<TrackingScreen> {
     } on ApiError catch (e) {
       if (!mounted) return;
       setState(() => _error = e);
+    }
+  }
+
+  /// Gjeometria e rrugës merret një herë; nëse mungon, harta tregon vetëm pikat.
+  Future<void> _route(Ride ride) async {
+    _routeAsked = true;
+    try {
+      final r = await context.read<AppState>().api.routePath(ride.pickup, ride.dropoff);
+      if (!mounted) return;
+      setState(() => _path = [for (final p in r.points) MapPoint(p.lat, p.lng)]);
+    } on ApiError {
+      _routeAsked = false;
     }
   }
 
@@ -137,60 +153,59 @@ class _TrackingScreenState extends State<TrackingScreen> {
     );
   }
 
+  /// Shoferi shtohet vetëm kur serveri ka dërguar pozicionin e tij; një shenjë e ngrirë te
+  /// pika e marrjes do të thoshte diçka që nuk dihet.
+  List<MapMarker> _markers(Ride? ride) {
+    if (ride == null) return const [];
+    final driverAt = _driverAt ?? ride.driver?.location;
+    return [
+      markerOf(ride.pickup.lat, ride.pickup.lng, MapMarkerKind.pickup),
+      markerOf(ride.dropoff.lat, ride.dropoff.lng, MapMarkerKind.dropoff),
+      if (driverAt != null && ride.isActive)
+        markerOf(driverAt.lat, driverAt.lng, MapMarkerKind.driver),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final ride = _ride;
     final locale = context.watch<AppState>().locale;
-
-    return Scaffold(
-      backgroundColor: K.bg,
-      appBar: AppBar(title: Text(context.t('ride.tracking.title'))),
-      body: SafeArea(
-        child: ride == null
-            ? Padding(
-                padding: const EdgeInsets.all(K.s5),
-                child: _error == null
+    return MapScaffold.sheet(
+      title: context.t('ride.tracking.title'),
+      markers: _markers(ride),
+      path: _path,
+      sheet: (controller) => ride == null
+          ? ListView(
+              controller: controller,
+              padding: const EdgeInsets.all(K.s5),
+              children: [
+                const Center(child: KSheetHandle()),
+                _error == null
                     ? KLoading(label: context.t('common.loading'))
                     : KError(
                         message: context.tError(_error!.messageKey),
                         retryLabel: context.t('common.retry'),
                         onRetry: _poll,
                       ),
-              )
-            : _content(context, ride, locale),
-      ),
+              ],
+            )
+          : _content(context, controller, ride, locale),
     );
   }
 
-  /// Shoferi shtohet vetëm kur serveri ka dërguar pozicionin e tij; një shenjë e ngrirë te
-  /// pika e marrjes do të thoshte diçka që nuk dihet.
-  List<MapMarker> _markers(Ride ride) {
-    final driverAt = _driverAt ?? ride.driver?.location;
-    return [
-      MapMarker(point: MapPoint(ride.pickup.lat, ride.pickup.lng), kind: MapMarkerKind.pickup),
-      MapMarker(point: MapPoint(ride.dropoff.lat, ride.dropoff.lng), kind: MapMarkerKind.dropoff),
-      if (driverAt != null)
-        MapMarker(point: MapPoint(driverAt.lat, driverAt.lng), kind: MapMarkerKind.driver),
-    ];
-  }
-
-  Widget _content(BuildContext context, Ride ride, String locale) {
+  Widget _content(BuildContext context, ScrollController controller, Ride ride, String locale) {
     final driver = ride.driver;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(K.s5, K.s4, K.s5, K.s8),
+      controller: controller,
+      padding: const EdgeInsets.fromLTRB(K.s5, 0, K.s5, K.s8),
       children: [
+        const Center(child: KSheetHandle()),
         if (_error?.isOffline == true) ...[
           KOfflineBar(label: context.t('state.offline')),
           const SizedBox(height: K.s3),
         ],
         _StateHeader(ride: ride),
         const SizedBox(height: K.s4),
-        KMap(
-          markers: _markers(ride),
-          schematicCaption: context.t('map.schematic'),
-          semanticsLabel: context.t('map.a11y.ride'),
-        ),
-        const SizedBox(height: K.s5),
         if (ride.state == RideState.matching)
           KCard(
             child: Column(
@@ -285,9 +300,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
         const SizedBox(height: K.s5),
         KCard(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              KRow(context.t('ride.pickup'), ride.pickupAddress ?? '—'),
-              KRow(context.t('ride.dropoff'), ride.dropoffAddress ?? '—'),
+              RouteEnds(pickup: ride.pickupAddress ?? '—', dropoff: ride.dropoffAddress ?? '—'),
+              const SizedBox(height: K.s3),
               KRow(
                 context.t('ride.payment'),
                 context.t(

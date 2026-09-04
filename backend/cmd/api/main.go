@@ -29,6 +29,7 @@ import (
 	"krejt.app/backend/internal/modules/orders"
 	"krejt.app/backend/internal/modules/payments"
 	"krejt.app/backend/internal/modules/payouts"
+	"krejt.app/backend/internal/modules/places"
 	"krejt.app/backend/internal/modules/pricing"
 	"krejt.app/backend/internal/modules/realtime"
 	"krejt.app/backend/internal/modules/reviews"
@@ -258,6 +259,7 @@ func main() {
 	orders.New(pool, ledgerSvc, catalogSvc, merchantsSvc).WithLocation(locSvc).Routes(mux, requireAuth, requireDriver)
 	mediaSvc := media.New(pool, mediaStore, merchantsSvc).WithMenuInvalidator(catalogSvc)
 	mediaSvc.Routes(mux, requireAuth)
+	places.New(mapsProvider, rdb).Routes(mux, requireAuth)
 	admin.New(pool, rdb, ledgerSvc).Routes(mux, requireStaff, requireAdmin)
 	if fs, ok := store.(*storage.DevFS); ok {
 		documents.DevRoutes(mux, fs) // vetëm development (devfs)

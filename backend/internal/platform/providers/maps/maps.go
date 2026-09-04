@@ -12,7 +12,6 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -23,11 +22,27 @@ import (
 type Route struct {
 	DistanceM int `json:"distance_m"`
 	DurationS int `json:"duration_s"`
+	// Path — gjeometria e rrugës (lat/lng me radhë), vetëm kur kërkohet me Directions; Route e lë bosh.
+	Path []geo.Point `json:"path,omitempty"`
 }
 
 type Provider interface {
 	// Route — rruga me makinë nga from te to (distancë + kohë me trafik ku ofruesi e mbështet).
 	Route(ctx context.Context, from, to geo.Point) (Route, error)
+	// Directions — si Route, por me gjeometrinë e plotë (për vizatim në hartë).
+	Directions(ctx context.Context, from, to geo.Point) (Route, error)
+	// Search — vende/adresa sipas tekstit, afër një pike (kur jepet); vetëm brenda Kosovës.
+	Search(ctx context.Context, q string, near *geo.Point, limit int) ([]Place, error)
+	// Reverse — adresa më e afërt e një pike (për pikën e marrjes nga GPS-i).
+	Reverse(ctx context.Context, p geo.Point) (*Place, error)
+}
+
+// Place — një vend ose adresë e gjetur nga ofruesi.
+type Place struct {
+	Name    string    `json:"name"`
+	Address string    `json:"address"`
+	Kind    string    `json:"kind"` // address | street | poi | place | locality
+	Point   geo.Point `json:"point"`
 }
 
 var ErrNoRoute = errors.New("maps: no route")
@@ -54,6 +69,10 @@ type latLng struct {
 }
 
 func (g *Google) Route(ctx context.Context, from, to geo.Point) (Route, error) {
+	return g.route(ctx, from, to, false)
+}
+
+func (g *Google) route(ctx context.Context, from, to geo.Point, geometry bool) (Route, error) {
 	body := map[string]any{
 		"origin":            map[string]any{"location": map[string]any{"latLng": latLng{from.Lat, from.Lng}}},
 		"destination":       map[string]any{"location": map[string]any{"latLng": latLng{to.Lat, to.Lng}}},
@@ -68,7 +87,11 @@ func (g *Google) Route(ctx context.Context, from, to geo.Point) (Route, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Goog-Api-Key", g.key)
-	req.Header.Set("X-Goog-FieldMask", "routes.duration,routes.distanceMeters")
+	mask := "routes.duration,routes.distanceMeters"
+	if geometry {
+		mask += ",routes.polyline.encodedPolyline"
+	}
+	req.Header.Set("X-Goog-FieldMask", mask)
 	resp, err := g.http.Do(req)
 	if err != nil {
 		return Route{}, fmt.Errorf("maps: google routes: %w", err)
@@ -82,6 +105,9 @@ func (g *Google) Route(ctx context.Context, from, to geo.Point) (Route, error) {
 		Routes []struct {
 			DistanceMeters int    `json:"distanceMeters"`
 			Duration       string `json:"duration"` // "1234s"
+			Polyline       struct {
+				Encoded string `json:"encodedPolyline"`
+			} `json:"polyline"`
 		} `json:"routes"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
@@ -94,7 +120,11 @@ func (g *Google) Route(ctx context.Context, from, to geo.Point) (Route, error) {
 	if err != nil {
 		return Route{}, fmt.Errorf("maps: google routes: duration %q", out.Routes[0].Duration)
 	}
-	return Route{DistanceM: out.Routes[0].DistanceMeters, DurationS: int(math.Round(secs))}, nil
+	r := Route{DistanceM: out.Routes[0].DistanceMeters, DurationS: int(math.Round(secs))}
+	if geometry {
+		r.Path = decodePolyline(out.Routes[0].Polyline.Encoded)
+	}
+	return r, nil
 }
 
 // --- Mapbox Directions API -----------------------------------------------------
@@ -102,6 +132,7 @@ func (g *Google) Route(ctx context.Context, from, to geo.Point) (Route, error) {
 type Mapbox struct {
 	token    string
 	endpoint string
+	geocode  string // override në teste; bosh = mapboxGeocode
 	http     *http.Client
 }
 
@@ -115,52 +146,7 @@ func NewMapbox(token string) *Mapbox {
 }
 
 func (m *Mapbox) Route(ctx context.Context, from, to geo.Point) (Route, error) {
-	// Mapbox i pret koordinatat si lng,lat — e kundërta e Google-it.
-	coords := fmt.Sprintf("%.6f,%.6f;%.6f,%.6f", from.Lng, from.Lat, to.Lng, to.Lat)
-
-	q := url.Values{}
-	// Token-i shkon si parametër sepse Mapbox nuk pranon header autorizimi këtu; nuk logohet askund.
-	q.Set("access_token", m.token)
-	q.Set("overview", "false") // gjeometria nuk na duhet: vetëm distancë dhe kohë
-	q.Set("alternatives", "false")
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, m.endpoint+"/"+coords+"?"+q.Encode(), nil)
-	if err != nil {
-		return Route{}, err
-	}
-	resp, err := m.http.Do(req)
-	if err != nil {
-		return Route{}, fmt.Errorf("maps: mapbox directions: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		// as URL-ja as trupi nuk logohen: URL-ja mban token-in
-		return Route{}, fmt.Errorf("maps: mapbox directions: HTTP %d", resp.StatusCode)
-	}
-	var out struct {
-		Code   string `json:"code"`
-		Routes []struct {
-			DistanceM float64 `json:"distance"`
-			DurationS float64 `json:"duration"`
-		} `json:"routes"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return Route{}, fmt.Errorf("maps: mapbox directions: decode: %w", err)
-	}
-	// Mapbox e kthen HTTP 200 edhe kur nuk ka rrugë; arsyeja rri te fusha `code`.
-	if out.Code != "" && out.Code != "Ok" {
-		if out.Code == "NoRoute" || out.Code == "NoSegment" {
-			return Route{}, ErrNoRoute
-		}
-		return Route{}, fmt.Errorf("maps: mapbox directions: %s", out.Code)
-	}
-	if len(out.Routes) == 0 {
-		return Route{}, ErrNoRoute
-	}
-	return Route{
-		DistanceM: int(math.Round(out.Routes[0].DistanceM)),
-		DurationS: int(math.Round(out.Routes[0].DurationS)),
-	}, nil
+	return m.route(ctx, from, to, false)
 }
 
 // --- DevEstimate (VETËM development) -------------------------------------------

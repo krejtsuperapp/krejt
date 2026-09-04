@@ -17,7 +17,7 @@ import (
 
 // Location — gjendja e korrierit në Redis (moduli location), për busy/available.
 type Location interface {
-	SetBusy(ctx context.Context, driverID uuid.UUID, rideID uuid.UUID) error
+	SetBusyOrder(ctx context.Context, driverID uuid.UUID, orderID uuid.UUID) error
 	SetAvailable(ctx context.Context, driverID uuid.UUID) error
 }
 
@@ -126,7 +126,7 @@ func (s *Service) AcceptOffer(ctx context.Context, a principal.Actor, offerID uu
 		return nil, err
 	}
 	if s.loc != nil {
-		_ = s.loc.SetBusy(ctx, a.UserID, out.ID)
+		_ = s.loc.SetBusyOrder(ctx, a.UserID, out.ID)
 	}
 	return s.withItems(ctx, out)
 }
