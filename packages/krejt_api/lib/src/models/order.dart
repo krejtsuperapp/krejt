@@ -24,6 +24,7 @@ class Merchant {
     required this.acceptingOrders,
     required this.openNow,
     required this.distanceM,
+    this.favourite = false,
     this.logoUrl,
     this.coverUrl,
   });
@@ -52,6 +53,9 @@ class Merchant {
   final bool openNow;
   final int distanceM;
 
+  /// E ruajtur nga ky përdorues. False pa sesion — zbulimi mbetet publik.
+  final bool favourite;
+
   /// I hapur dhe duke pranuar: vetëm atëherë ka kuptim të hapësh menunë për porosi.
   bool get canOrder => openNow && acceptingOrders && status == 'active';
 
@@ -76,6 +80,7 @@ class Merchant {
     ratingCount: (j['rating_count'] as num?)?.toInt() ?? 0,
     acceptingOrders: j['accepting_orders'] != false,
     openNow: j['open_now'] == true,
+    favourite: j['favourite'] == true,
     distanceM: (j['distance_m'] as num?)?.toInt() ?? 0,
     logoUrl: j['logo_url']?.toString(),
     coverUrl: j['cover_url']?.toString(),

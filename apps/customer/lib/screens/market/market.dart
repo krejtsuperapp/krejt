@@ -10,6 +10,7 @@ import '../../services/location.dart';
 import '../../state/app_state.dart';
 import '../active_banner.dart';
 import '../food/cart_bar.dart';
+import '../food/favourite_button.dart';
 import '../food/menu.dart';
 
 /// Marketi si shërbim më vete, jo si Ushqimi me një flamur.
@@ -275,6 +276,8 @@ class _CategoryTile extends StatelessWidget {
   );
 }
 
+/// Rreshti i dyqanit: kartë e plotë, jo kartë e ngushtë. KMerchantCard ka gjerësi fikse dhe bën
+/// punë te karuselet horizontale; në një listë vertikale do të linte gjysmën e ekranit bosh.
 class _StoreRow extends StatelessWidget {
   const _StoreRow({required this.merchant});
 
@@ -283,34 +286,81 @@ class _StoreRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final locale = context.watch<AppState>().locale;
+    final open = merchant.canOrder;
     return Padding(
-      padding: const EdgeInsets.only(bottom: K.s3),
-      child: KMerchantCard(
-        name: merchant.name,
-        subtitle: [
-          if (merchant.addressLine1.isNotEmpty) merchant.addressLine1,
-          formatDistance(merchant.distanceM, locale: locale),
-        ].join(' · '),
-        imageUrl: merchant.coverUrl ?? merchant.logoUrl,
-        rating: merchant.rating?.toStringAsFixed(1),
-        dimmed: !merchant.canOrder,
-        chips: [
-          if (!merchant.canOrder)
-            KChip(context.t('food.closed'))
-          else ...[
-            KChip('${merchant.prepTimeMin} min'),
-            KChip(
-              context.t('food.delivery_fee', {
-                'amount': formatMinor(merchant.deliveryFeeMinor, locale: locale),
-              }),
-            ),
-          ],
-        ],
-        onTap: merchant.canOrder
+      padding: const EdgeInsets.only(bottom: K.s2),
+      child: KCard(
+        onTap: open
             ? () =>
                   Navigator.of(context)
                       .push(MaterialPageRoute<void>(builder: (_) => MenuScreen(merchant: merchant)))
             : null,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Opacity(
+              opacity: open ? 1 : 0.55,
+              child: KNetImage(
+                url: merchant.coverUrl ?? merchant.logoUrl,
+                height: 64,
+                width: 64,
+                radius: K.rSm,
+                fallbackIcon: Icons.storefront_outlined,
+              ),
+            ),
+            const SizedBox(width: K.s3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          merchant.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: open ? K.text : K.muted,
+                          ),
+                        ),
+                      ),
+                      if (!open)
+                        KBadge(context.t('food.closed'), tone: KTone.neutral)
+                      else if (merchant.rating != null)
+                        KBadge(merchant.rating!.toStringAsFixed(1), tone: KTone.ok),
+                      FavouriteButton(merchant: merchant),
+                    ],
+                  ),
+                  const SizedBox(height: K.s1),
+                  Text(
+                    [
+                      if (merchant.addressLine1.isNotEmpty) merchant.addressLine1,
+                      formatDistance(merchant.distanceM, locale: locale),
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: K.muted),
+                  ),
+                  const SizedBox(height: K.s2),
+                  Text(
+                    [
+                      context.t('food.prep', {'min': '${merchant.prepTimeMin}'}),
+                      context.t('food.delivery_fee', {
+                        'amount': formatMinor(merchant.deliveryFeeMinor, locale: locale),
+                      }),
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: K.textDim),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

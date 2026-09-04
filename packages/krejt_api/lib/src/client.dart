@@ -204,6 +204,10 @@ class KrejtApi {
     return _asMap(res);
   }
 
+  Future<void> _put(String path, {Object? body}) async {
+    await _send(() => _dio.put<dynamic>(path, data: body));
+  }
+
   Future<void> _delete(String path) async {
     await _send(() => _dio.delete<dynamic>(path));
   }
@@ -931,6 +935,22 @@ class KrejtApi {
     );
     return rows.map(Merchant.fromJson).toList();
   }
+
+  /// Lokalet e ruajtura. Pa kufi distance: një i preferuar mbetet i preferuar edhe në qytet tjetër.
+  Future<List<Merchant>> favouriteMerchants({double? lat, double? lng}) async {
+    final rows = await _getList(
+      '/api/v1/favourites/merchants',
+      'items',
+      query: {'lat': ?lat, 'lng': ?lng},
+    );
+    return rows.map(Merchant.fromJson).toList();
+  }
+
+  /// Të dyja idempotente: serveri e pranon të njëjtën kërkesë dy herë pa u ankuar.
+  Future<void> addFavourite(String merchantId) => _put('/api/v1/favourites/merchants/$merchantId');
+
+  Future<void> removeFavourite(String merchantId) =>
+      _delete('/api/v1/favourites/merchants/$merchantId');
 
   Future<Merchant> merchantBySlug(String slug) async =>
       Merchant.fromJson(await _get('/api/v1/merchants/$slug', anon: true));
