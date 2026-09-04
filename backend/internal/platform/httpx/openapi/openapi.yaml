@@ -567,6 +567,26 @@ paths:
       summary: "Zbulimi i merchant-ëve aktivë (<= 15 km nga lat/lng, distancë, open_now, kërkim pa theksa)"
       parameters: [{ name: lat, in: query, schema: { type: number } }, { name: lng, in: query, schema: { type: number } }, { name: type, in: query, schema: { type: string, enum: [restaurant, store, grocery, pharmacy] } }, { name: q, in: query, schema: { type: string } }, { name: cuisine, in: query, schema: { type: string } }, { $ref: "#/components/parameters/Limit" }]
       responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Merchant" } }, types: { type: array, items: { type: string } } } } } } } }
+  /api/v1/favourites/merchants:
+    get:
+      tags: [merchants]
+      summary: Lokalet e ruajtura nga klienti (pa kufi distance)
+      parameters:
+        - { name: lat, in: query, required: false, schema: { type: number } }
+        - { name: lng, in: query, required: false, schema: { type: number } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Merchant" } } } } } } }
+  /api/v1/favourites/merchants/{id}:
+    put:
+      tags: [merchants]
+      summary: Ruaj lokalin te të preferuarat (idempotente)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { "204": { description: OK }, "404": { $ref: "#/components/responses/Err" } }
+    delete:
+      tags: [merchants]
+      summary: Hiq lokalin nga të preferuarat (idempotente)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { "204": { description: OK } }
   /api/v1/merchants/{slug}:
     parameters: [{ name: slug, in: path, required: true, schema: { type: string } }]
     get: { tags: [merchants], security: [{}, { bearerAuth: [] }], summary: Profili publik i merchant-it (me orare), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Merchant" } } } }, "404": { $ref: "#/components/responses/Err" } } }

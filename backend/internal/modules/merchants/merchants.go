@@ -70,6 +70,7 @@ type Merchant struct {
 	AcceptingOrders  bool      `json:"accepting_orders"`
 	OpenNow          bool      `json:"open_now"`
 	DistanceM        *int      `json:"distance_m,omitempty"`
+	Favourite        bool      `json:"favourite"` // e ruajtur nga ky përdorues; false kur s'ka sesion
 	Hours            []Hours   `json:"hours,omitempty"`
 	CommissionBP     int       `json:"-"`
 	CreatedAt        time.Time `json:"created_at"`
@@ -583,6 +584,9 @@ type DiscoverFilter struct {
 	Query   string
 	Cuisine string
 	Limit   int
+	// UserID — kur ka sesion, çdo rresht mëson nëse është i preferuar nga ky përdorues. Bosh
+	// jashtë sesionit: zbulimi mbetet publik.
+	UserID uuid.UUID
 }
 
 // Discover — merchant-ët aktivë afër klientit (≤ 15 km), me distancë, hapur tani, kërkim pa theksa.
@@ -613,34 +617,59 @@ func (s *Service) Discover(ctx context.Context, f DiscoverFilter) ([]Merchant, e
 	out := []Merchant{}
 	now := s.now()
 	for rows.Next() {
-		var m Merchant
-		var sum int
-		var dist *float64
-		if err := rows.Scan(&m.ID, &m.Type, &m.Name, &m.Slug, &m.Description, &m.Phone, &m.AddressLine1, &m.City, &m.Location.Lat, &m.Location.Lng,
-			&m.ServiceAreaID, &m.Status, &m.Cuisines, &m.Tags, &m.FulfillmentMode, &m.MinOrderMinor, &m.DeliveryFeeMinor, &m.PrepTimeMin,
-			&sum, &m.RatingCount, &m.LogoKey, &m.CoverKey, &m.AcceptingOrders, &m.CommissionBP, &m.CreatedAt, &dist); err != nil {
+		m, err := scanDiscovered(rows)
+		if err != nil {
 			return nil, err
 		}
-		if dist != nil {
-			if *dist > 15000 {
-				continue
-			}
-			d := int(*dist)
-			m.DistanceM = &d
+		// Zbulimi e pret listën te 15 km; të preferuarat jo.
+		if m.DistanceM != nil && *m.DistanceM > 15000 {
+			continue
 		}
-		if m.RatingCount > 0 {
-			r := float64(int(float64(sum)/float64(m.RatingCount)*100+0.5)) / 100
-			m.Rating = &r
-		}
-		m.Phone = nil // publikisht jo (kontakti kalon përmes chat-it/porosisë)
 		m.Hours, _ = s.hours(ctx, m.ID)
 		m.OpenNow = OpenAt(m.Hours, now) && m.AcceptingOrders
-		out = append(out, m)
+		out = append(out, *m)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Një pyetje e vetme për gjithë listën, jo një për rresht.
+	ids := make([]uuid.UUID, 0, len(out))
+	for _, m := range out {
+		ids = append(ids, m.ID)
+	}
+	fav, err := s.favouriteIDs(ctx, f.UserID, ids)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].Favourite = fav[out[i].ID]
+	}
+	return out, nil
 }
 
-// BySlug — profili publik i merchant-it aktiv (me orare).
+// scanDiscovered — një rresht i `merchantCols` plus kolona `dist`. Telefoni hiqet gjithmonë:
+// publikisht kontakti kalon përmes chat-it ose porosisë.
+func scanDiscovered(rows pgx.Rows) (*Merchant, error) {
+	var m Merchant
+	var sum int
+	var dist *float64
+	if err := rows.Scan(&m.ID, &m.Type, &m.Name, &m.Slug, &m.Description, &m.Phone, &m.AddressLine1, &m.City, &m.Location.Lat, &m.Location.Lng,
+		&m.ServiceAreaID, &m.Status, &m.Cuisines, &m.Tags, &m.FulfillmentMode, &m.MinOrderMinor, &m.DeliveryFeeMinor, &m.PrepTimeMin,
+		&sum, &m.RatingCount, &m.LogoKey, &m.CoverKey, &m.AcceptingOrders, &m.CommissionBP, &m.CreatedAt, &dist); err != nil {
+		return nil, err
+	}
+	if dist != nil {
+		d := int(*dist)
+		m.DistanceM = &d
+	}
+	if m.RatingCount > 0 {
+		r := float64(int(float64(sum)/float64(m.RatingCount)*100+0.5)) / 100
+		m.Rating = &r
+	}
+	m.Phone = nil
+	return &m, nil
+}
+
 // BySlug — kërkon sipas slug-ut, ose sipas id-së kur ajo që vjen është një UUID. Porositë mbajnë
 // merchant_id dhe jo slug-un; pa këtë, "porosit prapë" nuk do ta gjente dot lokalin.
 func (s *Service) BySlug(ctx context.Context, slug string) (*Merchant, error) {

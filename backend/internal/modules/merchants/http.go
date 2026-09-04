@@ -16,6 +16,11 @@ func (s *Service) Routes(mux *http.ServeMux, optionalAuth, requireAuth, requireO
 	mux.Handle("GET /api/v1/merchants", optionalAuth(http.HandlerFunc(s.handleDiscover)))
 	mux.Handle("GET /api/v1/merchants/{slug}", optionalAuth(http.HandlerFunc(s.handleBySlug)))
 
+	// Të preferuarat (§21): lista e ruajtur nga vetë klienti.
+	mux.Handle("GET /api/v1/favourites/merchants", requireAuth(principal.Handler(s.handleFavourites)))
+	mux.Handle("PUT /api/v1/favourites/merchants/{id}", requireAuth(principal.Handler(s.handleAddFavourite)))
+	mux.Handle("DELETE /api/v1/favourites/merchants/{id}", requireAuth(principal.Handler(s.handleRemoveFavourite)))
+
 	mux.Handle("POST /api/v1/merchant/apply", requireAuth(principal.Handler(s.handleApply)))
 	mux.Handle("GET /api/v1/merchant/mine", requireAuth(principal.Handler(s.handleMine)))
 	mux.Handle("GET /api/v1/merchant/{id}", requireAuth(principal.Handler(s.handleGet)))
@@ -73,13 +78,61 @@ func (s *Service) handleDiscover(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	f.Limit, _ = strconv.Atoi(q.Get("limit"))
+	if a, ok := principal.FromRequest(r); ok {
+		f.UserID = a.UserID
+	}
 	items, err := s.Discover(r.Context(), f)
 	respond(w, r, map[string]any{"items": items, "types": Types}, err)
 }
 
 func (s *Service) handleBySlug(w http.ResponseWriter, r *http.Request) {
 	m, err := s.BySlug(r.Context(), r.PathValue("slug"))
+	if err == nil && m != nil {
+		if a, ok := principal.FromRequest(r); ok {
+			m.Favourite, _ = s.IsFavourite(r.Context(), a.UserID, m.ID)
+		}
+	}
 	respond(w, r, m, err)
+}
+
+// --- të preferuarat --------------------------------------------------------------------------
+
+func (s *Service) handleFavourites(w http.ResponseWriter, r *http.Request, a principal.Actor) {
+	var at *geo.Point
+	q := r.URL.Query()
+	if lat, err1 := strconv.ParseFloat(q.Get("lat"), 64); err1 == nil {
+		if lng, err2 := strconv.ParseFloat(q.Get("lng"), 64); err2 == nil {
+			at = &geo.Point{Lat: lat, Lng: lng}
+		}
+	}
+	items, err := s.Favourites(r.Context(), a.UserID, at)
+	respond(w, r, map[string]any{"items": items}, err)
+}
+
+func (s *Service) handleAddFavourite(w http.ResponseWriter, r *http.Request, a principal.Actor) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound)
+		return
+	}
+	if err := s.AddFavourite(r.Context(), a.UserID, id); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Service) handleRemoveFavourite(w http.ResponseWriter, r *http.Request, a principal.Actor) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound)
+		return
+	}
+	if err := s.RemoveFavourite(r.Context(), a.UserID, id); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, a principal.Actor) {

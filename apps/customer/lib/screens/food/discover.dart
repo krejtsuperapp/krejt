@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../services/location.dart';
 import '../../state/app_state.dart';
 import 'cart_bar.dart';
+import 'favourite_button.dart';
 import 'menu.dart';
 
 const merchantTypes = ['restaurant', 'store', 'grocery', 'pharmacy'];
@@ -265,6 +266,7 @@ class _MerchantRow extends StatelessWidget {
                         KBadge(context.t('food.closed'), tone: KTone.neutral)
                       else if (merchant.rating != null)
                         KBadge(merchant.rating!.toStringAsFixed(1), tone: KTone.ok),
+                      FavouriteButton(merchant: merchant),
                     ],
                   ),
                   const SizedBox(height: K.s1),

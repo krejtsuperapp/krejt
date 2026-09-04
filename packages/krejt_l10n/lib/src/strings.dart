@@ -633,6 +633,8 @@ const Map<String, String> _sq = {
   // ushqimi dhe dorëzimi (A5)
   'food.title': 'Ushqim',
   'food.reorder': 'Porosit prapë',
+  'food.favourite.add': 'Ruaje te të preferuarat',
+  'food.favourite.remove': 'Hiqe nga të preferuarat',
   'food.reorder.gone': 'Asnjë artikull i kësaj porosie nuk shitet më sot.',
   'food.reorder.missing': 'Nuk u shtuan: {items}',
   'food.search': 'Kërko restorant ose pjatë',
@@ -1415,6 +1417,8 @@ const Map<String, String> _en = {
 
   'food.title': 'Food',
   'food.reorder': 'Order again',
+  'food.favourite.add': 'Save to favourites',
+  'food.favourite.remove': 'Remove from favourites',
   'food.reorder.gone': 'None of the items from that order are available today.',
   'food.reorder.missing': 'Not added: {items}',
   'food.search': 'Search a place or a dish',
@@ -2204,6 +2208,8 @@ const Map<String, String> _de = {
 
   'food.title': 'Essen',
   'food.reorder': 'Erneut bestellen',
+  'food.favourite.add': 'Zu Favoriten hinzufügen',
+  'food.favourite.remove': 'Aus Favoriten entfernen',
   'food.reorder.gone': 'Keiner der Artikel aus dieser Bestellung ist heute verfügbar.',
   'food.reorder.missing': 'Nicht hinzugefügt: {items}',
   'food.search': 'Ort oder Gericht suchen',
