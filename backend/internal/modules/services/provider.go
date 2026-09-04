@@ -75,15 +75,32 @@ func (s *Service) OpenRequests(ctx context.Context, a principal.Actor, limit int
 	for rows.Next() {
 		var r OpenRequest
 		var lat, lng float64
-		var o Offer
+		// LEFT JOIN: pa ofertë të kësaj kërkese, të gjitha kolonat e saj vijnë NULL, ndaj lexohen
+		// te tipa që e mbajnë mungesën — përndryshe skanimi dështon dhe lista bie e tëra.
 		var offerID *uuid.UUID
+		var price *int64
+		var currency, state *string
+		var note *string
+		var canStartAt, offerCreatedAt *time.Time
 		if err := rows.Scan(&r.ID, &r.Code, &r.CategoryID, &r.Title, &r.Description, &lat, &lng, &r.PreferredAt, &r.PhotoKeys, &r.CreatedAt,
-			&offerID, &o.PriceMinor, &o.Currency, &o.Note, &o.CanStartAt, &o.State, &o.CreatedAt); err != nil {
+			&offerID, &price, &currency, &note, &canStartAt, &state, &offerCreatedAt); err != nil {
 			return nil, err
 		}
 		r.City = geo.CityOf(geo.Point{Lat: lat, Lng: lng})
 		if offerID != nil {
-			o.ID, o.RequestID, o.ProviderID = *offerID, r.ID, a.UserID
+			o := Offer{ID: *offerID, RequestID: r.ID, ProviderID: a.UserID, Note: note, CanStartAt: canStartAt}
+			if price != nil {
+				o.PriceMinor = *price
+			}
+			if currency != nil {
+				o.Currency = *currency
+			}
+			if state != nil {
+				o.State = *state
+			}
+			if offerCreatedAt != nil {
+				o.CreatedAt = *offerCreatedAt
+			}
 			r.MyOffer = &o
 		}
 		out = append(out, r)
