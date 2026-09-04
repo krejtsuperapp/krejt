@@ -1,0 +1,123 @@
+import 'package:flutter/material.dart';
+import 'package:krejt_api/krejt_api.dart';
+import 'package:krejt_design/krejt_design.dart';
+import 'package:krejt_l10n/krejt_l10n.dart';
+import 'package:provider/provider.dart';
+
+import '../../services/location.dart';
+import '../../state/app_state.dart';
+
+/// Llojet e raportimit, në të njëjtën radhë si te serveri. `sos` rri i pari sepse është ai që
+/// kërkohet me nxitim; të tjerat vijnë sipas sa shpesh ndodhin.
+const _kinds = <String>[
+  'sos',
+  'unsafe_driving',
+  'harassment',
+  'accident',
+  'vehicle_issue',
+  'other',
+];
+
+/// Ndihma dhe siguria gjatë një udhëtimi. Serveri e mbante `/api/v1/safety/reports` prej fillimi
+/// dhe hap një tiketë urgjente te operacionet, por asnjë ekran nuk e thërriste: gjatë udhëtimit
+/// përdoruesi nuk kishte asnjë buton përveç anulimit, i cili as nuk shfaqet pasi udhëtimi nis.
+///
+/// Me qëllim nuk premtohet ndihmë emergjente: raporti shkon te operacionet e KREJT-it, jo te
+/// policia. Teksti e thotë hapur, që askush të mos presë ambulancën nga një buton në telefon.
+Future<void> showSafetySheet(BuildContext context, {required String rideId}) async {
+  final kind = await showKSheet<String>(
+    context: context,
+    title: context.t('safety.title'),
+    subtitle: context.t('safety.subtitle'),
+    scrollable: true,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final k in _kinds)
+          Padding(
+            padding: const EdgeInsets.only(bottom: K.s2),
+            child: KCard(
+              onTap: () => Navigator.of(context).pop(k),
+              padding: const EdgeInsets.symmetric(horizontal: K.s4, vertical: K.s4),
+              child: Row(
+                children: [
+                  Icon(
+                    k == 'sos' ? Icons.emergency_outlined : Icons.report_outlined,
+                    size: 20,
+                    color: k == 'sos' ? K.danger : K.textDim,
+                  ),
+                  const SizedBox(width: K.s3),
+                  Expanded(
+                    child: Text(
+                      context.t('safety.kind.$k'),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: k == 'sos' ? K.danger : K.text,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, size: 20, color: K.line2),
+                ],
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+  if (kind == null || !context.mounted) return;
+  await _confirmAndSend(context, rideId: rideId, kind: kind);
+}
+
+Future<void> _confirmAndSend(
+  BuildContext context, {
+  required String rideId,
+  required String kind,
+}) async {
+  final note = TextEditingController();
+  final send = await showKSheet<bool>(
+    context: context,
+    title: context.t('safety.kind.$kind'),
+    subtitle: context.t('safety.confirm'),
+    scrollable: true,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        KField(controller: note, label: context.t('safety.note'), maxLines: 3, maxLength: 500),
+        const SizedBox(height: K.s4),
+        KButton(label: context.t('safety.send'), onPressed: () => Navigator.of(context).pop(true)),
+      ],
+    ),
+  );
+  if (send != true || !context.mounted) {
+    note.dispose();
+    return;
+  }
+  final text = note.text.trim();
+  note.dispose();
+
+  final messenger = ScaffoldMessenger.of(context);
+  final state = context.read<AppState>();
+  final sent = context.t('safety.sent');
+  // Pozicioni ndihmon operacionet, por nuk e ndal raportin: leja e mohuar ose GPS-i i fikur nuk
+  // duhet ta lërë një njeri pa mundësi për të raportuar.
+  LatLng? at;
+  try {
+    final loc = await const LocationService().current();
+    at = loc.point;
+  } on Exception {
+    at = null;
+  }
+  try {
+    await state.api.reportSafety(
+      kind: kind,
+      rideId: rideId,
+      description: text.isEmpty ? null : text,
+      at: at,
+    );
+    messenger.showSnackBar(SnackBar(content: Text(sent)));
+  } on ApiError catch (e) {
+    if (!context.mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(context.tError(e.messageKey))));
+  }
+}
