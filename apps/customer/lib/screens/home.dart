@@ -344,13 +344,17 @@ class _ServicesGrid extends StatelessWidget {
         onTap: onPayments,
       ),
     ];
-    return GridView.count(
-      crossAxisCount: 3,
+    // Lartësi fikse: një pllakë ka ikonë 50 px, emër dhe ndonjëherë "së shpejti"; me raport
+    // gjerësi/lartësi do të ngushtohej në telefonat 360 px dhe do të dilte jashtë.
+    return GridView(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 0.98,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        mainAxisExtent: 140,
+      ),
       children: tiles,
     );
   }

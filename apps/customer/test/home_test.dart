@@ -72,12 +72,13 @@ void main() {
   });
 
   testWidgets('udhëtimi aktiv shfaqet në krye me gjendjen e tij', (tester) async {
+    useTallScreen(tester);
     final state = AppState()
       ..activeRide = _ride(state: 'in_progress')
       ..recentRides = [_ride(state: 'in_progress')];
     await tester.pumpWidget(_wrap(const HomeScreen(), state: state));
     await tester.pumpAndSettle();
-    expect(find.byType(KActiveBanner), findsOneWidget);
+    expect(find.byType(KNeonBanner), findsOneWidget);
     expect(find.text('Udhëtimi yt është në vazhdim'), findsOneWidget);
     expect(find.text('Në rrugë'), findsOneWidget);
   });
@@ -100,8 +101,9 @@ void main() {
   testWidgets('shërbimi i fikur nga konfigurimi shfaqet si i ardhshëm', (tester) async {
     await tester.pumpWidget(_wrap(const HomeScreen()));
     await tester.pumpAndSettle();
-    // Ushqimi dhe marketi janë të fikur në konfigurimin e paracaktuar.
-    expect(find.text('Së shpejti'), findsNWidgets(2));
+    // Ushqimi dhe marketi janë të fikur në konfigurimin e paracaktuar; korrieri dhe shërbimet
+    // janë ende të pandërtuara, ndaj shënohen gjithmonë "së shpejti".
+    expect(find.text('Së shpejti'), findsNWidgets(4));
   });
 
   testWidgets('llogaria tregon inicialet dhe gjuhën aktive', (tester) async {

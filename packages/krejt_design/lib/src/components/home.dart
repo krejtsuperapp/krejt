@@ -282,10 +282,10 @@ class KServiceTile extends StatelessWidget {
         child: Column(
           children: [
             Container(
-              width: 50,
-              height: 50,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(15),
                 gradient: ready
                     ? const LinearGradient(
                         begin: Alignment.topCenter,
@@ -669,7 +669,14 @@ class KSearchBar extends StatelessWidget {
           children: [
             const Icon(Icons.search, size: 20, color: K.muted),
             const SizedBox(width: 10),
-            Text(hint, style: const TextStyle(fontSize: 15, color: K.muted)),
+            Expanded(
+              child: Text(
+                hint,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 15, color: K.muted),
+              ),
+            ),
           ],
         ),
       ),

@@ -102,14 +102,19 @@ class _OfferCardState extends State<OfferCard> {
                 ),
               ),
               Text(
-                '${formatMinor(offer.earningsMinor, locale: locale)} · '
-                '${context.t(offer.paymentMethod == 'wallet' ? 'ride.payment.wallet' : 'ride.payment.cash').toLowerCase()}',
+                formatMinor(offer.earningsMinor, locale: locale),
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.4,
                   color: expired ? K.danger : K.brand500,
                   fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(width: 6),
+              KChip(
+                context.t(
+                  offer.paymentMethod == 'wallet' ? 'ride.payment.wallet' : 'ride.payment.cash',
                 ),
               ),
             ],

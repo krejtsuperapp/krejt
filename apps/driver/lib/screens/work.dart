@@ -61,7 +61,10 @@ class WorkScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              if (state.canGoOnline) _OnlinePill(work: work, categories: driver!.categories),
+              if (state.canGoOnline)
+                _OnlinePill(work: work, categories: driver!.categories)
+              else
+                KPill(context.t('driver.offline'), icon: Icons.pause_circle_outline),
             ],
           ),
           if (earnings != null) ...[
