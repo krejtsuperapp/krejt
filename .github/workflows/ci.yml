@@ -112,6 +112,10 @@ jobs:
   deploy-dev:
     needs: [backend, container, secrets, terraform]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Workflow-i i thirrur kërkon id-token (OIDC); pa këtë leje te thirrësi, CI-ja dështon në nisje.
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/deploy-env.yml
     with:
       environment: dev
@@ -138,6 +142,10 @@ jobs:
   deploy-staging:
     needs: [smoke-dev]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Workflow-i i thirrur kërkon id-token (OIDC); pa këtë leje te thirrësi, CI-ja dështon në nisje.
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/deploy-env.yml
     with:
       environment: staging
