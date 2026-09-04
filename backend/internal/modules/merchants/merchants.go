@@ -641,8 +641,15 @@ func (s *Service) Discover(ctx context.Context, f DiscoverFilter) ([]Merchant, e
 }
 
 // BySlug — profili publik i merchant-it aktiv (me orare).
+// BySlug — kërkon sipas slug-ut, ose sipas id-së kur ajo që vjen është një UUID. Porositë mbajnë
+// merchant_id dhe jo slug-un; pa këtë, "porosit prapë" nuk do ta gjente dot lokalin.
 func (s *Service) BySlug(ctx context.Context, slug string) (*Merchant, error) {
-	m, err := scanMerchant(s.pool.QueryRow(ctx, `SELECT `+merchantCols+` FROM merchants WHERE slug = $1 AND status = 'active'`, strings.ToLower(strings.TrimSpace(slug))))
+	key := strings.ToLower(strings.TrimSpace(slug))
+	where := "slug = $1"
+	if _, err := uuid.Parse(key); err == nil {
+		where = "id = $1::uuid"
+	}
+	m, err := scanMerchant(s.pool.QueryRow(ctx, `SELECT `+merchantCols+` FROM merchants WHERE `+where+` AND status = 'active'`, key))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, httpx.ErrNotFound
 	}

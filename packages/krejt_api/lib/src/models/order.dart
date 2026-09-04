@@ -355,24 +355,33 @@ OrderState orderStateFrom(String s) {
 class OrderItem {
   OrderItem({
     required this.id,
+    required this.productId,
     required this.name,
     required this.options,
+    required this.optionIds,
     required this.unitMinor,
     required this.quantity,
     required this.totalMinor,
   });
 
   final String id;
+
+  /// Produkti te menuja e sotme. Emri nuk mjafton për ta rindërtuar një porosi: emrat ndryshojnë,
+  /// dhe dy pjata mund të quhen njësoj.
+  final String productId;
   final String name;
   final List<String> options;
+  final List<String> optionIds;
   final int unitMinor;
   final int quantity;
   final int totalMinor;
 
   factory OrderItem.fromJson(Map<String, dynamic> j) => OrderItem(
     id: j['id'].toString(),
+    productId: (j['product_id'] ?? '').toString(),
     name: (j['name'] ?? '').toString(),
     options: ((j['options'] as List?) ?? const []).map((e) => e.toString()).toList(),
+    optionIds: ((j['option_ids'] as List?) ?? const []).map((e) => e.toString()).toList(),
     unitMinor: (j['unit_minor'] as num?)?.toInt() ?? 0,
     quantity: (j['quantity'] as num?)?.toInt() ?? 1,
     totalMinor: (j['total_minor'] as num?)?.toInt() ?? 0,
