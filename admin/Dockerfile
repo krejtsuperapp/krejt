@@ -1,6 +1,8 @@
 # KREJT — paneli i Operacioneve (Next.js, output standalone) për ECS Fargate ARM64.
 # Ndërtimi nuk kërkon sekrete: adresa e API-së (KREJT_API_BASE_URL) lexohet në kohë ekzekutimi.
-FROM node:24-alpine AS build
+# Faza e ndërtimit ecën në platformën e ndërtuesit (amd64 në CI): Next.js/SWC nën emulim
+# QEMU arm64 rrëzohet me SIGILL. Dalja standalone është JS i pastër, ndaj kopjohet në arm64.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
