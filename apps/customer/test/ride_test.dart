@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:krejt_api/krejt_api.dart';
+import 'package:krejt_customer/screens/ride/destination.dart';
 import 'package:krejt_customer/screens/ride/quote.dart';
 import 'package:krejt_customer/screens/ride/review.dart';
 import 'package:krejt_customer/services/location.dart';
 import 'package:krejt_customer/state/app_state.dart';
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
+import 'package:krejt_map/krejt_map.dart';
 import 'package:provider/provider.dart';
 
 Ride _completedRide() => Ride.fromJson({
@@ -124,5 +126,25 @@ void main() {
       find.ancestor(of: find.text('Makinë e pastër'), matching: find.byType(FilterChip)),
     );
     expect(chip.selected, isTrue);
+  });
+
+  testWidgets('zgjedhja e destinacionit: hartë, dy fusha dhe Vazhdo i fikur pa destinacion', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2280);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(_wrap(const DestinationScreen()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(KMap), findsOneWidget);
+    expect(find.text('Ku po shkon?'), findsOneWidget);
+    final button = tester.widget<KButton>(find.byType(KButton));
+    expect(button.onPressed, isNull);
+    // Kërkimi nis vetëm pas dy shkronjave dhe pas pauzës — asnjë thirrje për një shkronjë.
+    await tester.enterText(find.byType(TextField), 'S');
+    await tester.pump();
+    expect(find.byType(KSkeleton), findsNothing);
+    await tester.pump(const Duration(seconds: 1));
   });
 }

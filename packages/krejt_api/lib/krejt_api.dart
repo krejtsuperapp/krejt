@@ -9,6 +9,7 @@ export 'src/realtime.dart';
 export 'src/money.dart';
 export 'src/models/config.dart';
 export 'src/models/user.dart';
+export 'src/models/places.dart';
 export 'src/models/ride.dart';
 export 'src/models/wallet.dart';
 export 'src/models/driver.dart';

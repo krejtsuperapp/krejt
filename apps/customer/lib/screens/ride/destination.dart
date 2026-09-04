@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:krejt_api/krejt_api.dart';
+import 'package:krejt_api/krejt_api.dart' hide Place;
+import 'package:krejt_api/krejt_api.dart' as api show Place;
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
+import 'package:krejt_map/krejt_map.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/location.dart';
 import '../../state/app_state.dart';
 import '../account/addresses.dart';
+import 'map_scaffold.dart';
 import 'quote.dart';
 
 /// Një pikë e zgjedhur nga përdoruesi, me emrin që i shfaqet.
@@ -17,9 +22,12 @@ class Place {
   final String label;
 }
 
-/// Zgjedhja e nisjes dhe e destinacionit. Nisja merret nga pajisja; destinacioni zgjidhet
-/// nga adresat e ruajtura ose nga destinacionet e fundit — pa shkrim të lirë, sepse
-/// një adresë pa koordinata nuk i shërben as çmimit as shoferit (§17).
+enum _Editing { pickup, dropoff }
+
+/// Zgjedhja e nisjes dhe e destinacionit mbi hartë. Nisja merret nga pajisja (dhe i vihet
+/// adresa nga serveri); destinacioni kërkohet me shkrim — kërkimi kalon nga serveri, që
+/// çdo rezultat të vijë me koordinata të vërteta (§17). Adresat e ruajtura dhe të fundit
+/// mbeten një prekje larg.
 class DestinationScreen extends StatefulWidget {
   const DestinationScreen({super.key});
 
@@ -29,12 +37,21 @@ class DestinationScreen extends StatefulWidget {
 
 class _DestinationScreenState extends State<DestinationScreen> {
   static const _location = LocationService();
+  static const _debounce = Duration(milliseconds: 350);
+
+  final _query = TextEditingController();
+  final _focus = FocusNode();
 
   Place? _pickup;
   Place? _dropoff;
   List<Address> _addresses = const [];
+  List<api.Place> _results = const [];
+  _Editing _editing = _Editing.dropoff;
   bool _locating = true;
+  bool _searching = false;
   String? _locationError;
+  Timer? _timer;
+  int _gen = 0;
 
   @override
   void initState() {
@@ -43,6 +60,14 @@ class _DestinationScreenState extends State<DestinationScreen> {
       _locate();
       _loadAddresses();
     });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _query.dispose();
+    _focus.dispose();
+    super.dispose();
   }
 
   Future<void> _locate() async {
@@ -58,6 +83,18 @@ class _DestinationScreenState extends State<DestinationScreen> {
         _locationError = context.t(locationProblemKey(result.problem!));
       }
     });
+    if (result.isOk) unawaited(_labelPickup(result.point!));
+  }
+
+  /// Adresa e vërtetë e pikës së GPS-it; pa të, mbetet "vendndodhja ime".
+  Future<void> _labelPickup(LatLng point) async {
+    try {
+      final place = await context.read<AppState>().api.reversePlace(point);
+      if (!mounted || place == null || _pickup?.point != point) return;
+      setState(() => _pickup = Place(point: point, label: place.name));
+    } on ApiError {
+      // Emri është rehati, jo kusht.
+    }
   }
 
   Future<void> _loadAddresses() async {
@@ -65,7 +102,7 @@ class _DestinationScreenState extends State<DestinationScreen> {
       final items = await context.read<AppState>().api.addresses();
       if (mounted) setState(() => _addresses = items);
     } on ApiError {
-      // Adresat mungojnë; destinacionet e fundit mbeten si rrugë e dytë.
+      // Adresat mungojnë; kërkimi dhe destinacionet e fundit mbeten.
     }
   }
 
@@ -82,6 +119,68 @@ class _DestinationScreenState extends State<DestinationScreen> {
     return out;
   }
 
+  void _onQuery(String text) {
+    _timer?.cancel();
+    final q = text.trim();
+    if (q.length < 2) {
+      setState(() {
+        _results = const [];
+        _searching = false;
+      });
+      return;
+    }
+    setState(() => _searching = true);
+    _timer = Timer(_debounce, () => _search(q));
+  }
+
+  Future<void> _search(String q) async {
+    final gen = ++_gen;
+    final near = _pickup?.point ?? _dropoff?.point;
+    try {
+      final items = await context.read<AppState>().api.searchPlaces(q, near: near);
+      if (!mounted || gen != _gen) return;
+      setState(() {
+        _results = items;
+        _searching = false;
+      });
+    } on ApiError {
+      if (!mounted || gen != _gen) return;
+      setState(() {
+        _results = const [];
+        _searching = false;
+      });
+    }
+  }
+
+  void _choose(Place place) {
+    setState(() {
+      if (_editing == _Editing.pickup) {
+        _pickup = place;
+        _locationError = null;
+        _editing = _Editing.dropoff;
+      } else {
+        _dropoff = place;
+      }
+      _query.clear();
+      _results = const [];
+      _searching = false;
+    });
+    if (_dropoff == null) {
+      _focus.requestFocus();
+    } else {
+      _focus.unfocus();
+    }
+  }
+
+  void _edit(_Editing field) {
+    setState(() {
+      _editing = field;
+      _query.clear();
+      _results = const [];
+    });
+    _focus.requestFocus();
+  }
+
   Future<void> _continue() async {
     final pickup = _pickup;
     final dropoff = _dropoff;
@@ -96,121 +195,359 @@ class _DestinationScreenState extends State<DestinationScreen> {
   @override
   Widget build(BuildContext context) {
     final pickup = _pickup;
-    return Scaffold(
-      backgroundColor: K.bg,
-      appBar: AppBar(title: Text(context.t('home.services.ride'))),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(K.s5, K.s4, K.s5, K.s8),
-          children: [
-            KSectionHeader(context.t('ride.pickup.choose')),
-            const SizedBox(height: K.s3),
-            if (_locating)
-              const KSkeleton(height: 64, count: 1)
-            else if (pickup != null)
-              KCard(
-                highlight: true,
-                child: Row(
-                  children: [
-                    const Icon(Icons.my_location, size: 20, color: K.brand400),
-                    const SizedBox(width: K.s3),
-                    Expanded(
-                      child: Text(
-                        pickup.label,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: K.text,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.refresh, size: 20, color: K.muted),
-                      tooltip: context.t('common.retry'),
-                      onPressed: _locate,
-                    ),
-                  ],
+    final dropoff = _dropoff;
+    final query = _query.text.trim();
+    return MapScaffold.panel(
+      title: context.t('home.services.ride'),
+      markers: [
+        if (pickup != null) markerOf(pickup.point.lat, pickup.point.lng, MapMarkerKind.pickup),
+        if (dropoff != null) markerOf(dropoff.point.lat, dropoff.point.lng, MapMarkerKind.dropoff),
+      ],
+      panel: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Center(child: KSheetHandle()),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(K.s5, K.s2, K.s5, 0),
+                child: _Fields(
+                  pickup: pickup,
+                  dropoff: dropoff,
+                  locating: _locating,
+                  editing: _editing,
+                  controller: _query,
+                  focus: _focus,
+                  onQuery: _onQuery,
+                  onEdit: _edit,
                 ),
-              )
-            else
-              KError(
-                message: _locationError ?? context.t('location.failed'),
-                retryLabel: context.t('common.retry'),
-                onRetry: _locate,
-                icon: Icons.location_off_outlined,
               ),
-            const SizedBox(height: K.s6),
-            KSectionHeader(context.t('ride.dropoff.choose')),
-            const SizedBox(height: K.s3),
-            if (_addresses.isEmpty && _recent.isEmpty)
-              KEmpty(
-                title: context.t('account.address.empty'),
-                message: context.t('account.address.empty.hint'),
-                icon: Icons.place_outlined,
-                action: context.t('account.address.add'),
-                onAction: () async {
+              if (_locationError != null && pickup == null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(K.s5, K.s3, K.s5, 0),
+                  child: _LocationProblem(message: _locationError!, onRetry: _locate),
+                ),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.36),
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(K.s5, K.s3, K.s5, K.s2),
+                  children: query.length >= 2 ? _searchRows(context) : _suggestionRows(context),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(K.s5, K.s2, K.s5, K.s4),
+                child: KButton(
+                  label: context.t('common.continue'),
+                  icon: Icons.arrow_forward,
+                  onPressed: (pickup != null && dropoff != null) ? _continue : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _searchRows(BuildContext context) {
+    if (_searching) return const [KSkeleton(height: 52, count: 3)];
+    if (_results.isEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: K.s4),
+          child: Text(
+            context.t('ride.search.empty'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13, color: K.muted),
+          ),
+        ),
+      ];
+    }
+    return [
+      for (final p in _results)
+        _PlaceRow(
+          icon: _iconFor(p.kind),
+          title: p.name,
+          subtitle: p.subtitle.isEmpty ? null : p.subtitle,
+          onTap: () => _choose(Place(point: p.point, label: p.name)),
+        ),
+    ];
+  }
+
+  List<Widget> _suggestionRows(BuildContext context) {
+    final recent = _recent;
+    final rows = <Widget>[];
+    if (_addresses.isNotEmpty) {
+      rows.add(KSectionHeader(context.t('ride.search.saved')));
+      rows.add(const SizedBox(height: K.s2));
+      for (final a in _addresses) {
+        rows.add(
+          _PlaceRow(
+            icon: addressIcon(a.label),
+            title: a.name ?? context.t(addressLabelKey(a.label)),
+            subtitle: '${a.line1}, ${a.city}',
+            onTap: () => _choose(Place(point: LatLng(a.lat, a.lng), label: a.line1)),
+          ),
+        );
+      }
+    }
+    if (recent.isNotEmpty) {
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: K.s3));
+      rows.add(KSectionHeader(context.t('ride.recent')));
+      rows.add(const SizedBox(height: K.s2));
+      for (final p in recent) {
+        rows.add(_PlaceRow(icon: Icons.history, title: p.label, onTap: () => _choose(p)));
+      }
+    }
+    if (rows.isEmpty) {
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: K.s3),
+          child: Row(
+            children: [
+              const Icon(Icons.search, size: 18, color: K.muted),
+              const SizedBox(width: K.s2),
+              Expanded(
+                child: Text(
+                  context.t('account.address.empty.hint'),
+                  style: const TextStyle(fontSize: 13, color: K.muted),
+                ),
+              ),
+              KTextLink(
+                label: context.t('account.address.add'),
+                onPressed: () async {
                   await Navigator.of(context)
                       .push<bool>(MaterialPageRoute(builder: (_) => const AddAddressScreen()));
                   await _loadAddresses();
                 },
               ),
-            for (final a in _addresses)
-              _PlaceRow(
-                icon: addressIcon(a.label),
-                title: a.name ?? context.t(addressLabelKey(a.label)),
-                subtitle: '${a.line1}, ${a.city}',
-                selected: _dropoff?.label == a.line1,
-                onTap: () =>
-                    setState(() => _dropoff = Place(point: LatLng(a.lat, a.lng), label: a.line1)),
-              ),
-            if (_recent.isNotEmpty) ...[
-              const SizedBox(height: K.s4),
-              KSectionHeader(context.t('ride.recent')),
-              const SizedBox(height: K.s3),
-              for (final p in _recent)
-                _PlaceRow(
-                  icon: Icons.history,
-                  title: p.label,
-                  selected: _dropoff?.label == p.label,
-                  onTap: () => setState(() => _dropoff = p),
-                ),
             ],
-            const SizedBox(height: K.s6),
-            KButton(
-              label: context.t('common.continue'),
-              onPressed: (_pickup != null && _dropoff != null) ? _continue : null,
-            ),
-          ],
+          ),
         ),
+      );
+    }
+    return rows;
+  }
+
+  static IconData _iconFor(String kind) {
+    switch (kind) {
+      case 'poi':
+        return Icons.place_outlined;
+      case 'address':
+      case 'street':
+        return Icons.signpost_outlined;
+      case 'place':
+      case 'locality':
+      case 'neighborhood':
+        return Icons.location_city_outlined;
+    }
+    return Icons.location_on_outlined;
+  }
+}
+
+/// Dy rreshtat e rrugës: cili është në përpunim mban fushën e shkrimit, tjetri tregon zgjedhjen.
+class _Fields extends StatelessWidget {
+  const _Fields({
+    required this.pickup,
+    required this.dropoff,
+    required this.locating,
+    required this.editing,
+    required this.controller,
+    required this.focus,
+    required this.onQuery,
+    required this.onEdit,
+  });
+
+  final Place? pickup;
+  final Place? dropoff;
+  final bool locating;
+  final _Editing editing;
+  final TextEditingController controller;
+  final FocusNode focus;
+  final ValueChanged<String> onQuery;
+  final ValueChanged<_Editing> onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: K.surface2,
+        borderRadius: BorderRadius.circular(K.rLg),
+        border: Border.all(color: K.line),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: K.s4, vertical: K.s2),
+      child: Column(
+        children: [
+          _FieldRow(
+            color: K.brand500,
+            square: false,
+            active: editing == _Editing.pickup,
+            hint: context.t('ride.search.pickup_hint'),
+            value: locating ? context.t('ride.pickup.locating') : pickup?.label,
+            controller: controller,
+            focus: focus,
+            onQuery: onQuery,
+            onTap: () => onEdit(_Editing.pickup),
+            trailing: pickup != null && editing != _Editing.pickup
+                ? const Icon(Icons.edit_outlined, size: 18, color: K.muted)
+                : null,
+          ),
+          const Divider(height: 1, color: K.line),
+          _FieldRow(
+            color: K.info,
+            square: true,
+            active: editing == _Editing.dropoff,
+            hint: context.t('ride.search.hint'),
+            value: dropoff?.label,
+            controller: controller,
+            focus: focus,
+            onQuery: onQuery,
+            onTap: () => onEdit(_Editing.dropoff),
+            trailing: dropoff != null && editing != _Editing.dropoff
+                ? const Icon(Icons.check_circle, size: 18, color: K.brand400)
+                : null,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _PlaceRow extends StatelessWidget {
-  const _PlaceRow({
-    required this.icon,
-    required this.title,
-    required this.selected,
+class _FieldRow extends StatelessWidget {
+  const _FieldRow({
+    required this.color,
+    required this.square,
+    required this.active,
+    required this.hint,
+    required this.value,
+    required this.controller,
+    required this.focus,
+    required this.onQuery,
     required this.onTap,
-    this.subtitle,
+    this.trailing,
   });
+
+  final Color color;
+  final bool square;
+  final bool active;
+  final String hint;
+  final String? value;
+  final TextEditingController controller;
+  final FocusNode focus;
+  final ValueChanged<String> onQuery;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final dot = Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(square ? 2 : K.rFull),
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.55), blurRadius: 8)],
+      ),
+    );
+    const style = TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: K.text);
+    return SizedBox(
+      height: 46,
+      child: Row(
+        children: [
+          dot,
+          const SizedBox(width: K.s3),
+          Expanded(
+            child: active
+                ? TextField(
+                    controller: controller,
+                    focusNode: focus,
+                    onChanged: onQuery,
+                    textInputAction: TextInputAction.search,
+                    style: style,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      hintText: value ?? hint,
+                      hintStyle: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: value == null ? K.muted : K.textDim,
+                      ),
+                    ),
+                  )
+                : InkWell(
+                    onTap: onTap,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        value ?? hint,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: value == null ? style.copyWith(color: K.muted) : style,
+                      ),
+                    ),
+                  ),
+          ),
+          if (trailing != null) ...[const SizedBox(width: K.s2), trailing!],
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationProblem extends StatelessWidget {
+  const _LocationProblem({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: K.s3, vertical: K.s2),
+    decoration: BoxDecoration(color: K.warnBg, borderRadius: BorderRadius.circular(K.rSm)),
+    child: Row(
+      children: [
+        const Icon(Icons.location_off_outlined, size: 18, color: K.warn),
+        const SizedBox(width: K.s2),
+        Expanded(
+          child: Text(message, style: const TextStyle(fontSize: 12, color: K.textDim)),
+        ),
+        KTextLink(label: context.t('common.retry'), onPressed: onRetry),
+      ],
+    ),
+  );
+}
+
+class _PlaceRow extends StatelessWidget {
+  const _PlaceRow({required this.icon, required this.title, required this.onTap, this.subtitle});
 
   final IconData icon;
   final String title;
   final String? subtitle;
-  final bool selected;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: K.s2),
-    child: KCard(
-      onTap: onTap,
-      highlight: selected,
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(K.rSm),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: K.s2),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: selected ? K.brand400 : K.muted),
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: K.surface2,
+              borderRadius: BorderRadius.circular(K.rSm),
+            ),
+            child: Icon(icon, size: 18, color: K.textDim),
+          ),
           const SizedBox(width: K.s3),
           Expanded(
             child: Column(
@@ -220,26 +557,19 @@ class _PlaceRow extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: selected ? K.text : K.textDim,
-                  ),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: K.text),
                 ),
                 if (subtitle != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: K.muted),
-                    ),
+                  Text(
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: K.muted),
                   ),
               ],
             ),
           ),
-          if (selected) const Icon(Icons.check_circle, size: 20, color: K.brand400),
+          const Icon(Icons.north_west, size: 16, color: K.line2),
         ],
       ),
     ),

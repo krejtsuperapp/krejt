@@ -169,6 +169,15 @@ func (s *Service) Ingest(ctx context.Context, driverID uuid.UUID, samples []Samp
 		_ = s.realtime.Publish(ctx, "ride:"+rideID, pos)
 	}
 
+	// gjatë dorëzimit: pozicioni i korrierit te klienti i porosisë (best-effort, pa persistencë)
+	if orderID := h["order_id"]; orderID != "" && s.realtime != nil {
+		pos := map[string]any{"type": "courier_location", "order_id": orderID, "lat": latest.Lat, "lng": latest.Lng, "ts": latest.RecordedAtMs}
+		if latest.Heading != nil {
+			pos["heading"] = *latest.Heading
+		}
+		_ = s.realtime.Publish(ctx, "order:"+orderID, pos)
+	}
+
 	// persistencë selektive: vetëm gjatë udhëtimit, ~çdo 30 s
 	if rideID := h["ride_id"]; rideID != "" {
 		persistedMs, _ := strconv.ParseInt(h["persisted_ts"], 10, 64)
@@ -254,6 +263,16 @@ func (s *Service) SetBusy(ctx context.Context, driverID uuid.UUID, rideID uuid.U
 	return err
 }
 
+// SetBusyOrder — korrieri mori një porosi: pozicioni i tij shkon te kanali `order:{id}` (jo te rides).
+func (s *Service) SetBusyOrder(ctx context.Context, driverID uuid.UUID, orderID uuid.UUID) error {
+	pipe := s.rdb.Pipeline()
+	pipe.HSet(ctx, drvKey(driverID), "status", "busy", "order_id", orderID.String())
+	pipe.HDel(ctx, drvKey(driverID), "ride_id")
+	pipe.Expire(ctx, drvKey(driverID), hashTTL)
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
 func (s *Service) SetAvailable(ctx context.Context, driverID uuid.UUID) error {
 	exists, err := s.rdb.Exists(ctx, drvKey(driverID)).Result()
 	if err != nil || exists == 0 {
@@ -261,7 +280,7 @@ func (s *Service) SetAvailable(ctx context.Context, driverID uuid.UUID) error {
 	}
 	pipe := s.rdb.Pipeline()
 	pipe.HSet(ctx, drvKey(driverID), "status", "available")
-	pipe.HDel(ctx, drvKey(driverID), "ride_id", "persisted_ts")
+	pipe.HDel(ctx, drvKey(driverID), "ride_id", "order_id", "persisted_ts")
 	pipe.Expire(ctx, drvKey(driverID), hashTTL)
 	_, err = pipe.Exec(ctx)
 	return err
