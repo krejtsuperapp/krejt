@@ -710,6 +710,7 @@ const Map<String, String> _sq = {
 
   // gabimet nga serveri
   'errors.internal': 'Diçka shkoi keq. Provo përsëri.',
+  'errors.reviews.order_not_reviewable': 'Kjo porosi nuk mund të vlerësohet më.',
   'errors.legal.unavailable': 'Dokumenti nuk mund të hapet tani. Provo më vonë.',
   'errors.offline': 'Nuk ka lidhje me internetin.',
   'errors.cancelled': 'Veprimi u ndërpre.',
@@ -1507,6 +1508,7 @@ const Map<String, String> _en = {
   'courier.release.body': 'The order goes to another courier.',
 
   'errors.internal': 'Something went wrong. Please try again.',
+  'errors.reviews.order_not_reviewable': 'This order can no longer be rated.',
   'errors.legal.unavailable': 'This document cannot be opened right now. Try again later.',
   'errors.offline': 'No internet connection.',
   'errors.cancelled': 'The action was interrupted.',
@@ -2312,6 +2314,7 @@ const Map<String, String> _de = {
   'courier.release.body': 'Die Bestellung geht an einen anderen Kurier.',
 
   'errors.internal': 'Etwas ist schiefgelaufen. Bitte versuche es erneut.',
+  'errors.reviews.order_not_reviewable': 'Diese Bestellung lässt sich nicht mehr bewerten.',
   'errors.legal.unavailable': 'Dieses Dokument lässt sich gerade nicht öffnen. Versuch es später.',
   'errors.offline': 'Keine Internetverbindung.',
   'errors.cancelled': 'Die Aktion wurde abgebrochen.',
