@@ -26,9 +26,11 @@ import (
 )
 
 var (
-	ErrAmount        = &httpx.APIError{Code: "TOPUP_AMOUNT_INVALID", MessageKey: "errors.wallet.topup_amount", HTTPStatus: http.StatusUnprocessableEntity}
-	ErrDailyLimit    = &httpx.APIError{Code: "TOPUP_DAILY_LIMIT", MessageKey: "errors.wallet.topup_daily_limit", HTTPStatus: http.StatusUnprocessableEntity}
-	ErrProviderDown  = &httpx.APIError{Code: "PAYMENT_PROVIDER_UNAVAILABLE", MessageKey: "errors.payments.provider_unavailable", HTTPStatus: http.StatusServiceUnavailable, Retryable: true}
+	ErrAmount       = &httpx.APIError{Code: "TOPUP_AMOUNT_INVALID", MessageKey: "errors.wallet.topup_amount", HTTPStatus: http.StatusUnprocessableEntity}
+	ErrDailyLimit   = &httpx.APIError{Code: "TOPUP_DAILY_LIMIT", MessageKey: "errors.wallet.topup_daily_limit", HTTPStatus: http.StatusUnprocessableEntity}
+	ErrProviderDown = &httpx.APIError{Code: "PAYMENT_PROVIDER_UNAVAILABLE", MessageKey: "errors.payments.provider_unavailable", HTTPStatus: http.StatusServiceUnavailable, Retryable: true}
+	// Pa ofrues pagese: mbushja me kartë është e mbyllur, kurse cash-i dhe kuleta punojnë.
+	ErrTopUpClosed   = &httpx.APIError{Code: "TOPUP_UNAVAILABLE", MessageKey: "errors.payments.topup_unavailable", HTTPStatus: http.StatusConflict}
 	ErrBadSignature  = &httpx.APIError{Code: "WEBHOOK_SIGNATURE_INVALID", MessageKey: "errors.payments.webhook_signature", HTTPStatus: http.StatusBadRequest}
 	ErrNotRefundable = &httpx.APIError{Code: "NOT_REFUNDABLE", MessageKey: "errors.payments.not_refundable", HTTPStatus: http.StatusConflict}
 )
@@ -154,6 +156,9 @@ func (s *Service) CreateTopUp(ctx context.Context, a principal.Actor, idemKey st
 		Description: "KREJT Wallet top-up",
 	})
 	if err != nil {
+		if errors.Is(err, payment.ErrDisabled) {
+			return nil, ErrTopUpClosed
+		}
 		_, _ = s.pool.Exec(ctx, `UPDATE payment_intents SET status = 'failed', failure_code = 'provider_error', updated_at = now() WHERE id = $1 AND status = 'created'`, intent.ID)
 		return nil, ErrProviderDown.With(err)
 	}

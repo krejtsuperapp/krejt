@@ -24,3 +24,11 @@ maps_provider   = "mapbox" # google | mapbox
 # Base URL personale e llogarisë Infobip; e gjen te paneli i tyre (jo https://api.infobip.com).
 infobip_base_url = ""
 infobip_sender   = "KREJT"
+
+# Nisja: vetëm cash dhe kuletë. Karta hapet kur Stripe të jetë gati (payment_provider = "stripe"),
+# matja kur PostHog të jetë gati (analytics_provider = "posthog"). SMS-ja mbetet Infobip: pa të
+# askush nuk kyçet dot, ndaj prodhimi nuk niset pa çelësin e saj.
+payment_provider   = "none"
+analytics_provider = "none"
+sms_provider       = "infobip"
+push_provider      = "fcm"

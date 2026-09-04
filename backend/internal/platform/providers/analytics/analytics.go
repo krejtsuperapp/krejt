@@ -116,6 +116,15 @@ func (p *PostHog) Close(ctx context.Context) error {
 	return nil
 }
 
+// --- None -----------------------------------------------------------------------------------
+// Të mos matësh asgjë është zgjedhje e ligjshme, ndryshe nga një ofrues i rremë: ngjarjet
+// thjesht nuk dërgohen askund. Lejohet edhe në prodhim.
+
+type None struct{}
+
+func (None) Capture(Event)               {}
+func (None) Close(context.Context) error { return nil }
+
 // --- DevLog (VETËM development) -----------------------------------------------------------
 
 type DevLog struct{ log *slog.Logger }
@@ -125,11 +134,15 @@ func (d *DevLog) Capture(ev Event) {
 }
 func (d *DevLog) Close(context.Context) error { return nil }
 
-// NewFromEnv — ANALYTICS_PROVIDER: posthog (parazgjedhje) | devlog (development dhe staging; kurrë production).
+// NewFromEnv — ANALYTICS_PROVIDER: posthog (parazgjedhje) | none (pa matje, edhe në prodhim) |
+// devlog (development dhe staging; kurrë production).
 func NewFromEnv(env, provider, key, host string, log *slog.Logger) (Provider, error) {
 	switch provider {
 	case "posthog", "":
 		return NewPostHog(key, host, log)
+	case "none":
+		log.Info("analytics: ANALYTICS_PROVIDER=none — ngjarjet nuk dërgohen askund")
+		return None{}, nil
 	case "devlog":
 		if env == "production" {
 			return nil, fmt.Errorf("analytics: devlog nuk lejohet në production (APP_ENV=%s)", env)
