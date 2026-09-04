@@ -9,6 +9,7 @@ import 'package:krejt_map/krejt_map.dart';
 import 'package:provider/provider.dart';
 
 import '../../state/app_state.dart';
+import '../coupon_field.dart';
 import '../ride/map_scaffold.dart';
 import '../ride/place_search.dart';
 import 'parcel_tracking.dart';
@@ -35,6 +36,7 @@ class _NewParcelScreenState extends State<NewParcelScreen> {
   List<MapPoint>? _path;
   ParcelQuote? _quote;
   String _paymentMethod = 'cash';
+  CouponApplied? _coupon;
   String? _recipientError;
   bool _quoting = false;
   bool _sending = false;
@@ -144,6 +146,7 @@ class _NewParcelScreenState extends State<NewParcelScreen> {
         paymentMethod: _paymentMethod,
         recipientName: name,
         recipientPhone: _e164,
+        couponCode: _coupon?.code,
         pickupContactName: _senderName.text.trim().isEmpty ? null : _senderName.text.trim(),
         pickupContactPhone: _senderPhone.text.trim().isEmpty ? null : _senderPhone.text.trim(),
         note: _note.text.trim().isEmpty ? null : _note.text.trim(),
@@ -277,6 +280,14 @@ class _NewParcelScreenState extends State<NewParcelScreen> {
                         ],
                       ),
                       const SizedBox(height: K.s4),
+                      if (quote != null)
+                        CouponField(
+                          scope: 'parcels',
+                          amountMinor: quote.priceMinor,
+                          applied: _coupon,
+                          onChanged: (c) => setState(() => _coupon = c),
+                        ),
+                      if (quote != null) const SizedBox(height: K.s4),
                       if (quote != null && !expired) ...[
                         KCard(
                           highlight: true,
@@ -323,7 +334,7 @@ class _NewParcelScreenState extends State<NewParcelScreen> {
                         KButton(
                           label:
                               '${context.t('parcel.send')} · '
-                              '${formatMinor(quote.priceMinor, currency: quote.currency, locale: locale)}',
+                              '${formatMinor(quote.priceMinor - (_coupon?.discountMinor ?? 0), currency: quote.currency, locale: locale)}',
                           icon: Icons.send_outlined,
                           busy: _sending,
                           onPressed: _sending ? null : _send,

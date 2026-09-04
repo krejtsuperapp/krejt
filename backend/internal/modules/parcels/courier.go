@@ -40,7 +40,7 @@ func (s *Service) Offers(ctx context.Context, a principal.Actor) ([]Offer, error
 	rows, err := s.pool.Query(ctx, `
 		SELECT o.id, o.parcel_id, p.code, o.round, o.expires_at, o.distance_m, o.eta_s, p.size,
 		       p.pickup_address, p.pickup_lat, p.pickup_lng, p.dropoff_address, p.dropoff_lat, p.dropoff_lng, p.distance_m,
-		       p.price_minor - p.commission_minor, p.currency, p.payment_method, p.price_minor
+		       p.price_minor - p.commission_minor, p.currency, p.payment_method, p.price_minor - p.discount_minor
 		FROM parcel_offers o JOIN parcels p ON p.id = o.parcel_id
 		WHERE o.courier_id = $1 AND o.state = 'offered' AND o.expires_at > now() AND p.state = 'requested'
 		ORDER BY o.created_at`, a.UserID)

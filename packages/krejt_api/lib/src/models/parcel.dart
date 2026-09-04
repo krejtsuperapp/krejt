@@ -27,6 +27,7 @@ class ParcelQuote {
     required this.distanceM,
     required this.durationS,
     required this.priceMinor,
+    this.discountMinor = 0,
     required this.currency,
     required this.expiresAt,
   });
@@ -36,6 +37,9 @@ class ParcelQuote {
   final int distanceM;
   final int durationS;
   final int priceMinor;
+
+  /// Zbritja e kuponit; klienti paguan priceMinor − discountMinor.
+  final int discountMinor;
   final String currency;
   final DateTime expiresAt;
 
@@ -47,6 +51,7 @@ class ParcelQuote {
     distanceM: (j['distance_m'] as num?)?.toInt() ?? 0,
     durationS: (j['duration_s'] as num?)?.toInt() ?? 0,
     priceMinor: (j['price_minor'] as num?)?.toInt() ?? 0,
+    discountMinor: (j['discount_minor'] as num?)?.toInt() ?? 0,
     currency: (j['currency'] ?? 'EUR').toString(),
     expiresAt: DateTime.tryParse(j['expires_at']?.toString() ?? '') ?? DateTime.now(),
   );

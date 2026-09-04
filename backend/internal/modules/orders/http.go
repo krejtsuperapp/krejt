@@ -47,13 +47,13 @@ func respond(w http.ResponseWriter, r *http.Request, v any, err error) {
 	httpx.WriteJSON(w, http.StatusOK, v)
 }
 
-func (s *Service) handleQuote(w http.ResponseWriter, r *http.Request, _ principal.Actor) {
+func (s *Service) handleQuote(w http.ResponseWriter, r *http.Request, a principal.Actor) {
 	var in CheckoutInput
 	if err := httpx.DecodeJSON(r, &in); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	q, err := s.Quote(r.Context(), in)
+	q, err := s.Quote(r.Context(), a.UserID, in)
 	respond(w, r, q, err)
 }
 

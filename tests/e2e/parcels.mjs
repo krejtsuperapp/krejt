@@ -3,6 +3,7 @@
 // kodin e dorëzimit; kodet e gabuara refuzohen. Asnjë sekret nuk shtypet.
 const base = process.env.BASE ?? 'https://dev.krejt.app';
 const CODE = '111111';
+const adminPhone = '+38344100200';
 const customerPhone = '+38344100201';
 const courierPhone = '+38344100202';
 
@@ -52,8 +53,19 @@ async function login(phone, who) {
   return pair.access_token;
 }
 
+const admin = await login(adminPhone, 'admin');
 const customer = await login(customerPhone, 'klienti');
 const courier = await login(courierPhone, 'kurieri');
+
+
+// ---- 0. kuponi i provës: Operacionet e krijojnë, klienti e kontrollon ---------------------------
+const couponCode = 'E2EPAKO10';
+step(
+  'admin: kuponi',
+  await call('/api/v1/admin/coupons', { method: 'POST', token: admin, body: { code: couponCode, kind: 'percent', percent_bp: 1000, scope: 'parcels', active: true, note: 'prova e2e' } }),
+  (r) => (r.status === 201 || r.status === 200) && r.json.code === couponCode,
+);
+step('klienti: kupon i panjohur refuzohet', await call('/api/v1/coupons/check', { method: 'POST', token: customer, body: { code: 'NUKEKZISTON', scope: 'parcels', amount_minor: 500 } }), (r) => r.status === 422);
 
 // ---- 1. kurieri në punë, afër pikës së marrjes ------------------------------------------------
 step('kurieri: në punë', await call('/api/v1/driver/online', { method: 'POST', token: courier, body: { categories: ['economy'] } }), (r) => r.status < 300);
@@ -78,15 +90,22 @@ const quote = step(
 );
 console.log(`     ${(quote.price_minor / 100).toFixed(2)} ${quote.currency} · ${quote.distance_m} m`);
 
+const applied = step(
+  'klienti: kuponi',
+  await call('/api/v1/coupons/check', { method: 'POST', token: customer, body: { code: couponCode, scope: 'parcels', amount_minor: quote.price_minor } }),
+  (r) => r.status === 200 && r.json.discount_minor === Math.round(quote.price_minor / 10),
+);
+console.log(`     zbritja ${(applied.discount_minor / 100).toFixed(2)}`);
+
 const parcel = step(
   'klienti: kërkesa',
   await call('/api/v1/parcels', {
     method: 'POST',
     token: customer,
     idem: true,
-    body: { quote_id: quote.id, payment_method: 'cash', recipient_name: 'Marrësi i provës', recipient_phone: '+38344100203', note: 'Prova e2e' },
+    body: { quote_id: quote.id, payment_method: 'cash', recipient_name: 'Marrësi i provës', recipient_phone: '+38344100203', note: 'Prova e2e', coupon_code: couponCode },
   }),
-  (r) => (r.status === 201 || r.status === 200) && r.json.id && r.json.pickup_code && r.json.delivery_code,
+  (r) => (r.status === 201 || r.status === 200) && r.json.id && r.json.pickup_code && r.json.delivery_code && r.json.discount_minor === applied.discount_minor,
 );
 console.log(`     pakoja ${parcel.id} · ${parcel.state} · kodi ${parcel.code}`);
 
@@ -114,5 +133,8 @@ console.log(`     gjendja: ${delivered.state} · pagesa ${delivered.payment_stat
 const final = step('klienti: pakoja e dorëzuar', await call(`/api/v1/parcels/${parcel.id}`, { token: customer }), (r) => r.status === 200 && r.json.state === 'delivered' && r.json.courier?.vehicle_plate);
 console.log(`     çmimi ${(final.price_minor / 100).toFixed(2)} · korrieri ${final.courier.name || '—'}`);
 
+step('admin: kuponi fiket', await call(`/api/v1/admin/coupons/${couponCode}`, { method: 'PATCH', token: admin, body: { active: false } }), (r) => r.status === 200 && r.json.active === false && r.json.uses_count >= 1);
+step('klienti: kuponi i fikur refuzohet', await call('/api/v1/coupons/check', { method: 'POST', token: customer, body: { code: couponCode, scope: 'parcels', amount_minor: 500 } }), (r) => r.status === 422);
+
 step('kurieri: jashtë pune', await call('/api/v1/driver/offline', { method: 'POST', token: courier }), (r) => r.status < 300);
-console.log('U KRYE — pako nga çmimi te dorëzimi');
+console.log('U KRYE — pako me kupon, nga çmimi te dorëzimi');

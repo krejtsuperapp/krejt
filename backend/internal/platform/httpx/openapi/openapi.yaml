@@ -29,6 +29,7 @@ tags:
   - name: media
   - name: places
   - name: parcels
+  - name: promos
   - name: wallet
   - name: payments
   - name: support
@@ -167,6 +168,26 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [channel], properties: { channel: { type: string, example: "ride:6f1c…" } } } } } }
       responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RealtimeToken" } } } }, "403": { $ref: "#/components/responses/Err" } }
 
+  /api/v1/coupons/check:
+    post:
+      tags: [promos]
+      summary: Kontrollo një kupon para checkout-it (zbritja llogaritet në server)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [code, scope, amount_minor], properties: { code: { type: string }, scope: { type: string, enum: [food, parcels] }, amount_minor: { type: integer } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/CouponApplied" } } } }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/admin/coupons:
+    get: { tags: [promos], summary: Lista e kuponave (OPERATIONS), parameters: [{ $ref: "#/components/parameters/Limit" }], responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Coupon" } } } } } } } } }
+    post:
+      tags: [promos]
+      summary: Krijo ose përditëso një kupon (OPERATIONS)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CouponUpsert" } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Coupon" } } } }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/admin/coupons/{code}:
+    parameters: [{ name: code, in: path, required: true, schema: { type: string } }]
+    patch:
+      tags: [promos]
+      summary: Ndiz/fik një kupon (OPERATIONS)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [active], properties: { active: { type: boolean } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Coupon" } } } }, "404": { $ref: "#/components/responses/Err" } }
   /api/v1/parcels/quote:
     post:
       tags: [parcels]
@@ -178,7 +199,7 @@ paths:
       tags: [parcels]
       summary: Krijo dërgesë pakoje nga një quote (Idempotency-Key i detyrueshëm)
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
-      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [quote_id, payment_method, recipient_name, recipient_phone], properties: { quote_id: { type: string, format: uuid }, payment_method: { type: string, enum: [cash, wallet] }, pickup_contact_name: { type: string }, pickup_contact_phone: { type: string }, recipient_name: { type: string }, recipient_phone: { type: string }, note: { type: string, maxLength: 300 } } } } } }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [quote_id, payment_method, recipient_name, recipient_phone], properties: { quote_id: { type: string, format: uuid }, payment_method: { type: string, enum: [cash, wallet] }, pickup_contact_name: { type: string }, pickup_contact_phone: { type: string }, recipient_name: { type: string }, recipient_phone: { type: string }, note: { type: string, maxLength: 300 }, coupon_code: { type: string } } } } } }
       responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Parcel" } } } }, "402": { $ref: "#/components/responses/Err" }, "409": { $ref: "#/components/responses/Err" }, "422": { $ref: "#/components/responses/Err" } }
     get:
       tags: [parcels]
@@ -799,6 +820,16 @@ components:
             retryable: { type: boolean }
             fields: { type: object, additionalProperties: { type: string }, description: "Gabime për fushë (§57): {\"email\": \"invalid\"}" }
     Locale: { type: string, enum: [sq, en, de] }
+    CouponApplied:
+      type: object
+      properties: { code: { type: string }, kind: { type: string, enum: [percent, fixed] }, discount_minor: { type: integer } }
+    Coupon:
+      type: object
+      properties: { code: { type: string }, kind: { type: string, enum: [percent, fixed] }, percent_bp: { type: integer }, amount_minor: { type: integer }, min_order_minor: { type: integer }, scope: { type: string, enum: [all, food, parcels] }, starts_at: { type: [string, "null"], format: date-time }, ends_at: { type: [string, "null"], format: date-time }, max_uses: { type: [integer, "null"] }, max_uses_per_user: { type: [integer, "null"] }, uses_count: { type: integer }, active: { type: boolean }, note: { type: [string, "null"] }, created_at: { type: string, format: date-time }, updated_at: { type: string, format: date-time } }
+    CouponUpsert:
+      type: object
+      required: [code, kind]
+      properties: { code: { type: string }, kind: { type: string, enum: [percent, fixed] }, percent_bp: { type: integer }, amount_minor: { type: integer }, min_order_minor: { type: integer }, scope: { type: string, enum: [all, food, parcels] }, starts_at: { type: string, format: date-time }, ends_at: { type: string, format: date-time }, max_uses: { type: integer }, max_uses_per_user: { type: integer }, active: { type: boolean }, note: { type: string } }
     ParcelQuote:
       type: object
       properties: { id: { type: string, format: uuid }, size: { type: string, enum: [s, m, l] }, distance_m: { type: integer }, duration_s: { type: integer }, price_minor: { type: integer }, currency: { type: string }, expires_at: { type: string, format: date-time } }
@@ -807,7 +838,7 @@ components:
       properties: { id: { type: string, format: uuid }, name: { type: string }, vehicle_make: { type: string }, vehicle_model: { type: string }, vehicle_plate: { type: string }, vehicle_color: { type: string } }
     Parcel:
       type: object
-      properties: { id: { type: string, format: uuid }, code: { type: string }, pickup_code: { type: string, description: "vetëm klienti" }, delivery_code: { type: string, description: "vetëm klienti" }, customer_id: { type: string, format: uuid }, courier_id: { type: [string, "null"], format: uuid }, state: { type: string, enum: [requested, courier_assigned, picked_up, delivered, cancelled, no_courier] }, size: { type: string, enum: [s, m, l] }, payment_method: { type: string, enum: [cash, wallet] }, payment_status: { type: string }, pickup: { $ref: "#/components/schemas/Point" }, pickup_address: { type: [string, "null"] }, pickup_contact_name: { type: [string, "null"] }, pickup_contact_phone: { type: [string, "null"] }, dropoff: { $ref: "#/components/schemas/Point" }, dropoff_address: { type: [string, "null"] }, recipient_name: { type: string }, recipient_phone: { type: string }, note: { type: [string, "null"] }, distance_m: { type: integer }, duration_s: { type: integer }, price_minor: { type: integer }, currency: { type: string }, cancelled_by: { type: [string, "null"] }, cancellation_reason: { type: [string, "null"] }, created_at: { type: string, format: date-time }, assigned_at: { type: [string, "null"], format: date-time }, picked_up_at: { type: [string, "null"], format: date-time }, delivered_at: { type: [string, "null"], format: date-time }, cancelled_at: { type: [string, "null"], format: date-time }, courier: { $ref: "#/components/schemas/ParcelCourier" } }
+      properties: { id: { type: string, format: uuid }, code: { type: string }, pickup_code: { type: string, description: "vetëm klienti" }, delivery_code: { type: string, description: "vetëm klienti" }, customer_id: { type: string, format: uuid }, courier_id: { type: [string, "null"], format: uuid }, state: { type: string, enum: [requested, courier_assigned, picked_up, delivered, cancelled, no_courier] }, size: { type: string, enum: [s, m, l] }, payment_method: { type: string, enum: [cash, wallet] }, payment_status: { type: string }, pickup: { $ref: "#/components/schemas/Point" }, pickup_address: { type: [string, "null"] }, pickup_contact_name: { type: [string, "null"] }, pickup_contact_phone: { type: [string, "null"] }, dropoff: { $ref: "#/components/schemas/Point" }, dropoff_address: { type: [string, "null"] }, recipient_name: { type: string }, recipient_phone: { type: string }, note: { type: [string, "null"] }, distance_m: { type: integer }, duration_s: { type: integer }, price_minor: { type: integer }, discount_minor: { type: integer }, coupon_code: { type: [string, "null"] }, currency: { type: string }, cancelled_by: { type: [string, "null"] }, cancellation_reason: { type: [string, "null"] }, created_at: { type: string, format: date-time }, assigned_at: { type: [string, "null"], format: date-time }, picked_up_at: { type: [string, "null"], format: date-time }, delivered_at: { type: [string, "null"], format: date-time }, cancelled_at: { type: [string, "null"], format: date-time }, courier: { $ref: "#/components/schemas/ParcelCourier" } }
     ParcelOffer:
       type: object
       properties: { id: { type: string, format: uuid }, parcel_id: { type: string, format: uuid }, code: { type: string }, round: { type: integer }, expires_at: { type: string, format: date-time }, distance_m: { type: integer }, eta_s: { type: integer }, size: { type: string }, pickup_address: { type: [string, "null"] }, pickup: { $ref: "#/components/schemas/Point" }, dropoff_address: { type: [string, "null"] }, dropoff: { $ref: "#/components/schemas/Point" }, route_m: { type: integer }, earnings_minor: { type: integer }, currency: { type: string }, payment_method: { type: string }, total_minor: { type: integer } }
@@ -1046,6 +1077,7 @@ components:
       type: object
       required: [merchant_id, items, payment_method]
       properties:
+        coupon_code: { type: string }
         merchant_id: { type: string, format: uuid }
         items: { type: array, items: { type: object, required: [product_id, quantity], properties: { product_id: { type: string, format: uuid }, option_ids: { type: array, items: { type: string, format: uuid } }, quantity: { type: integer, minimum: 1, maximum: 50 } } } }
         payment_method: { type: string, enum: [cash, wallet] }

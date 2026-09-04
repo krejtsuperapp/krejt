@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../state/app_state.dart';
 import '../../state/cart_state.dart';
 import '../account/addresses.dart';
+import '../coupon_field.dart';
 import 'order_tracking.dart';
 
 /// Shporta dhe checkout-i. Çdo ndryshim i sasisë kërkon çmim të ri nga serveri:
@@ -23,6 +24,7 @@ class _CartScreenState extends State<CartScreen> {
   List<Address> _addresses = const [];
   Address? _address;
   String _paymentMethod = 'cash';
+  CouponApplied? _coupon;
   String _fulfillment = 'courier';
   bool _quoting = true;
   bool _placing = false;
@@ -68,6 +70,7 @@ class _CartScreenState extends State<CartScreen> {
         paymentMethod: _paymentMethod,
         fulfillment: _fulfillment,
         addressId: _fulfillment == 'courier' ? _address?.id : null,
+        couponCode: _coupon?.code,
       );
       if (!mounted) return;
       setState(() {
@@ -97,6 +100,7 @@ class _CartScreenState extends State<CartScreen> {
         paymentMethod: _paymentMethod,
         fulfillment: _fulfillment,
         addressId: _fulfillment == 'courier' ? _address?.id : null,
+        couponCode: _coupon?.code,
       );
       if (!mounted) return;
       cart.clear();
@@ -179,6 +183,16 @@ class _CartScreenState extends State<CartScreen> {
             },
           ),
         ),
+      const SizedBox(height: K.s5),
+      CouponField(
+        scope: 'food',
+        amountMinor: cart.lines.fold(0, (sum, l) => sum + l.product.priceMinor * l.quantity),
+        applied: _coupon,
+        onChanged: (c) {
+          setState(() => _coupon = c);
+          _refreshQuote();
+        },
+      ),
       const SizedBox(height: K.s5),
       KSectionHeader(context.t('ride.payment')),
       const SizedBox(height: K.s3),
@@ -292,6 +306,13 @@ class _CartScreenState extends State<CartScreen> {
             currency: quote.currency,
             locale: locale,
           ),
+          if (quote.discountMinor > 0)
+            KMoneyRow(
+              '${context.t('cart.discount')}${quote.couponCode == null ? '' : ' · ${quote.couponCode}'}',
+              -quote.discountMinor,
+              currency: quote.currency,
+              locale: locale,
+            ),
           const KMoneyDivider(),
           KMoneyRow(
             context.t('cart.total'),
