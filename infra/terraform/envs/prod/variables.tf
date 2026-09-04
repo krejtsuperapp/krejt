@@ -175,3 +175,25 @@ variable "otel_enabled" {
   type        = bool
   default     = false
 }
+
+# Panelet pas ALB-së, të ndara sipas host-it. Bosh = ky mjedis nuk i publikon.
+variable "panel_hosts" {
+  description = "Panelet pas ALB-së sipas host-it. Bosh = nuk publikohen."
+  type        = map(string)
+  default = {
+    admin   = "admin.krejt.app"
+    partner = "partner.krejt.app"
+  }
+}
+
+variable "panel_cert_ready" {
+  description = "true pasi certifikata e paneleve të jetë ISSUED (CNAME-t e validimit te Cloudflare); atëherë lidhet me listener-in."
+  type        = bool
+  default     = false
+}
+
+variable "panel_desired_count" {
+  # Prodhimi nis me 0: panelet ngrihen pasi imazhi i parë të jetë në ECR dhe DNS-ja gati.
+  type    = number
+  default = 0
+}
