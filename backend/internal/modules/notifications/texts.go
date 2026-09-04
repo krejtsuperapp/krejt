@@ -68,6 +68,91 @@ var texts = map[string]map[string][2]string{
 		"en": {"Payment failed", "Your wallet balance was too low. Top up to continue."},
 		"de": {"Zahlung fehlgeschlagen", "Dein Wallet-Guthaben reichte nicht. Lade auf, um fortzufahren."},
 	},
+	"notif.order.new": {
+		"sq": {"Porosi e re", "Kodi {code} · {total}. Prano ose refuzo te paneli."},
+		"en": {"New order", "Code {code} · {total}. Accept or reject in the panel."},
+		"de": {"Neue Bestellung", "Code {code} · {total}. Im Panel annehmen oder ablehnen."},
+	},
+	"notif.order.accepted": {
+		"sq": {"Porosia u pranua", "Kuzhina e mori porosinë {code}."},
+		"en": {"Order accepted", "The kitchen has your order {code}."},
+		"de": {"Bestellung angenommen", "Die Küche hat deine Bestellung {code}."},
+	},
+	"notif.order.preparing": {
+		"sq": {"Po përgatitet", "Porosia {code} është në përgatitje."},
+		"en": {"Being prepared", "Order {code} is being prepared."},
+		"de": {"Wird zubereitet", "Bestellung {code} wird zubereitet."},
+	},
+	"notif.order.ready": {
+		"sq": {"Gati për marrje", "Porosia {code} të pret te vendi."},
+		"en": {"Ready for pickup", "Order {code} is waiting for you."},
+		"de": {"Abholbereit", "Bestellung {code} wartet auf dich."},
+	},
+	"notif.order.rejected": {
+		"sq": {"Porosia u refuzua", "Porosia {code} nuk u pranua. {reason}"},
+		"en": {"Order rejected", "Order {code} was not accepted. {reason}"},
+		"de": {"Bestellung abgelehnt", "Bestellung {code} wurde nicht angenommen. {reason}"},
+	},
+	"notif.order.offer": {
+		"sq": {"Dorëzim i ri", "Prano ose refuzo brenda pak sekondash."},
+		"en": {"New delivery", "Accept or decline within seconds."},
+		"de": {"Neue Lieferung", "Innerhalb von Sekunden annehmen oder ablehnen."},
+	},
+	"notif.order.courier": {
+		"sq": {"Korrieri u caktua", "Porosia {code} do të merret së shpejti."},
+		"en": {"Courier assigned", "Order {code} will be collected shortly."},
+		"de": {"Kurier zugewiesen", "Bestellung {code} wird bald abgeholt."},
+	},
+	"notif.order.on_the_way": {
+		"sq": {"Porosia është rrugës", "Korrieri e mori porosinë {code}."},
+		"en": {"Order on its way", "The courier picked up order {code}."},
+		"de": {"Bestellung unterwegs", "Der Kurier hat Bestellung {code} abgeholt."},
+	},
+	"notif.order.delivered": {
+		"sq": {"Porosia u dorëzua", "Të bëftë mirë! Porosia {code}."},
+		"en": {"Order delivered", "Enjoy! Order {code}."},
+		"de": {"Bestellung geliefert", "Guten Appetit! Bestellung {code}."},
+	},
+	"notif.order.cancelled": {
+		"sq": {"Porosia u anulua", "Porosia {code} u anulua. {reason}"},
+		"en": {"Order cancelled", "Order {code} was cancelled. {reason}"},
+		"de": {"Bestellung storniert", "Bestellung {code} wurde storniert. {reason}"},
+	},
+	"notif.order.cancelled.courier": {
+		"sq": {"Dorëzimi u anulua", "Porosia {code} nuk dorëzohet më."},
+		"en": {"Delivery cancelled", "Order {code} is no longer being delivered."},
+		"de": {"Lieferung storniert", "Bestellung {code} wird nicht mehr geliefert."},
+	},
+	"notif.parcel.offer": {
+		"sq": {"Pako e re", "Prano ose refuzo brenda pak sekondash."},
+		"en": {"New parcel", "Accept or decline within seconds."},
+		"de": {"Neues Paket", "Innerhalb von Sekunden annehmen oder ablehnen."},
+	},
+	"notif.parcel.courier": {
+		"sq": {"Korrieri u caktua", "Pakoja {code} do të merret së shpejti. Kodi i marrjes të pret te aplikacioni."},
+		"en": {"Courier assigned", "Parcel {code} will be collected shortly. Your pickup code is in the app."},
+		"de": {"Kurier zugewiesen", "Paket {code} wird bald abgeholt. Dein Abholcode steht in der App."},
+	},
+	"notif.parcel.picked_up": {
+		"sq": {"Pakoja është rrugës", "Marrësi e ka kodin e dorëzimit te ti — ndaje me të."},
+		"en": {"Parcel on its way", "The delivery code is in your app — share it with the recipient."},
+		"de": {"Paket unterwegs", "Der Zustellcode steht in deiner App — teile ihn mit dem Empfänger."},
+	},
+	"notif.parcel.delivered": {
+		"sq": {"Pakoja u dorëzua", "Pakoja {code} arriti te marrësi."},
+		"en": {"Parcel delivered", "Parcel {code} reached the recipient."},
+		"de": {"Paket zugestellt", "Paket {code} ist beim Empfänger angekommen."},
+	},
+	"notif.parcel.no_courier": {
+		"sq": {"Asnjë korrier i lirë", "Nuk gjetëm korrier për pakon tënde. Provo sërish pas pak."},
+		"en": {"No courier available", "We could not find a courier for your parcel. Try again shortly."},
+		"de": {"Kein Kurier verfügbar", "Wir haben keinen Kurier für dein Paket gefunden. Versuche es gleich erneut."},
+	},
+	"notif.parcel.cancelled.courier": {
+		"sq": {"Pakoja u anulua", "Pakoja {code} nuk dërgohet më."},
+		"en": {"Parcel cancelled", "Parcel {code} is no longer being sent."},
+		"de": {"Paket storniert", "Paket {code} wird nicht mehr versendet."},
+	},
 	"notif.wallet.topup": {
 		"sq": {"Wallet-i u mbush", "{amount} u shtua në KREJT Wallet."},
 		"en": {"Wallet topped up", "{amount} was added to your KREJT Wallet."},
