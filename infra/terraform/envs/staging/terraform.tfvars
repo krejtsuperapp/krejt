@@ -37,3 +37,8 @@ infobip_sender   = "KREJT"
 
 # Certifikata e paneleve u lëshua (ISSUED); lidhet me listener-in HTTPS.
 panel_cert_ready = true
+
+# Identiteti i operatorit te Kushtet dhe Politika e privatësisë (dokumentet i shërben API-ja).
+legal_entity  = "KREJT SUPER APP L.L.C"
+legal_address = "Sylejman Vuqiterna 23, Kalabri, Prishtinë"
+legal_email   = "info@krejt.app"
