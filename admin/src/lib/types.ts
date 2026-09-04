@@ -110,6 +110,22 @@ export type Flag = {
   description: string | null;
 };
 
+export type Coupon = {
+  code: string;
+  kind: "percent" | "fixed";
+  percent_bp: number;
+  amount_minor: number;
+  min_order_minor: number;
+  scope: "all" | "food" | "parcels";
+  starts_at: string | null;
+  ends_at: string | null;
+  max_uses: number | null;
+  max_uses_per_user: number | null;
+  uses_count: number;
+  active: boolean;
+  note: string | null;
+};
+
 export type RiskFlag = {
   id: string;
   user_id: string;
