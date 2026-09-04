@@ -15,6 +15,7 @@ import (
 	"krejt.app/backend/internal/modules/admin"
 	"krejt.app/backend/internal/modules/appconfig"
 	"krejt.app/backend/internal/modules/auth"
+	"krejt.app/backend/internal/modules/business"
 	"krejt.app/backend/internal/modules/catalog"
 	"krejt.app/backend/internal/modules/chat"
 	"krejt.app/backend/internal/modules/dataexport"
@@ -271,6 +272,7 @@ func main() {
 	legal.New(legal.Operator{Entity: cfg.LegalEntity, Address: cfg.LegalAddress, Email: cfg.LegalEmail}).Routes(mux)
 	parcels.New(pool, ledgerSvc, mapsProvider).WithLocation(locSvc).WithPromos(promosSvc).Routes(mux, requireAuth, requireDriver)
 	servicesmod.New(pool, ledgerSvc).Routes(mux, requireAuth, requireOps)
+	business.New(pool, ledgerSvc).Routes(mux, requireAuth)
 	admin.New(pool, rdb, ledgerSvc).Routes(mux, requireStaff, requireAdmin)
 	if fs, ok := store.(*storage.DevFS); ok {
 		documents.DevRoutes(mux, fs) // vetëm development (devfs)
