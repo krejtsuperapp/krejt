@@ -3,6 +3,7 @@ aws_profile        = "krejt-dev"
 environment        = "dev"
 name               = "krejt-dev"
 assets_bucket_name = "krejt-assets-dev-7k2m9q"
+media_bucket_name  = "krejt-media-dev-7k2m9q"
 nat_enabled        = true
 alb_enabled        = true
 monthly_budget_usd = 120 # NAT dhe ALB e ngrenë koston bazë

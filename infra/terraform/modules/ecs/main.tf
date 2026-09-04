@@ -35,7 +35,7 @@ resource "aws_ecs_cluster_capacity_providers" "this" {
 
 # ------------------------------- ECR ------------------------------------------
 resource "aws_ecr_repository" "this" {
-  for_each             = toset(["api", "worker"])
+  for_each             = toset(["api", "worker", "admin", "partner"])
   name                 = "${var.name}/${each.value}"
   image_tag_mutability = "IMMUTABLE"
   force_delete         = !var.protect
@@ -315,6 +315,11 @@ data "aws_iam_policy_document" "task" {
     resources = [var.assets_bucket_arn, "${var.assets_bucket_arn}/*"]
   }
   statement {
+    sid       = "Media"
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
+    resources = [var.media_bucket_arn, "${var.media_bucket_arn}/*"]
+  }
+  statement {
     sid       = "Queues"
     actions   = ["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes", "sqs:ChangeMessageVisibility"]
     resources = var.queue_arns
@@ -358,6 +363,9 @@ locals {
     { name = "APP_ENV", value = local.app_env },
     { name = "AWS_REGION", value = data.aws_region.this.name },
     { name = "S3_ASSETS_BUCKET", value = var.assets_bucket_name },
+    # Imazhet publike: bucket i veçantë dhe baza e CloudFront-it nga ku i lexojnë klientët.
+    { name = "S3_MEDIA_BUCKET", value = var.media_bucket_name },
+    { name = "MEDIA_BASE_URL", value = var.media_base_url },
     { name = "SNS_DOMAIN_EVENTS_TOPIC_ARN", value = var.domain_events_topic_arn },
     { name = "DB_WRITER_HOST", value = var.aurora_writer_endpoint },
     { name = "DB_READER_HOST", value = var.aurora_reader_endpoint },

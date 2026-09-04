@@ -26,6 +26,7 @@ tags:
   - name: reviews
   - name: driver
   - name: documents
+  - name: media
   - name: wallet
   - name: payments
   - name: support
@@ -272,6 +273,30 @@ paths:
       summary: Shoferi heq dorë → ricaktim (udhëtimi kthehet në kërkim)
       requestBody: { content: { application/json: { schema: { type: object, properties: { reason: { type: string } } } } } }
       responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ride" } } } }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/media/upload-url:
+    post:
+      tags: [media]
+      summary: URL e nënshkruar (PUT) për imazh publik (jpeg/png/webp, ≤ 5 MB); çelësi mbart llojin dhe pronarin
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [kind, content_type, size_bytes], properties: { kind: { $ref: "#/components/schemas/MediaKind" }, target_id: { type: string, format: uuid, description: "vendi (merchant_logo/merchant_cover) ose produkti (product_image); bosh për user_photo" }, content_type: { type: string, enum: [image/jpeg, image/png, image/webp] }, size_bytes: { type: integer } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { object_key: { type: string }, upload: { type: object, properties: { url: { type: string }, method: { type: string }, headers: { type: object, additionalProperties: { type: string } }, expires_at: { type: string, format: date-time } } } } } } } }, "403": { $ref: "#/components/responses/Err" }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/media:
+    post:
+      tags: [media]
+      summary: Konfirmon ngarkimin dhe e lidh imazhin me pronarin (logo/kopertinë/produkt/profil); i vjetri fshihet
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [object_key], properties: { object_key: { type: string } } } } } }
+      responses: { "201": { description: Created, content: { application/json: { schema: { type: object, properties: { kind: { $ref: "#/components/schemas/MediaKind" }, target_id: { type: string, format: uuid }, object_key: { type: string }, url: { type: [string, "null"] } } } } } }, "403": { $ref: "#/components/responses/Err" }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/media/objects/{key...}:
+    get:
+      tags: [media]
+      summary: Leximi publik i një imazhi nga API-ja (kur mjedisi s'ka CDN përpara); çelësa vetëm `media/…`
+      parameters: [{ name: key, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: "Imazhi (Cache-Control publik, i pandryshueshëm)" }, "404": { $ref: "#/components/responses/Err" } }
+  /api/v1/media/{kind}:
+    delete:
+      tags: [media]
+      summary: Heq imazhin e pronarit (target_id për vend/produkt; bosh për foton e profilit)
+      parameters: [{ name: kind, in: path, required: true, schema: { $ref: "#/components/schemas/MediaKind" } }, { name: target_id, in: query, schema: { type: string, format: uuid } }]
+      responses: { "204": { description: No Content }, "403": { $ref: "#/components/responses/Err" }, "404": { $ref: "#/components/responses/Err" } }
   /api/v1/driver/documents/upload-url:
     post:
       tags: [documents]
@@ -703,6 +728,7 @@ components:
         locale: { $ref: "#/components/schemas/Locale" }
         capabilities: { type: array, items: { type: string } }
         wallet: { type: object, properties: { balance_minor: { type: integer }, currency: { type: string }, closed_loop: { type: boolean } } }
+        photo_url: { type: [string, "null"], description: "URL publike e fotos së profilit (CloudFront); null pa foto" }
         created_at: { type: string, format: date-time }
     Profile:
       type: object
@@ -814,6 +840,7 @@ components:
       type: object
       properties: { id: { type: string, format: uuid }, ride_id: { type: string, format: uuid }, round: { type: integer }, expires_at: { type: string, format: date-time }, distance_m: { type: integer }, eta_s: { type: integer }, category: { $ref: "#/components/schemas/RideCategory" }, pickup: { $ref: "#/components/schemas/Point" }, pickup_address: { type: [string, "null"] }, dropoff: { $ref: "#/components/schemas/Point" }, dropoff_address: { type: [string, "null"] }, ride_distance_m: { type: integer }, ride_duration_s: { type: integer }, price_minor: { type: integer }, earnings_minor: { type: integer }, currency: { type: string }, payment_method: { type: string } }
     DocumentType: { type: string, enum: [driving_license, id_card, vehicle_registration, insurance, criminal_record, profile_photo, taxi_permit] }
+    MediaKind: { type: string, enum: [merchant_logo, merchant_cover, product_image, user_photo] }
     Document:
       type: object
       properties: { id: { type: string, format: uuid }, type: { $ref: "#/components/schemas/DocumentType" }, status: { type: string, enum: [pending, approved, rejected, expired, replaced] }, content_type: { type: string }, size_bytes: { type: integer }, expires_on: { type: [string, "null"], format: date }, rejection_reason: { type: [string, "null"] }, reviewed_at: { type: [string, "null"], format: date-time }, created_at: { type: string, format: date-time }, download_url: { type: string }, driver_id: { type: string, format: uuid } }
@@ -889,7 +916,7 @@ components:
       properties: { type: { type: string, enum: [restaurant, store, grocery, pharmacy] }, name: { type: string }, description: { type: string }, phone: { type: string }, address_line1: { type: string }, city: { type: string }, location: { $ref: "#/components/schemas/Point" }, cuisines: { type: array, items: { type: string } }, fulfillment_mode: { type: string, enum: [courier, merchant_delivers, pickup] }, min_order_minor: { type: integer }, prep_time_min: { type: integer } }
     Merchant:
       type: object
-      properties: { id: { type: string, format: uuid }, type: { type: string }, name: { type: string }, slug: { type: string }, description: { type: [string, "null"] }, address_line1: { type: string }, city: { type: string }, location: { $ref: "#/components/schemas/Point" }, service_area_id: { type: [string, "null"] }, status: { type: string, enum: [pending, active, paused, suspended] }, cuisines: { type: array, items: { type: string } }, tags: { type: array, items: { type: string } }, fulfillment_mode: { type: string }, min_order_minor: { type: integer }, delivery_fee_minor: { type: integer }, prep_time_min: { type: integer }, rating: { type: [number, "null"] }, rating_count: { type: integer }, logo_key: { type: [string, "null"] }, cover_key: { type: [string, "null"] }, accepting_orders: { type: boolean }, open_now: { type: boolean }, distance_m: { type: integer }, hours: { type: array, items: { $ref: "#/components/schemas/Hours" } }, created_at: { type: string, format: date-time } }
+      properties: { id: { type: string, format: uuid }, type: { type: string }, name: { type: string }, slug: { type: string }, description: { type: [string, "null"] }, address_line1: { type: string }, city: { type: string }, location: { $ref: "#/components/schemas/Point" }, service_area_id: { type: [string, "null"] }, status: { type: string, enum: [pending, active, paused, suspended] }, cuisines: { type: array, items: { type: string } }, tags: { type: array, items: { type: string } }, fulfillment_mode: { type: string }, min_order_minor: { type: integer }, delivery_fee_minor: { type: integer }, prep_time_min: { type: integer }, rating: { type: [number, "null"] }, rating_count: { type: integer }, logo_key: { type: [string, "null"] }, cover_key: { type: [string, "null"] }, logo_url: { type: [string, "null"] }, cover_url: { type: [string, "null"] }, accepting_orders: { type: boolean }, open_now: { type: boolean }, distance_m: { type: integer }, hours: { type: array, items: { $ref: "#/components/schemas/Hours" } }, created_at: { type: string, format: date-time } }
     CategoryInput: { type: object, required: [name], properties: { name: { type: string }, sort: { type: integer }, active: { type: boolean } } }
     ModifierOption: { type: object, properties: { id: { type: string, format: uuid }, name: { type: string }, price_delta_minor: { type: integer }, available: { type: boolean }, sort: { type: integer } } }
     ModifierGroup: { type: object, properties: { id: { type: string, format: uuid }, name: { type: string }, min_select: { type: integer }, max_select: { type: integer }, sort: { type: integer }, options: { type: array, items: { $ref: "#/components/schemas/ModifierOption" } } } }
@@ -899,7 +926,7 @@ components:
       properties: { category_id: { type: string, format: uuid }, name: { type: string }, description: { type: string }, price_minor: { type: integer }, image_key: { type: string }, available: { type: boolean }, unit: { type: string, enum: [piece, kg, g, l, ml, portion] }, tags: { type: array, items: { type: string } }, sort: { type: integer }, modifiers: { type: array, items: { type: object, properties: { name: { type: string }, min_select: { type: integer }, max_select: { type: integer }, options: { type: array, items: { type: object, properties: { name: { type: string }, price_delta_minor: { type: integer }, available: { type: boolean } } } } } } } }
     Product:
       type: object
-      properties: { id: { type: string, format: uuid }, merchant_id: { type: string, format: uuid }, category_id: { type: [string, "null"], format: uuid }, name: { type: string }, description: { type: [string, "null"] }, price_minor: { type: integer }, currency: { type: string }, image_key: { type: [string, "null"] }, available: { type: boolean }, unit: { type: string }, tags: { type: array, items: { type: string } }, sort: { type: integer }, modifiers: { type: array, items: { $ref: "#/components/schemas/ModifierGroup" } } }
+      properties: { id: { type: string, format: uuid }, merchant_id: { type: string, format: uuid }, category_id: { type: [string, "null"], format: uuid }, name: { type: string }, description: { type: [string, "null"] }, price_minor: { type: integer }, currency: { type: string }, image_key: { type: [string, "null"] }, image_url: { type: [string, "null"] }, available: { type: boolean }, unit: { type: string }, tags: { type: array, items: { type: string } }, sort: { type: integer }, modifiers: { type: array, items: { $ref: "#/components/schemas/ModifierGroup" } } }
     Menu:
       type: object
       properties: { merchant_id: { type: string, format: uuid }, categories: { type: array, items: { type: object, properties: { id: { type: string, format: uuid }, name: { type: string }, sort: { type: integer }, active: { type: boolean } } } }, products: { type: array, items: { $ref: "#/components/schemas/Product" } }, generated_at: { type: string, format: date-time } }

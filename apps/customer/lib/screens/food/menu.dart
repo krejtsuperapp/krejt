@@ -129,6 +129,10 @@ class _MenuScreenState extends State<MenuScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(K.s5, K.s4, K.s5, 96),
       children: [
+        if (widget.merchant.coverUrl != null) ...[
+          KNetImage(url: widget.merchant.coverUrl, height: 150, radius: K.rMd),
+          const SizedBox(height: K.s3),
+        ],
         KCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,6 +198,13 @@ class _ProductRow extends StatelessWidget {
         onTap: available ? onTap : null,
         child: Row(
           children: [
+            if (product.imageUrl != null) ...[
+              Opacity(
+                opacity: available ? 1 : 0.55,
+                child: KNetImage(url: product.imageUrl, width: 64, height: 64),
+              ),
+              const SizedBox(width: K.s3),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

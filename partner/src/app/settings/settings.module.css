@@ -36,6 +36,51 @@
   margin: 12px 0 0;
 }
 
+/* Brendimi: pamja e imazhit dhe veprimet poshtë saj. */
+.media {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.mediaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mediaLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.mediaPreview {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.mediaLogo {
+  aspect-ratio: 1 / 1;
+  width: 120px;
+}
+
+.mediaEmpty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Input-i i vërtetë fshihet: butoni ynë e hap zgjedhjen e skedarit. */
+.fileInput {
+  display: none;
+}
+
 .row {
   display: flex;
   align-items: baseline;

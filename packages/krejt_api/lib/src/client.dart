@@ -44,8 +44,16 @@ String newIdempotencyKey() {
 
 /// Klienti i vetëm i API-së. Çdo gabim del si [ApiError]; asnjë përgjigje e papërpunuar nuk kalon jashtë.
 class KrejtApi {
-  KrejtApi({required this.config, required this.session, Dio? dio, this.locale = 'sq'})
-    : _dio = dio ?? Dio() {
+  KrejtApi({
+    required this.config,
+    required this.session,
+    Dio? dio,
+    Dio? uploader,
+    this.locale = 'sq',
+  }) : _dio = dio ?? Dio(),
+       // Ngarkimet e nënshkruara shkojnë te bucket-i me një klient pa interceptorët tanë:
+       // token-i i sesionit nuk i dërgohet kurrë një hosti tjetër.
+       _uploader = uploader ?? Dio() {
     _dio.options = _dio.options.copyWith(
       baseUrl: config.baseUrl,
       connectTimeout: const Duration(seconds: 10),
@@ -96,6 +104,7 @@ class KrejtApi {
   final ApiConfig config;
   final Session session;
   final Dio _dio;
+  final Dio _uploader;
 
   /// Gjuha e kërkesave; ndryshimi ndikon menjëherë te `Accept-Language`.
   String locale;
@@ -545,6 +554,60 @@ class KrejtApi {
   Future<DocumentsOverview> driverDocuments() async =>
       DocumentsOverview.fromJson(await _get('/api/v1/driver/documents'));
 
+  /// Imazh publik (logo/kopertinë vendi, imazh produkti, foto profili): URL e nënshkruar →
+  /// PUT drejt bucket-it → konfirmim që e lidh me pronarin. Kthen URL-në publike të re.
+  /// `targetId`: vendi ose produkti; bosh për foton e profilit.
+  Future<String?> uploadMedia({
+    required String kind,
+    String? targetId,
+    required List<int> bytes,
+    required String contentType,
+  }) async {
+    final signed = await _post(
+      '/api/v1/media/upload-url',
+      body: {
+        'kind': kind,
+        if (targetId != null) 'target_id': targetId,
+        'content_type': contentType,
+        'size_bytes': bytes.length,
+      },
+    );
+    final objectKey = signed['object_key']?.toString();
+    final upload = signed['upload'];
+    if (objectKey == null || upload is! Map) {
+      throw ApiError(code: 'INTERNAL', messageKey: 'errors.internal', status: 0);
+    }
+    await _putSigned(upload, bytes, contentType);
+    final confirmed = await _post('/api/v1/media', body: {'object_key': objectKey});
+    return confirmed['url']?.toString();
+  }
+
+  /// Heq imazhin e pronarit (logo, kopertinë, imazh produkti, foto profili).
+  Future<void> removeMedia({required String kind, String? targetId}) =>
+      _delete('/api/v1/media/$kind${targetId == null ? '' : '?target_id=$targetId'}');
+
+  /// PUT-i i nënshkruar shkon te bucket-i, jo te API-ja, me klientin e ngarkimit (pa
+  /// interceptorët tanë).
+  Future<void> _putSigned(Map<dynamic, dynamic> upload, List<int> bytes, String contentType) async {
+    final headers = <String, String>{'Content-Type': contentType};
+    final extra = upload['headers'];
+    if (extra is Map) {
+      extra.forEach((k, v) => headers[k.toString()] = v.toString());
+    }
+    try {
+      await _uploader.putUri<dynamic>(
+        Uri.parse(upload['url'].toString()),
+        data: Stream<List<int>>.fromIterable([bytes]),
+        options: Options(
+          headers: {...headers, Headers.contentLengthHeader: bytes.length},
+          validateStatus: (s) => s != null && s < 400,
+        ),
+      );
+    } on DioException catch (e) {
+      throw ApiError.fromDio(e);
+    }
+  }
+
   /// Ngarkimi i një dokumenti në tri hapa (§31): serveri nënshkruan URL-në, skedari shkon
   /// drejt në S3 pa kaluar nga API-ja, dhe pastaj serveri e konfirmon dhe e vë në radhë për shqyrtim.
   /// Bajtët nuk kalojnë kurrë nëpër log-e dhe URL-ja e nënshkruar skadon vetë.
@@ -563,26 +626,7 @@ class KrejtApi {
     if (objectKey == null || upload is! Map) {
       throw ApiError(code: 'INTERNAL', messageKey: 'errors.internal', status: 0);
     }
-    final headers = <String, String>{'Content-Type': contentType};
-    final extra = upload['headers'];
-    if (extra is Map) {
-      extra.forEach((k, v) => headers[k.toString()] = v.toString());
-    }
-
-    // Ngarkimi shkon te S3, jo te API-ja, ndaj përdor një Dio pa interceptorët tanë:
-    // token-i i sesionit nuk ka pse t'i dërgohet një hosti tjetër.
-    try {
-      await Dio().putUri<dynamic>(
-        Uri.parse(upload['url'].toString()),
-        data: Stream<List<int>>.fromIterable([bytes]),
-        options: Options(
-          headers: {...headers, Headers.contentLengthHeader: bytes.length},
-          validateStatus: (s) => s != null && s < 400,
-        ),
-      );
-    } on DioException catch (e) {
-      throw ApiError.fromDio(e);
-    }
+    await _putSigned(upload, bytes, contentType);
 
     final confirmed = await _post(
       '/api/v1/driver/documents',

@@ -48,6 +48,7 @@ class Me {
     required this.locale,
     required this.capabilities,
     required this.wallet,
+    this.photoUrl,
   });
 
   final String id;
@@ -57,6 +58,9 @@ class Me {
   final String locale;
   final List<String> capabilities;
   final Wallet wallet;
+
+  /// Publike (CloudFront); null pa foto profili.
+  final String? photoUrl;
 
   bool get isDriver => capabilities.contains('RIDE_DRIVER') || capabilities.contains('TAXI_DRIVER');
   bool get isMerchant => capabilities.contains('MERCHANT');
@@ -87,6 +91,7 @@ class Me {
     locale: (j['locale'] ?? 'sq').toString(),
     capabilities: ((j['capabilities'] as List?) ?? const []).map((e) => e.toString()).toList(),
     wallet: Wallet.fromJson(Map<String, dynamic>.from((j['wallet'] as Map?) ?? const {})),
+    photoUrl: j['photo_url']?.toString(),
   );
 }
 

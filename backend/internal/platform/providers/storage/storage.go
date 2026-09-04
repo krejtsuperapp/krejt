@@ -46,6 +46,8 @@ type Provider interface {
 	PutBytes(ctx context.Context, key, contentType string, body []byte) error
 	Head(ctx context.Context, key string) (ObjectInfo, error)
 	PresignDownload(ctx context.Context, key string, ttl time.Duration) (string, error)
+	// Get — leximi i objektit nga vetë serveri (p.sh. imazhet publike kur s'ka CDN përpara).
+	Get(ctx context.Context, key string) (io.ReadCloser, ObjectInfo, error)
 	Delete(ctx context.Context, key string) error
 }
 
@@ -118,6 +120,17 @@ func (p *S3) Head(ctx context.Context, key string) (ObjectInfo, error) {
 		return ObjectInfo{}, fmt.Errorf("storage: head: %w", err)
 	}
 	return ObjectInfo{Key: key, ContentType: aws.ToString(out.ContentType), SizeBytes: aws.ToInt64(out.ContentLength)}, nil
+}
+
+func (p *S3) Get(ctx context.Context, key string) (io.ReadCloser, ObjectInfo, error) {
+	out, err := p.client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(p.bucket), Key: aws.String(key)})
+	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchKey") || strings.Contains(err.Error(), "NotFound") || strings.Contains(err.Error(), "404") {
+			return nil, ObjectInfo{}, ErrNotFound
+		}
+		return nil, ObjectInfo{}, fmt.Errorf("storage: get: %w", err)
+	}
+	return out.Body, ObjectInfo{Key: key, ContentType: aws.ToString(out.ContentType), SizeBytes: aws.ToInt64(out.ContentLength)}, nil
 }
 
 func (p *S3) PresignDownload(ctx context.Context, key string, ttl time.Duration) (string, error) {
@@ -225,6 +238,19 @@ func (d *DevFS) Head(_ context.Context, key string) (ObjectInfo, error) {
 	}
 	ct, _ := os.ReadFile(d.path(key) + ".ct")
 	return ObjectInfo{Key: key, ContentType: string(ct), SizeBytes: st.Size()}, nil
+}
+
+func (d *DevFS) Get(_ context.Context, key string) (io.ReadCloser, ObjectInfo, error) {
+	f, ct, err := d.Open(key)
+	if err != nil {
+		return nil, ObjectInfo{}, ErrNotFound
+	}
+	st, err := os.Stat(d.path(key))
+	if err != nil {
+		f.Close()
+		return nil, ObjectInfo{}, ErrNotFound
+	}
+	return f, ObjectInfo{Key: key, ContentType: ct, SizeBytes: st.Size()}, nil
 }
 
 func (d *DevFS) PresignDownload(_ context.Context, key string, _ time.Duration) (string, error) {

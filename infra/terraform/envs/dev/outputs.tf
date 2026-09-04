@@ -9,6 +9,8 @@ output "redis_auth_secret_arn" { value = module.data.redis_auth_secret_arn }
 output "queue_urls" { value = module.messaging.queue_urls }
 output "domain_events_topic_arn" { value = module.messaging.domain_events_topic_arn }
 output "assets_bucket" { value = module.storage.bucket_name }
+output "media_bucket" { value = module.media.bucket_name }
+output "media_base_url" { value = local.media_base_url }
 output "kms_key_arn" { value = module.security.kms_key_arn }
 output "provider_secret_arns" { value = module.security.secret_arns }
 output "deploy_role_arn" { value = module.cicd.deploy_role_arn }
@@ -25,3 +27,17 @@ output "acm_validation_record" {
 }
 
 output "acm_certificate_arn" { value = local.certificate_arn }
+
+# Panelet: CNAME-t e validimit (një për host) te Cloudflare me proxy të fikur; pastaj CNAME-t
+# e vetë host-eve → alb_dns_name me proxy të ndezur.
+output "panel_acm_validation_records" {
+  value = try([
+    for o in aws_acm_certificate.panels[0].domain_validation_options : {
+      domeni = o.domain_name
+      emri   = o.resource_record_name
+      lloji  = o.resource_record_type
+      vlera  = o.resource_record_value
+    }
+  ], [])
+}
+output "panel_hosts" { value = var.panel_hosts }

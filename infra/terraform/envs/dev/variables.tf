@@ -18,6 +18,28 @@ variable "name" {
 variable "assets_bucket_name" {
   type = string
 }
+variable "media_bucket_name" {
+  description = "Bucket-i i imazheve publike (lexohet përmes CloudFront-it). Emri është global në S3."
+  type        = string
+}
+variable "media_cloudfront_enabled" {
+  description = "CloudFront përpara imazheve. false derisa AWS Support ta verifikojë llogarinë (refuzon krijimin)."
+  type        = bool
+  default     = false
+}
+variable "panel_hosts" {
+  description = "Panelet pas ALB-së sipas host-it. Bosh = nuk publikohen."
+  type        = map(string)
+  default = {
+    admin   = "admin.dev.krejt.app"
+    partner = "partner.dev.krejt.app"
+  }
+}
+variable "panel_cert_ready" {
+  description = "true pasi certifikata e paneleve të jetë ISSUED (CNAME-t e validimit te Cloudflare); atëherë lidhet me listener-in."
+  type        = bool
+  default     = false
+}
 variable "domain_name" {
   description = "Domeni i API-së për këtë mjedis. Bosh = certifikata nuk krijohet nga Terraform."
   type        = string

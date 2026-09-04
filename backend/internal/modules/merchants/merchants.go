@@ -24,6 +24,7 @@ import (
 	"krejt.app/backend/internal/platform/events"
 	"krejt.app/backend/internal/platform/httpx"
 	"krejt.app/backend/internal/platform/logx"
+	"krejt.app/backend/internal/platform/media"
 	"krejt.app/backend/internal/platform/principal"
 )
 
@@ -64,6 +65,8 @@ type Merchant struct {
 	RatingCount      int       `json:"rating_count"`
 	LogoKey          *string   `json:"logo_key"`
 	CoverKey         *string   `json:"cover_key"`
+	LogoURL          *string   `json:"logo_url"`  // publike (CloudFront); null pa logo
+	CoverURL         *string   `json:"cover_url"` // publike (CloudFront); null pa kopertinë
 	AcceptingOrders  bool      `json:"accepting_orders"`
 	OpenNow          bool      `json:"open_now"`
 	DistanceM        *int      `json:"distance_m,omitempty"`
@@ -97,6 +100,8 @@ func scanMerchant(row pgx.Row) (*Merchant, error) {
 		r := float64(int(float64(sum)/float64(m.RatingCount)*100+0.5)) / 100
 		m.Rating = &r
 	}
+	m.LogoURL = media.URL(m.LogoKey)
+	m.CoverURL = media.URL(m.CoverKey)
 	return &m, nil
 }
 

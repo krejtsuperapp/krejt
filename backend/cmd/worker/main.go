@@ -35,6 +35,7 @@ import (
 	"krejt.app/backend/internal/platform/errtrack"
 	"krejt.app/backend/internal/platform/events"
 	"krejt.app/backend/internal/platform/logx"
+	"krejt.app/backend/internal/platform/media"
 	otelx "krejt.app/backend/internal/platform/otel"
 	analyticsprovider "krejt.app/backend/internal/platform/providers/analytics"
 	"krejt.app/backend/internal/platform/providers/maps"
@@ -97,6 +98,8 @@ func main() {
 	fatal(log, "realtime provider", err)
 	store, err := storage.NewFromEnv(ctx, cfg.Env, cfg.StorageProvider, cfg.Region, cfg.AssetsBucket, cfg.DevFSDir, cfg.PublicBaseURL, log)
 	fatal(log, "storage provider", err)
+	// URL-të publike të imazheve (§43), që porositë/njoftimet të mbartin të njëjtat fusha si API-ja.
+	media.SetBaseURL(cfg.MediaBaseURL)
 	analyticsProvider, err := analyticsprovider.NewFromEnv(cfg.Env, cfg.AnalyticsProvider, cfg.PostHogKey, cfg.PostHogHost, log)
 	fatal(log, "analytics provider", err)
 	defer func() { _ = analyticsProvider.Close(context.Background()) }()

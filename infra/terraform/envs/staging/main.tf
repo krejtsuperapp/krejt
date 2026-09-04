@@ -38,6 +38,13 @@ module "storage" {
   tags        = local.tags
 }
 
+# Imazhet publike (logo, produkte, profile) — bucket i veçantë + CloudFront.
+module "media" {
+  source      = "../../modules/media"
+  bucket_name = var.media_bucket_name
+  tags        = local.tags
+}
+
 module "messaging" {
   source          = "../../modules/messaging"
   name            = var.name
@@ -56,6 +63,9 @@ module "ecs" {
   kms_key_arn              = module.security.kms_key_arn
   assets_bucket_name       = module.storage.bucket_name
   assets_bucket_arn        = module.storage.bucket_arn
+  media_bucket_name        = module.media.bucket_name
+  media_bucket_arn         = module.media.bucket_arn
+  media_base_url           = module.media.base_url
   queue_urls               = module.messaging.queue_urls
   queue_arns               = values(module.messaging.queue_arns)
   domain_events_topic_arn  = module.messaging.domain_events_topic_arn

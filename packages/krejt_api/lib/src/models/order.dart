@@ -24,6 +24,8 @@ class Merchant {
     required this.acceptingOrders,
     required this.openNow,
     required this.distanceM,
+    this.logoUrl,
+    this.coverUrl,
   });
 
   final String id;
@@ -31,6 +33,10 @@ class Merchant {
   final String name;
   final String slug;
   final String? description;
+
+  /// Publike (CloudFront); null kur vendi s'ka ngarkuar ende.
+  final String? logoUrl;
+  final String? coverUrl;
   final String addressLine1;
   final String city;
   final LatLng location;
@@ -71,6 +77,8 @@ class Merchant {
     acceptingOrders: j['accepting_orders'] != false,
     openNow: j['open_now'] == true,
     distanceM: (j['distance_m'] as num?)?.toInt() ?? 0,
+    logoUrl: j['logo_url']?.toString(),
+    coverUrl: j['cover_url']?.toString(),
   );
 }
 
@@ -136,6 +144,7 @@ class Product {
     required this.available,
     required this.unit,
     required this.modifiers,
+    this.imageUrl,
   });
 
   final String id;
@@ -148,6 +157,9 @@ class Product {
   final bool available;
   final String unit;
   final List<ModifierGroup> modifiers;
+
+  /// Publike (CloudFront); null kur produkti s'ka imazh.
+  final String? imageUrl;
 
   factory Product.fromJson(Map<String, dynamic> j) => Product(
     id: j['id'].toString(),
@@ -162,6 +174,7 @@ class Product {
     modifiers: ((j['modifiers'] as List?) ?? const [])
         .map((e) => ModifierGroup.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList(),
+    imageUrl: j['image_url']?.toString(),
   );
 }
 

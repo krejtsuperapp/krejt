@@ -1,0 +1,6 @@
+# Gjendja e ushtrimit është lokale dhe jetëshkurtër; nuk i takon repo-s.
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+*.tfplan
