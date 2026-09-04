@@ -167,7 +167,7 @@ jobs:
   health-staging:
     runs-on: ubuntu-latest
     needs: [deploy-staging]
-    if: needs.deploy-staging.outputs.deployed == 'true'
+    if: needs.deploy-staging.outputs.deployed == 'true' && needs.deploy-staging.outputs.live == 'true'
     steps:
       - name: shëndeti dhe versioni në staging
         run: |
@@ -196,7 +196,7 @@ jobs:
   health-prod:
     runs-on: ubuntu-latest
     needs: [deploy-prod]
-    if: needs.deploy-prod.outputs.deployed == 'true'
+    if: needs.deploy-prod.outputs.deployed == 'true' && needs.deploy-prod.outputs.live == 'true'
     steps:
       - name: shëndeti dhe versioni në prodhim
         run: |
