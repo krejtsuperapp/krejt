@@ -44,6 +44,9 @@ class AppState extends ChangeNotifier {
   PublicConfig config = PublicConfig.fallback();
   Me? me;
   DriverProfile? driver;
+
+  /// Shifrat e ditës për ballinën (fitimet, udhëtimet); vijnë të llogaritura nga serveri.
+  Earnings? earnings;
   bool online = false;
   String locale = 'sq';
   ApiError? bootError;
@@ -133,6 +136,15 @@ class AppState extends ChangeNotifier {
       // 404 do të thotë se ky përdorues ende nuk ka aplikuar si shofer.
       if (!e.isNotFound) rethrow;
       driver = null;
+    }
+    if (driver == null) {
+      earnings = null;
+      return;
+    }
+    try {
+      earnings = await api.earnings();
+    } on ApiError {
+      // Shifrat e ditës janë ndihmëse: pa to ballina mbetet e përdorshme.
     }
   }
 
