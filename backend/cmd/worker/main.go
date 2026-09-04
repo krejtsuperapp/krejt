@@ -28,6 +28,7 @@ import (
 	"krejt.app/backend/internal/modules/orders"
 	"krejt.app/backend/internal/modules/parcels"
 	"krejt.app/backend/internal/modules/pricing"
+	"krejt.app/backend/internal/modules/promos"
 	"krejt.app/backend/internal/modules/realtime"
 	"krejt.app/backend/internal/modules/rides"
 	"krejt.app/backend/internal/platform/cache"
@@ -113,9 +114,9 @@ func main() {
 	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricing.New(pool, mapsProvider, locSvc))
 	dispatcher := dispatch.New(pool, locSvc, log)
 	merchantsSvc := merchants.New(pool, pricing.New(pool, mapsProvider, locSvc))
-	ordersSvc := orders.New(pool, ledgerSvc, catalog.New(pool, merchantsSvc), merchantsSvc).WithLocation(locSvc)
+	ordersSvc := orders.New(pool, ledgerSvc, catalog.New(pool, merchantsSvc), merchantsSvc).WithLocation(locSvc).WithPromos(promos.New(pool))
 	ordersDispatcher := orders.NewDispatcher(ordersSvc, orders.LocationNearby{Loc: locSvc}, log)
-	parcelsSvc := parcels.New(pool, ledgerSvc, mapsProvider).WithLocation(locSvc)
+	parcelsSvc := parcels.New(pool, ledgerSvc, mapsProvider).WithLocation(locSvc).WithPromos(promos.New(pool))
 	parcelsDispatcher := parcels.NewDispatcher(parcelsSvc, parcels.LocationNearby{Loc: locSvc}, log)
 	notifSvc := notifications.New(pool, pushProvider)
 	rtSvc := realtime.New(pool, rtPub, nil) // worker-i vetëm publikon; token-at i lëshon API-ja

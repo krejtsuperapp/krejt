@@ -167,7 +167,7 @@ func TestOrderWalletFlowWithCourier(t *testing.T) {
 		t.Fatalf("minimumi: %v", err)
 	}
 	// quote: 2 × 300 + 150 dërgesë = 750
-	q, err := e.svc.Quote(e.ctx, e.checkout(2))
+	q, err := e.svc.Quote(e.ctx, customer.UserID, e.checkout(2))
 	if err != nil || q.ItemsTotalMinor != 600 || q.TotalMinor != 750 || !q.OpenNow {
 		t.Fatalf("quote: %+v err=%v", q, err)
 	}

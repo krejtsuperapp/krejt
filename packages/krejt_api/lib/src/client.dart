@@ -9,6 +9,7 @@ import 'models/driver.dart';
 import 'models/order.dart';
 import 'models/parcel.dart';
 import 'models/places.dart';
+import 'models/promo.dart';
 import 'models/ride.dart';
 import 'models/user.dart';
 import 'models/wallet.dart';
@@ -350,6 +351,20 @@ class KrejtApi {
 
   // --------------------------------------------------------------------- rides
 
+  // ------------------------------------------------------------------ kupona
+
+  /// Kontrollo një kupon para checkout-it; zbritjen e llogarit serveri.
+  Future<CouponApplied> checkCoupon({
+    required String code,
+    required String scope,
+    required int amountMinor,
+  }) async => CouponApplied.fromJson(
+    await _post(
+      '/api/v1/coupons/check',
+      body: {'code': code, 'scope': scope, 'amount_minor': amountMinor},
+    ),
+  );
+
   // ----------------------------------------------------------------- parcels
 
   /// Çmimi i dërgesës së pakos; vlen dy minuta.
@@ -380,6 +395,7 @@ class KrejtApi {
     String? pickupContactName,
     String? pickupContactPhone,
     String? note,
+    String? couponCode,
     String? idempotencyKey,
   }) async => Parcel.fromJson(
     await _post(
@@ -393,6 +409,7 @@ class KrejtApi {
         'pickup_contact_name': ?pickupContactName,
         'pickup_contact_phone': ?pickupContactPhone,
         'note': ?note,
+        'coupon_code': ?couponCode,
       },
     ),
   );
@@ -796,6 +813,7 @@ class KrejtApi {
     required String fulfillment,
     String? addressId,
     String? note,
+    String? couponCode,
   }) async => OrderQuote.fromJson(
     await _post(
       '/api/v1/orders/quote',
@@ -806,6 +824,7 @@ class KrejtApi {
         fulfillment: fulfillment,
         addressId: addressId,
         note: note,
+        couponCode: couponCode,
       ),
     ),
   );
@@ -817,6 +836,7 @@ class KrejtApi {
     required String fulfillment,
     String? addressId,
     String? note,
+    String? couponCode,
     String? idempotencyKey,
   }) async => Order.fromJson(
     await _post(
@@ -828,6 +848,7 @@ class KrejtApi {
         fulfillment: fulfillment,
         addressId: addressId,
         note: note,
+        couponCode: couponCode,
       ),
       idempotencyKey: idempotencyKey ?? newIdempotencyKey(),
     ),
@@ -840,6 +861,7 @@ class KrejtApi {
     required String fulfillment,
     String? addressId,
     String? note,
+    String? couponCode,
   }) => {
     'merchant_id': merchantId,
     'items': lines.map((l) => l.toJson()).toList(),
@@ -847,6 +869,7 @@ class KrejtApi {
     'fulfillment': fulfillment,
     'address_id': ?addressId,
     if (note != null && note.isNotEmpty) 'note': note,
+    if (couponCode != null && couponCode.isNotEmpty) 'coupon_code': couponCode,
   };
 
   Future<Order> order(String id) async => Order.fromJson(await _get('/api/v1/orders/$id'));

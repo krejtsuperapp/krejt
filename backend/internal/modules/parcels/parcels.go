@@ -18,6 +18,7 @@ import (
 	"krejt.app/backend/internal/domain/geo"
 	"krejt.app/backend/internal/domain/money"
 	"krejt.app/backend/internal/modules/ledger"
+	"krejt.app/backend/internal/modules/promos"
 	"krejt.app/backend/internal/platform/events"
 	"krejt.app/backend/internal/platform/httpx"
 	"krejt.app/backend/internal/platform/principal"
@@ -47,6 +48,7 @@ type Service struct {
 	ledger *ledger.Service
 	maps   maps.Provider
 	loc    Location
+	promos *promos.Service
 	now    func() time.Time
 }
 
@@ -56,6 +58,11 @@ func New(pool *pgxpool.Pool, led *ledger.Service, m maps.Provider) *Service {
 
 func (s *Service) WithLocation(l Location) *Service {
 	s.loc = l
+	return s
+}
+
+func (s *Service) WithPromos(p *promos.Service) *Service {
+	s.promos = p
 	return s
 }
 
@@ -92,6 +99,8 @@ type Parcel struct {
 	DistanceM          int          `json:"distance_m"`
 	DurationS          int          `json:"duration_s"`
 	PriceMinor         int64        `json:"price_minor"`
+	DiscountMinor      int64        `json:"discount_minor"`
+	CouponCode         *string      `json:"coupon_code"`
 	CommissionMinor    int64        `json:"-"`
 	Currency           string       `json:"currency"`
 	CancelledBy        *string      `json:"cancelled_by"`
@@ -108,7 +117,7 @@ const parcelCols = `id, code, pickup_code, delivery_code, customer_id, courier_i
 	pickup_lat, pickup_lng, pickup_address, pickup_contact_name, pickup_contact_phone,
 	dropoff_lat, dropoff_lng, dropoff_address, recipient_name, recipient_phone, note,
 	distance_m, duration_s, price_minor, commission_minor, currency, cancelled_by, cancellation_reason,
-	created_at, assigned_at, picked_up_at, delivered_at, cancelled_at`
+	created_at, assigned_at, picked_up_at, delivered_at, cancelled_at, discount_minor, coupon_code`
 
 func scanParcel(row pgx.Row) (*Parcel, error) {
 	var p Parcel
@@ -116,7 +125,7 @@ func scanParcel(row pgx.Row) (*Parcel, error) {
 		&p.Pickup.Lat, &p.Pickup.Lng, &p.PickupAddress, &p.PickupContactName, &p.PickupContactPhone,
 		&p.Dropoff.Lat, &p.Dropoff.Lng, &p.DropoffAddress, &p.RecipientName, &p.RecipientPhone, &p.Note,
 		&p.DistanceM, &p.DurationS, &p.PriceMinor, &p.CommissionMinor, &p.Currency, &p.CancelledBy, &p.CancellationReason,
-		&p.CreatedAt, &p.AssignedAt, &p.PickedUpAt, &p.DeliveredAt, &p.CancelledAt); err != nil {
+		&p.CreatedAt, &p.AssignedAt, &p.PickedUpAt, &p.DeliveredAt, &p.CancelledAt, &p.DiscountMinor, &p.CouponCode); err != nil {
 		return nil, err
 	}
 	return &p, nil
@@ -263,6 +272,7 @@ type CreateInput struct {
 	RecipientName      string    `json:"recipient_name"`
 	RecipientPhone     string    `json:"recipient_phone"`
 	Note               string    `json:"note"`
+	CouponCode         string    `json:"coupon_code"`
 }
 
 func (s *Service) Create(ctx context.Context, a principal.Actor, idemKey string, in CreateInput) (*Parcel, error) {
@@ -312,12 +322,24 @@ func (s *Service) Create(ctx context.Context, a principal.Actor, idemKey string,
 	if s.now().After(q.expiresAt) {
 		return nil, ErrQuoteExpired
 	}
+	var discount int64
+	coupon := promos.Normalize(in.CouponCode)
+	if coupon != "" {
+		if s.promos == nil {
+			return nil, promos.ErrInvalid
+		}
+		applied, err := s.promos.Apply(ctx, coupon, a.UserID, promos.ScopeParcels, q.priceMinor)
+		if err != nil {
+			return nil, err
+		}
+		discount, coupon = applied.DiscountMinor, applied.Code
+	}
 	if in.PaymentMethod == "wallet" {
 		bal, err := s.ledger.Balance(ctx, ledger.UserWalletCode(a.UserID))
 		if err != nil {
 			return nil, err
 		}
-		if int64(bal.Minor) < q.priceMinor {
+		if int64(bal.Minor) < q.priceMinor-discount {
 			return nil, ErrInsufficient
 		}
 	}
@@ -327,16 +349,21 @@ func (s *Service) Create(ctx context.Context, a principal.Actor, idemKey string,
 		p, err := scanParcel(tx.QueryRow(ctx, `INSERT INTO parcels (code, pickup_code, delivery_code, customer_id, quote_id, state, size, payment_method,
 			pickup_lat, pickup_lng, pickup_address, pickup_contact_name, pickup_contact_phone,
 			dropoff_lat, dropoff_lng, dropoff_address, recipient_name, recipient_phone, note,
-			distance_m, duration_s, price_minor, commission_minor, currency, idempotency_key)
-			VALUES ($1,$2,$3,$4,$5,'requested',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) RETURNING `+parcelCols,
+			distance_m, duration_s, price_minor, commission_minor, currency, idempotency_key, discount_minor, coupon_code)
+			VALUES ($1,$2,$3,$4,$5,'requested',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26) RETURNING `+parcelCols,
 			newCode(), newDigits(), newDigits(), a.UserID, in.QuoteID, q.size, in.PaymentMethod,
 			q.pickup.Lat, q.pickup.Lng, q.pickupAddr, nullable(clip(in.PickupContactName, 80)), nullable(clip(in.PickupContactPhone, 20)),
 			q.dropoff.Lat, q.dropoff.Lng, q.dropoffAddr, in.RecipientName, in.RecipientPhone, nullable(clip(in.Note, 300)),
-			q.distanceM, q.durationS, q.priceMinor, Commission(q.priceMinor, q.commBP), q.currency, idemKey))
+			q.distanceM, q.durationS, q.priceMinor, Commission(q.priceMinor, q.commBP), q.currency, idemKey, discount, nullable(coupon)))
 		if err != nil {
 			return err
 		}
 		out = p
+		if coupon != "" {
+			if err := s.promos.Redeem(ctx, tx, coupon, a.UserID, "parcel:"+p.ID.String(), discount); err != nil {
+				return err
+			}
+		}
 		if err := parcelEvent(ctx, tx, p.ID, nil, StateRequested, "customer", &a.UserID, nil); err != nil {
 			return err
 		}
@@ -451,6 +478,7 @@ func (s *Service) settle(ctx context.Context, p *Parcel) error {
 	}
 	price := money.Minor(p.PriceMinor)
 	commission := money.Minor(p.CommissionMinor)
+	discount := money.Minor(p.DiscountMinor)
 	courierWallet := "driver:" + p.CourierID.String() + ":wallet"
 	cid := *p.CourierID
 	if err := s.ledger.EnsureAccount(ctx, courierWallet, "driver", &cid, "liability", p.Currency); err != nil {
@@ -465,21 +493,31 @@ func (s *Service) settle(ctx context.Context, p *Parcel) error {
 		if err != nil {
 			return err
 		}
-		if bal.Minor < price {
+		if bal.Minor < price-discount {
 			return s.setPaymentStatus(ctx, p, "failed")
 		}
 		status = "paid"
 		postings := []ledger.Posting{
-			{AccountCode: ledger.UserWalletCode(p.CustomerID), Debit: price},
+			{AccountCode: ledger.UserWalletCode(p.CustomerID), Debit: price - discount},
 			{AccountCode: courierWallet, Credit: price - commission},
 		}
 		if commission > 0 {
 			postings = append(postings, ledger.Posting{AccountCode: "krejt:commission", Credit: commission})
 		}
+		if discount > 0 {
+			postings = append(postings, ledger.Posting{AccountCode: promos.MarketingAccount, Debit: discount})
+		}
 		tx = ledger.Transaction{Kind: "parcel_fare", Reference: ref, IdempotencyKey: idem, Currency: p.Currency, Postings: postings}
-	} else if commission > 0 {
-		tx = ledger.Transaction{Kind: "parcel_cash_commission", Reference: ref, IdempotencyKey: idem, Currency: p.Currency,
-			Postings: []ledger.Posting{{AccountCode: courierWallet, Debit: commission}, {AccountCode: "krejt:commission", Credit: commission}}}
+	} else if commission > 0 || discount > 0 {
+		// Cash: korrieri mblodhi çmimin minus zbritjen; komisionin ia detyrohet platformës, zbritjen ia mbulon ajo.
+		postings := []ledger.Posting{}
+		if commission > 0 {
+			postings = append(postings, ledger.Posting{AccountCode: courierWallet, Debit: commission}, ledger.Posting{AccountCode: "krejt:commission", Credit: commission})
+		}
+		if discount > 0 {
+			postings = append(postings, ledger.Posting{AccountCode: courierWallet, Credit: discount}, ledger.Posting{AccountCode: promos.MarketingAccount, Debit: discount})
+		}
+		tx = ledger.Transaction{Kind: "parcel_cash_commission", Reference: ref, IdempotencyKey: idem, Currency: p.Currency, Postings: postings}
 	}
 	if len(tx.Postings) > 0 {
 		if _, err := s.ledger.Post(ctx, tx); err != nil {

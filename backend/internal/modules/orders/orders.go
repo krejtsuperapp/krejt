@@ -19,6 +19,7 @@ import (
 	"krejt.app/backend/internal/domain/money"
 	"krejt.app/backend/internal/modules/catalog"
 	"krejt.app/backend/internal/modules/ledger"
+	"krejt.app/backend/internal/modules/promos"
 	"krejt.app/backend/internal/platform/events"
 	"krejt.app/backend/internal/platform/httpx"
 	"krejt.app/backend/internal/platform/principal"
@@ -50,6 +51,7 @@ type Catalog interface {
 type Service struct {
 	pool    *pgxpool.Pool
 	ledger  *ledger.Service
+	promos  *promos.Service
 	catalog Catalog
 	members Merchants
 	loc     Location
@@ -58,6 +60,12 @@ type Service struct {
 
 func New(pool *pgxpool.Pool, led *ledger.Service, cat Catalog, m Merchants) *Service {
 	return &Service{pool: pool, ledger: led, catalog: cat, members: m, now: time.Now}
+}
+
+// WithPromos — kuponat te checkout-i; pa të, kodi i kuponit refuzohet.
+func (s *Service) WithPromos(p *promos.Service) *Service {
+	s.promos = p
+	return s
 }
 
 type Item struct {
@@ -150,6 +158,9 @@ type CheckoutInput struct {
 	Address       *geo.Point          `json:"address"`
 	Instructions  string              `json:"instructions"`
 	Note          string              `json:"note"`
+	CouponCode    string              `json:"coupon_code"`
+
+	customerID uuid.UUID // vendoset nga handler-i; kuponat kanë kufij për përdorues
 }
 
 // Quote — përmbledhja e shportës pa krijuar porosi (ekrani i checkout-it).
@@ -158,6 +169,8 @@ type Quote struct {
 	Items            []catalog.PricedLine `json:"items"`
 	ItemsTotalMinor  int64                `json:"items_total_minor"`
 	DeliveryFeeMinor int64                `json:"delivery_fee_minor"`
+	DiscountMinor    int64                `json:"discount_minor"`
+	CouponCode       string               `json:"coupon_code,omitempty"`
 	TotalMinor       int64                `json:"total_minor"`
 	MinOrderMinor    int64                `json:"min_order_minor"`
 	Currency         string               `json:"currency"`
@@ -231,12 +244,24 @@ func (s *Service) price(ctx context.Context, in *CheckoutInput) (*Quote, *mercha
 	if fulfillment != "pickup" {
 		q.DeliveryFeeMinor = m.deliveryFee
 	}
-	q.TotalMinor = q.ItemsTotalMinor + q.DeliveryFeeMinor
+	if code := promos.Normalize(in.CouponCode); code != "" {
+		if s.promos == nil {
+			return nil, nil, promos.ErrInvalid
+		}
+		applied, err := s.promos.Apply(ctx, code, in.customerID, promos.ScopeFood, q.ItemsTotalMinor)
+		if err != nil {
+			return nil, nil, err
+		}
+		q.DiscountMinor = applied.DiscountMinor
+		q.CouponCode = applied.Code
+	}
+	q.TotalMinor = q.ItemsTotalMinor + q.DeliveryFeeMinor - q.DiscountMinor
 	return q, m, nil
 }
 
-// Quote — çmimi i shportës (pa krijuar porosi).
-func (s *Service) Quote(ctx context.Context, in CheckoutInput) (*Quote, error) {
+// Quote — çmimi i shportës (pa krijuar porosi). Përdoruesi duhet për kufijtë e kuponit.
+func (s *Service) Quote(ctx context.Context, customerID uuid.UUID, in CheckoutInput) (*Quote, error) {
+	in.customerID = customerID
 	q, _, err := s.price(ctx, &in)
 	return q, err
 }
@@ -244,6 +269,7 @@ func (s *Service) Quote(ctx context.Context, in CheckoutInput) (*Quote, error) {
 // Create — checkout: çmimi rillogaritet në server, wallet-i kontrollohet, porosia krijohet 'pending_merchant'.
 func (s *Service) Create(ctx context.Context, a principal.Actor, idemKey string, in CheckoutInput) (*Order, error) {
 	idemKey = strings.TrimSpace(idemKey)
+	in.customerID = a.UserID
 	fields := map[string]string{}
 	if idemKey == "" || len(idemKey) > 100 {
 		fields["idempotency_key"] = "required"
@@ -314,10 +340,12 @@ func (s *Service) Create(ctx context.Context, a principal.Actor, idemKey string,
 		for attempt := 0; attempt < 5; attempt++ {
 			o, err = scanOrder(tx.QueryRow(ctx, `
 				INSERT INTO orders (code, customer_id, merchant_id, state, fulfillment, payment_method, items_total_minor, delivery_fee_minor,
-				  total_minor, currency, address_line1, address_lat, address_lng, address_instructions, note, prep_time_min, ready_at_estimate, idempotency_key)
-				VALUES ($1,$2,$3,'pending_merchant',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING `+orderCols,
+				  total_minor, currency, address_line1, address_lat, address_lng, address_instructions, note, prep_time_min, ready_at_estimate, idempotency_key,
+				  discount_minor, coupon_code)
+				VALUES ($1,$2,$3,'pending_merchant',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING `+orderCols,
 				newCode(), a.UserID, in.MerchantID, fulfillment, in.PaymentMethod, q.ItemsTotalMinor, q.DeliveryFeeMinor, q.TotalMinor, q.Currency,
-				nullable(in.AddressLine1), lat, lng, nullable(in.Instructions), nullable(in.Note), m.prepTime, ready, idemKey))
+				nullable(in.AddressLine1), lat, lng, nullable(in.Instructions), nullable(in.Note), m.prepTime, ready, idemKey,
+				q.DiscountMinor, nullable(q.CouponCode)))
 			if err == nil {
 				break
 			}
@@ -329,6 +357,11 @@ func (s *Service) Create(ctx context.Context, a principal.Actor, idemKey string,
 		}
 		if err != nil {
 			return err
+		}
+		if q.CouponCode != "" {
+			if err := s.promos.Redeem(ctx, tx, q.CouponCode, a.UserID, "order:"+o.ID.String(), q.DiscountMinor); err != nil {
+				return err
+			}
 		}
 		for _, line := range q.Items {
 			if _, err := tx.Exec(ctx, `INSERT INTO order_items (order_id, product_id, name, options, option_ids, unit_minor, quantity, total_minor)
@@ -599,16 +632,27 @@ func (s *Service) settle(ctx context.Context, o *Order) error {
 		if o.DeliveryFeeMinor > 0 {
 			postings = append(postings, ledger.Posting{AccountCode: "krejt:delivery_fees", Credit: money.Minor(o.DeliveryFeeMinor)})
 		}
+		if o.DiscountMinor > 0 {
+			postings = append(postings, ledger.Posting{AccountCode: promos.MarketingAccount, Debit: money.Minor(o.DiscountMinor)})
+		}
 		tx = ledger.Transaction{Kind: "order_payment", Reference: ref, IdempotencyKey: idem, Currency: o.Currency, Postings: postings}
 	} else {
 		owed := commission + o.DeliveryFeeMinor
-		if owed > 0 {
-			postings := []ledger.Posting{{AccountCode: merchantWallet, Debit: money.Minor(owed)}}
+		if owed > 0 || o.DiscountMinor > 0 {
+			postings := []ledger.Posting{}
+			if owed > 0 {
+				postings = append(postings, ledger.Posting{AccountCode: merchantWallet, Debit: money.Minor(owed)})
+			}
 			if commission > 0 {
 				postings = append(postings, ledger.Posting{AccountCode: "krejt:commission", Credit: money.Minor(commission)})
 			}
 			if o.DeliveryFeeMinor > 0 {
 				postings = append(postings, ledger.Posting{AccountCode: "krejt:delivery_fees", Credit: money.Minor(o.DeliveryFeeMinor)})
+			}
+			// Klienti pagoi cash më pak për shkak të kuponit; diferencën partnerit ia mbulon platforma.
+			if o.DiscountMinor > 0 {
+				postings = append(postings, ledger.Posting{AccountCode: merchantWallet, Credit: money.Minor(o.DiscountMinor)},
+					ledger.Posting{AccountCode: promos.MarketingAccount, Debit: money.Minor(o.DiscountMinor)})
 			}
 			tx = ledger.Transaction{Kind: "order_cash_fees", Reference: ref, IdempotencyKey: idem, Currency: o.Currency, Postings: postings}
 		}

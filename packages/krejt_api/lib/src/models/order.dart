@@ -273,6 +273,8 @@ class OrderQuote {
     required this.items,
     required this.itemsTotalMinor,
     required this.deliveryFeeMinor,
+    this.discountMinor = 0,
+    this.couponCode,
     required this.totalMinor,
     required this.minOrderMinor,
     required this.currency,
@@ -283,6 +285,8 @@ class OrderQuote {
   final List<OrderQuoteLine> items;
   final int itemsTotalMinor;
   final int deliveryFeeMinor;
+  final int discountMinor;
+  final String? couponCode;
   final int totalMinor;
   final int minOrderMinor;
   final String currency;
@@ -303,6 +307,8 @@ class OrderQuote {
         .toList(),
     itemsTotalMinor: (j['items_total_minor'] as num?)?.toInt() ?? 0,
     deliveryFeeMinor: (j['delivery_fee_minor'] as num?)?.toInt() ?? 0,
+    discountMinor: (j['discount_minor'] as num?)?.toInt() ?? 0,
+    couponCode: j['coupon_code']?.toString(),
     totalMinor: (j['total_minor'] as num?)?.toInt() ?? 0,
     minOrderMinor: (j['min_order_minor'] as num?)?.toInt() ?? 0,
     currency: (j['currency'] ?? 'EUR').toString(),

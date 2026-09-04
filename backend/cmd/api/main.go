@@ -32,6 +32,7 @@ import (
 	"krejt.app/backend/internal/modules/payouts"
 	"krejt.app/backend/internal/modules/places"
 	"krejt.app/backend/internal/modules/pricing"
+	"krejt.app/backend/internal/modules/promos"
 	"krejt.app/backend/internal/modules/realtime"
 	"krejt.app/backend/internal/modules/reviews"
 	"krejt.app/backend/internal/modules/rides"
@@ -257,11 +258,13 @@ func main() {
 	// duhet ta zbrazin pikërisht atë që shërben GET /menu.
 	catalogSvc := catalog.New(pool, merchantsSvc)
 	catalogSvc.Routes(mux, authSvc.OptionalAuth(), requireAuth)
-	orders.New(pool, ledgerSvc, catalogSvc, merchantsSvc).WithLocation(locSvc).Routes(mux, requireAuth, requireDriver)
+	promosSvc := promos.New(pool)
+	promosSvc.Routes(mux, requireAuth, requireOps)
+	orders.New(pool, ledgerSvc, catalogSvc, merchantsSvc).WithLocation(locSvc).WithPromos(promosSvc).Routes(mux, requireAuth, requireDriver)
 	mediaSvc := media.New(pool, mediaStore, merchantsSvc).WithMenuInvalidator(catalogSvc)
 	mediaSvc.Routes(mux, requireAuth)
 	places.New(mapsProvider, rdb).Routes(mux, requireAuth)
-	parcels.New(pool, ledgerSvc, mapsProvider).WithLocation(locSvc).Routes(mux, requireAuth, requireDriver)
+	parcels.New(pool, ledgerSvc, mapsProvider).WithLocation(locSvc).WithPromos(promosSvc).Routes(mux, requireAuth, requireDriver)
 	admin.New(pool, rdb, ledgerSvc).Routes(mux, requireStaff, requireAdmin)
 	if fs, ok := store.(*storage.DevFS); ok {
 		documents.DevRoutes(mux, fs) // vetëm development (devfs)
