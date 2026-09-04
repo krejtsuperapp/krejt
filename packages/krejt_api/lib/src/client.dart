@@ -154,6 +154,12 @@ class KrejtApi {
 
   // ---------------------------------------------------------------- transport
 
+  /// Faqja e listave me kohë: i njëjti kursor kudo, që asnjë ekran të mos e shpikë vetë.
+  Map<String, dynamic> _page(int limit, DateTime? before) => {
+    'limit': limit,
+    'before': ?before?.toUtc().toIso8601String(),
+  };
+
   Future<Map<String, dynamic>> _get(
     String path, {
     Map<String, dynamic>? query,
@@ -406,8 +412,8 @@ class KrejtApi {
   Future<ServiceRequest> serviceRequest(String id) async =>
       ServiceRequest.fromJson(await _get('/api/v1/services/requests/$id'));
 
-  Future<List<ServiceRequest>> serviceRequests({int limit = 20}) async {
-    final rows = await _getList('/api/v1/services/requests', 'items', query: {'limit': limit});
+  Future<List<ServiceRequest>> serviceRequests({int limit = 20, DateTime? before}) async {
+    final rows = await _getList('/api/v1/services/requests', 'items', query: _page(limit, before));
     return rows.map(ServiceRequest.fromJson).toList();
   }
 
@@ -556,8 +562,8 @@ class KrejtApi {
   /// Pakoja aktive e klientit; null kur nuk ka.
   Future<Parcel?> activeParcel() async => _parcelOrNull(await _get('/api/v1/parcels/active'));
 
-  Future<List<Parcel>> parcelHistory({int limit = 20}) async {
-    final rows = await _getList('/api/v1/parcels', 'items', query: {'limit': limit});
+  Future<List<Parcel>> parcelHistory({int limit = 20, DateTime? before}) async {
+    final rows = await _getList('/api/v1/parcels', 'items', query: _page(limit, before));
     return rows.map(Parcel.fromJson).toList();
   }
 
@@ -1039,8 +1045,8 @@ class KrejtApi {
 
   Future<Order> order(String id) async => Order.fromJson(await _get('/api/v1/orders/$id'));
 
-  Future<List<Order>> orderHistory({int limit = 20}) async {
-    final rows = await _getList('/api/v1/orders', 'items', query: {'limit': limit});
+  Future<List<Order>> orderHistory({int limit = 20, DateTime? before}) async {
+    final rows = await _getList('/api/v1/orders', 'items', query: _page(limit, before));
     return rows.map(Order.fromJson).toList();
   }
 

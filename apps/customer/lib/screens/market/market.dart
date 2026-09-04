@@ -197,8 +197,12 @@ class _MarketScreenState extends State<MarketScreen> {
     if (_items.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(K.s5),
+        // Gjendja bosh e emërton kategorinë: 'asnjë dyqan' kur je te Farmacia e lë përdoruesin
+        // të pyesë nëse kërkoi gabim, ndërsa problemi është vetëm te ajo kategori.
         child: KEmpty(
-          title: context.t('market.empty'),
+          title: context.t('market.empty.in', {
+            'category': context.t(_categories.firstWhere((c) => c.type == _type).labelKey),
+          }),
           message: context.t('market.empty.hint'),
           icon: Icons.storefront_outlined,
         ),

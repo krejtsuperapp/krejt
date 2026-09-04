@@ -40,6 +40,11 @@ class WalletScreen extends StatefulWidget {
 class _WalletScreenState extends State<WalletScreen> {
   WalletOverview? _overview;
   List<WalletTransaction> _transactions = const [];
+
+  /// A mbeti histori më e vjetër. Klienti e mbështet kursorin prej fillimi; ekrani nuk e përdorte,
+  /// ndaj historia ndalej te tridhjetë pa asnjë shenjë se kishte më shumë.
+  bool _more = true;
+  bool _loadingMore = false;
   ApiError? _error;
   bool _loading = true;
 
@@ -58,6 +63,7 @@ class _WalletScreenState extends State<WalletScreen> {
       setState(() {
         _overview = results[0] as WalletOverview;
         _transactions = results[1] as List<WalletTransaction>;
+        _more = _transactions.length >= 30;
         _error = null;
         _loading = false;
       });
@@ -67,6 +73,26 @@ class _WalletScreenState extends State<WalletScreen> {
         _error = e;
         _loading = false;
       });
+    }
+  }
+
+  /// Faqja tjetër e historisë, nga rreshti më i vjetër që shihet.
+  Future<void> _loadMore() async {
+    if (_loadingMore || _transactions.isEmpty) return;
+    setState(() => _loadingMore = true);
+    try {
+      final older = await context.read<AppState>().api.walletTransactions(
+        limit: 30,
+        before: _transactions.last.createdAt,
+      );
+      if (!mounted) return;
+      setState(() {
+        _transactions = [..._transactions, ...older];
+        _more = older.length >= 30;
+        _loadingMore = false;
+      });
+    } on ApiError {
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
@@ -166,6 +192,13 @@ class _WalletScreenState extends State<WalletScreen> {
                   padding: const EdgeInsets.only(bottom: K.s2),
                   child: _TransactionRow(tx: t, locale: locale),
                 ),
+            if (_more && _transactions.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: K.s3),
+                child: _loadingMore
+                    ? const KSkeleton(height: 44, count: 1)
+                    : KOutlineButton(label: context.t('common.more'), onPressed: _loadMore),
+              ),
           ],
         ),
       ),

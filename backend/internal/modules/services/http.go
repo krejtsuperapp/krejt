@@ -3,6 +3,7 @@ package services
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -70,8 +71,17 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, a princip
 }
 
 func (s *Service) handleHistory(w http.ResponseWriter, r *http.Request, a principal.Actor) {
+	var before *time.Time
+	if v := r.URL.Query().Get("before"); v != "" {
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			httpx.WriteError(w, r, httpx.ErrValidation.WithFields(map[string]string{"before": "invalid"}))
+			return
+		}
+		before = &t
+	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	items, err := s.History(r.Context(), a, limit)
+	items, err := s.History(r.Context(), a, before, limit)
 	respond(w, r, map[string]any{"items": items}, err)
 }
 
