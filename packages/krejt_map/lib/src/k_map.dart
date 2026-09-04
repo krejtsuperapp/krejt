@@ -22,6 +22,8 @@ class KMap extends StatelessWidget {
     this.rounded = true,
     this.schematicCaption,
     this.semanticsLabel,
+    this.showUserLocation = false,
+    this.recenterTooltip,
   });
 
   final List<MapMarker> markers;
@@ -48,6 +50,14 @@ class KMap extends StatelessWidget {
 
   final String? semanticsLabel;
 
+  /// Pika e përdoruesit mbi hartë. E fikur si parazgjedhje: ndezja e saj i kërkon sistemit lejen
+  /// e vendndodhjes, dhe ajo duhet kërkuar kur shërbimi e do vërtet, jo sa herë shfaqet një hartë.
+  final bool showUserLocation;
+
+  /// Teksti i butonit që rikthen kornizën. Vjen nga ekrani, sepse harta nuk i njeh gjuhët.
+  /// Null = butoni nuk shfaqet (kartat e vogla, ku s'ka çfarë të rikthehet).
+  final String? recenterTooltip;
+
   @override
   Widget build(BuildContext context) {
     final cfg = config ?? MapConfig.fromEnv();
@@ -59,6 +69,8 @@ class KMap extends StatelessWidget {
             padding: padding,
             interactive: interactive,
             schematicCaption: schematicCaption,
+            showUserLocation: showUserLocation,
+            recenterTooltip: recenterTooltip,
           )
         : SchematicMap(markers: markers, path: path, caption: schematicCaption);
     return Semantics(
