@@ -12,23 +12,20 @@ import 'menu.dart';
 
 const merchantTypes = ['restaurant', 'store', 'grocery', 'pharmacy'];
 
-/// Ushqimi dhe Market-i janë i njëjti ekran me dy fytyra: tipat që shfaqen dhe titulli.
-enum DiscoverMode { food, market }
-
-const _typesByMode = {
-  DiscoverMode.food: ['restaurant', 'store', 'grocery', 'pharmacy'],
-  DiscoverMode.market: ['grocery', 'store', 'pharmacy'],
-};
-
 String merchantTypeKey(String type) =>
     'food.type.${merchantTypes.contains(type) ? type : 'restaurant'}';
 
-/// Zbulimi: çka është hapur tani afër teje. Vendet e mbyllura shfaqen poshtë dhe të shuara,
-/// jo të fshehura — që përdoruesi ta dijë se ekzistojnë dhe kur kthehen (§21).
+/// Ushqimi: restorantet e hapura tani afër teje. Ushqimoret, farmacitë dhe dyqanet i takojnë
+/// Marketit — një ekran që tregon të dyja do t'i shërbente keq secilës.
+///
+/// Filtri është kuzhina, jo tipi i tregtarit: kur të gjitha rezultatet janë restorante, "kuzhinë
+/// shqiptare" apo "pica" është ajo që njeriu vërtet kërkon. Lista e kuzhinave nuk vjen nga një
+/// listë e fiksuar në kod, por nga vetë vendet afër — kështu tregon çka ekziston, jo çka shpresojmë.
+///
+/// Vendet e mbyllura shfaqen poshtë dhe të shuara, jo të fshehura — që përdoruesi ta dijë se
+/// ekzistojnë dhe kur kthehen (§21).
 class DiscoverScreen extends StatefulWidget {
-  const DiscoverScreen({super.key, this.mode = DiscoverMode.food});
-
-  final DiscoverMode mode;
+  const DiscoverScreen({super.key});
 
   @override
   State<DiscoverScreen> createState() => _DiscoverScreenState();
@@ -40,20 +37,19 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   final _search = TextEditingController();
 
   List<Merchant> _items = const [];
+
+  /// Kuzhinat e para nga ngarkimi pa filtër; pa këtë, zgjedhja e njërës do t'i zhdukte të tjerat.
+  List<String> _cuisines = const [];
   LatLng? _at;
-  String? _type;
+  String? _cuisine;
   bool _loading = true;
   ApiError? _error;
   LocationProblem? _locationProblem;
   Timer? _debounce;
 
-  List<String> get _types => _typesByMode[widget.mode]!;
-
   @override
   void initState() {
     super.initState();
-    // Market-i nis me ushqimoret; restorantet nuk i përkasin këtij ekrani.
-    if (widget.mode == DiscoverMode.market) _type = 'grocery';
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
@@ -84,12 +80,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       final items = await context.read<AppState>().api.merchants(
         lat: at!.lat,
         lng: at.lng,
-        type: _type,
+        type: 'restaurant',
+        cuisine: _cuisine,
         query: _search.text.trim(),
       );
       if (!mounted) return;
       setState(() {
         _items = items;
+        if (_cuisine == null && _search.text.trim().isEmpty) {
+          _cuisines = {for (final m in items) ...m.cuisines}.toList()..sort();
+        }
         _error = null;
         _locationProblem = null;
         _loading = false;
@@ -116,11 +116,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
     return Scaffold(
       backgroundColor: K.bg,
-      appBar: AppBar(
-        title: Text(
-          context.t(widget.mode == DiscoverMode.market ? 'home.services.market' : 'food.title'),
-        ),
-      ),
+      appBar: AppBar(title: Text(context.t('food.title'))),
       body: SafeArea(
         child: Column(
           children: [
@@ -140,17 +136,14 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: K.s5),
                 children: [
-                  for (final type in _types)
+                  for (final cuisine in _cuisines)
                     Padding(
                       padding: const EdgeInsets.only(right: K.s2),
                       child: ChoiceChip(
-                        label: Text(context.t(merchantTypeKey(type))),
-                        selected: _type == type,
+                        label: Text(cuisine),
+                        selected: _cuisine == cuisine,
                         onSelected: (on) {
-                          // Market-i mban gjithmonë një tip: pa të do të shfaqeshin edhe restorantet.
-                          setState(
-                            () => _type = (on || widget.mode == DiscoverMode.market) ? type : null,
-                          );
+                          setState(() => _cuisine = on ? cuisine : null);
                           _load();
                         },
                       ),
