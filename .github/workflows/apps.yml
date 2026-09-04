@@ -202,3 +202,99 @@ jobs:
           testers: ${{ vars.FIREBASE_TESTERS }}
           file: apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           releaseNotes: ${{ github.event.head_commit.message }}
+
+  # iOS: përpilim i vërtetë në macOS pas çdo bashkimi në main (pa nënshkrim), që një prishje e
+  # iOS-it të dalë në CI e jo në telefon. Kur të ekzistojnë llogaria Apple Developer dhe çelësi
+  # App Store Connect (sekretet APPSTORE_*), i njëjti hap nënshkruan dhe ngarkon në TestFlight.
+  # Minutat e macOS-it kushtojnë 10× ato të Linux-it: vetëm në main, jo në çdo PR.
+  ios:
+    name: iOS (${{ matrix.app }})
+    needs: analyze
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [customer, driver]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # SDK-ja e Mapbox-it për iOS shkarkohet me token-in e shkarkimit përmes ~/.netrc.
+      - name: token-i i shkarkimit të Mapbox-it (netrc)
+        env:
+          MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$MAPBOX_DOWNLOADS_TOKEN" ]; then echo "MAPBOX_DOWNLOADS_TOKEN mungon në secrets"; exit 1; fi
+          printf 'machine api.mapbox.com\nlogin mapbox\npassword %s\n' "$MAPBOX_DOWNLOADS_TOKEN" > ~/.netrc
+          chmod 600 ~/.netrc
+
+      - name: pub get
+        run: |
+          set -euo pipefail
+          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push apps/${{ matrix.app }}; do
+            (cd "$d" && flutter pub get)
+          done
+
+      - name: a ekziston çelësi i App Store Connect?
+        id: asc
+        env:
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -n "$PRIVATE_KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Pa çelës App Store Connect: vetëm përpilim, pa TestFlight."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: build ios (pa nënshkrim)
+        working-directory: apps/${{ matrix.app }}
+        env:
+          APP_ID: ${{ matrix.app == 'customer' && vars.FIREBASE_APP_ID_CUSTOMER || vars.FIREBASE_APP_ID_DRIVER }}
+        run: |
+          set -euo pipefail
+          version="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)"
+          flutter build ios --release --no-codesign \
+            --dart-define=KREJT_API_BASE_URL=${{ vars.KREJT_API_BASE_URL }} \
+            --dart-define=KREJT_APP_VERSION="$version" \
+            --dart-define=KREJT_MAPBOX_TOKEN=${{ secrets.MAPBOX_PUBLIC_TOKEN }} \
+            --dart-define=KREJT_FIREBASE_API_KEY=${{ vars.KREJT_FIREBASE_API_KEY }} \
+            --dart-define=KREJT_FIREBASE_APP_ID="$APP_ID" \
+            --dart-define=KREJT_FIREBASE_SENDER_ID=${{ vars.KREJT_FIREBASE_SENDER_ID }} \
+            --dart-define=KREJT_FIREBASE_PROJECT_ID=${{ vars.KREJT_FIREBASE_PROJECT_ID }}
+
+      # TestFlight: vetëm me llogari Apple Developer. Nënshkrimi automatik (Xcode) me çelësin e
+      # App Store Connect API; ekipi (Team ID) vjen nga vars.APPLE_TEAM_ID.
+      - name: ipa + TestFlight
+        if: steps.asc.outputs.ready == 'true'
+        working-directory: apps/${{ matrix.app }}
+        env:
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s' "$PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
+          cat > ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          EOF
+          flutter build ipa --release --export-options-plist=ExportOptions.plist
+          xcrun altool --upload-app --type ios --file build/ios/ipa/*.ipa \
+            --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID"
