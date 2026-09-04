@@ -86,6 +86,9 @@ module "ecs" {
   sentry_enabled           = var.sentry_enabled
   otel_enabled             = var.otel_enabled
   bootstrap_admin_phone    = var.bootstrap_admin_phone
+  legal_entity             = var.legal_entity
+  legal_address            = var.legal_address
+  legal_email              = var.legal_email
   documents_required       = var.documents_required
   dev_test_phones          = var.dev_test_phones
   dev_test_otp             = var.dev_test_otp

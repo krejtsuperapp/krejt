@@ -383,6 +383,9 @@ locals {
     # Numri që merr SUPER_ADMIN në nisje, dhe vetëm nëse sistemi ende nuk ka asnjë. Pa këtë,
     # administratori i parë nuk lind kurrë dhe paneli mbetet i pahapshëm.
     { name = "BOOTSTRAP_ADMIN_PHONE", value = var.bootstrap_admin_phone },
+    { name = "LEGAL_ENTITY", value = var.legal_entity },
+    { name = "LEGAL_ADDRESS", value = var.legal_address },
+    { name = "LEGAL_EMAIL", value = var.legal_email },
     # Vetëm dev: aprovimi i shoferit pa dokumente. Serveri e refuzon vlerën jashtë development.
     { name = "DOCUMENTS_REQUIRED", value = var.documents_required ? "true" : "false" },
     # Vetëm dev: numra prove me kod fiks, pa SMS. Serveri refuzon të niset me to jashtë development.

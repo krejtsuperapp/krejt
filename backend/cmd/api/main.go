@@ -22,6 +22,7 @@ import (
 	"krejt.app/backend/internal/modules/drivers"
 	"krejt.app/backend/internal/modules/fraud"
 	"krejt.app/backend/internal/modules/ledger"
+	"krejt.app/backend/internal/modules/legal"
 	"krejt.app/backend/internal/modules/location"
 	"krejt.app/backend/internal/modules/media"
 	"krejt.app/backend/internal/modules/merchants"
@@ -265,6 +266,9 @@ func main() {
 	mediaSvc := media.New(pool, mediaStore, merchantsSvc).WithMenuInvalidator(catalogSvc)
 	mediaSvc.Routes(mux, requireAuth)
 	places.New(mapsProvider, rdb).Routes(mux, requireAuth)
+	// Publike me qellim: dyqanet e aplikacioneve e hapin adresen pa llogari, dhe ekrani i hyrjes
+	// e lidh para se perdoruesi te kete sesion.
+	legal.New(legal.Operator{Entity: cfg.LegalEntity, Address: cfg.LegalAddress, Email: cfg.LegalEmail}).Routes(mux)
 	parcels.New(pool, ledgerSvc, mapsProvider).WithLocation(locSvc).WithPromos(promosSvc).Routes(mux, requireAuth, requireDriver)
 	servicesmod.New(pool, ledgerSvc).Routes(mux, requireAuth, requireOps)
 	admin.New(pool, rdb, ledgerSvc).Routes(mux, requireStaff, requireAdmin)

@@ -139,6 +139,9 @@ const Map<String, String> _sq = {
   'account.language': 'Gjuha',
   'account.support': 'Mbështetja',
   'account.legal': 'Kushtet dhe privatësia',
+  'legal.terms': 'Kushtet e përdorimit',
+  'legal.privacy': 'Politika e privatësisë',
+  'legal.updated': 'Redaktimi i {date}',
   'account.name': 'Emri',
   'account.email': 'Email',
 
@@ -643,6 +646,7 @@ const Map<String, String> _sq = {
 
   // gabimet nga serveri
   'errors.internal': 'Diçka shkoi keq. Provo përsëri.',
+  'errors.legal.unavailable': 'Dokumenti nuk mund të hapet tani. Provo më vonë.',
   'errors.offline': 'Nuk ka lidhje me internetin.',
   'errors.cancelled': 'Veprimi u ndërpre.',
   'errors.unauthorized': 'Sesioni skadoi. Kyçu përsëri.',
@@ -872,6 +876,9 @@ const Map<String, String> _en = {
   'account.language': 'Language',
   'account.support': 'Support',
   'account.legal': 'Terms and privacy',
+  'legal.terms': 'Terms of Use',
+  'legal.privacy': 'Privacy Policy',
+  'legal.updated': 'Version of {date}',
   'account.name': 'Name',
   'account.email': 'Email',
 
@@ -1371,6 +1378,7 @@ const Map<String, String> _en = {
   'courier.release.body': 'The order goes to another courier.',
 
   'errors.internal': 'Something went wrong. Please try again.',
+  'errors.legal.unavailable': 'This document cannot be opened right now. Try again later.',
   'errors.offline': 'No internet connection.',
   'errors.cancelled': 'The action was interrupted.',
   'errors.unauthorized': 'Your session expired. Sign in again.',
@@ -1600,6 +1608,9 @@ const Map<String, String> _de = {
   'account.language': 'Sprache',
   'account.support': 'Support',
   'account.legal': 'AGB und Datenschutz',
+  'legal.terms': 'Nutzungsbedingungen',
+  'legal.privacy': 'Datenschutzerklärung',
+  'legal.updated': 'Fassung vom {date}',
   'account.name': 'Name',
   'account.email': 'E-Mail',
 
@@ -2107,6 +2118,7 @@ const Map<String, String> _de = {
   'courier.release.body': 'Die Bestellung geht an einen anderen Kurier.',
 
   'errors.internal': 'Etwas ist schiefgelaufen. Bitte versuche es erneut.',
+  'errors.legal.unavailable': 'Dieses Dokument lässt sich gerade nicht öffnen. Versuch es später.',
   'errors.offline': 'Keine Internetverbindung.',
   'errors.cancelled': 'Die Aktion wurde abgebrochen.',
   'errors.unauthorized': 'Deine Sitzung ist abgelaufen. Melde dich erneut an.',

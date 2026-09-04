@@ -49,6 +49,27 @@ paths:
       summary: Versioni i shërbimit
       responses:
         "200": { description: OK, content: { application/json: { schema: { type: object, properties: { service: { type: string }, env: { type: string }, version: { type: string }, region: { type: string } } } } } }
+  /legal/{doc}:
+    get:
+      tags: [system]
+      security: []
+      summary: Kushtet ose Politika e privatësisë si faqe HTML (adresa publike për dyqanet e aplikacioneve)
+      parameters:
+        - { name: doc, in: path, required: true, schema: { type: string, enum: [terms, privacy] } }
+        - { name: lang, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+      responses: { "200": { description: OK, content: { text/html: { schema: { type: string } } } }, "404": { description: Dokument i panjohur }, "503": { description: Identiteti i operatorit nuk është konfiguruar } }
+  /api/v1/legal/{doc}:
+    get:
+      tags: [system]
+      security: []
+      summary: I njëjti dokument i strukturuar, për ekranin brenda aplikacionit
+      parameters:
+        - { name: doc, in: path, required: true, schema: { type: string, enum: [terms, privacy] } }
+        - { name: lang, in: query, required: false, schema: { $ref: "#/components/schemas/Locale" } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/LegalDocument" } } } }
+        "404": { $ref: "#/components/responses/Err" }
+        "503": { $ref: "#/components/responses/Err" }
   /api/v1/openapi.yaml:
     get: { tags: [system], security: [], summary: Ky specifikim (YAML), responses: { "200": { description: OK } } }
   /api/v1/config:
@@ -1130,6 +1151,20 @@ components:
         resolved_at: { type: [string, "null"], format: date-time }
         messages: { type: array, items: { $ref: "#/components/schemas/TicketMessage" } }
         context: { type: object, description: Vetëm për agjentët }
+    LegalDocument:
+      type: object
+      properties:
+        doc: { type: string, enum: [terms, privacy] }
+        lang: { $ref: "#/components/schemas/Locale" }
+        title: { type: string }
+        updated: { type: string, format: date }
+        sections:
+          type: array
+          items:
+            type: object
+            properties:
+              heading: { type: string }
+              paragraphs: { type: array, items: { type: string } }
     PublicConfig:
       type: object
       properties:

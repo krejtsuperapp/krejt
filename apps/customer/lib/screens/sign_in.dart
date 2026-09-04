@@ -7,6 +7,8 @@ import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
 import 'package:provider/provider.dart';
 
+import 'account/legal.dart';
+
 import '../state/app_state.dart';
 
 /// Kyçja me numër telefoni dhe kod njëpërdorimësh (§16). Aplikacioni nuk mban fjalëkalime
@@ -158,10 +160,28 @@ class _SignInScreenState extends State<SignInScreen> {
         onPressed: _busy ? null : _requestCode,
       ),
       const SizedBox(height: K.s4),
-      Text(
-        context.t('auth.terms'),
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 12, color: K.muted, height: 1.45),
+      Semantics(
+        button: true,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(K.rSm),
+          onTap: () =>
+              Navigator.of(context)
+                  .push(MaterialPageRoute<void>(builder: (_) => const LegalScreen())),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: K.s2),
+            child: Text(
+              context.t('auth.terms'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                color: K.textDim,
+                height: 1.45,
+                decoration: TextDecoration.underline,
+                decorationColor: K.line2,
+              ),
+            ),
+          ),
+        ),
       ),
     ],
   );

@@ -17,3 +17,4 @@ export 'src/models/order.dart';
 export 'src/models/parcel.dart';
 export 'src/models/promo.dart';
 export 'src/models/service.dart';
+export 'src/models/legal.dart';

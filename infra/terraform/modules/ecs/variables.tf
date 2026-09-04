@@ -204,6 +204,21 @@ variable "otlp_endpoint" {
 
 # Panelet (Next.js) pas ALB-së, të ndara sipas host-it: { admin = "admin.dev.krejt.app", partner = "…" }.
 # Bosh = mjedisi nuk i publikon panelet.
+# Identiteti i operatorit te Kushtet dhe Politika e privatësisë. Bosh jashtë prodhimit;
+# në prodhim serveri nuk niset pa to (shih config.validate).
+variable "legal_entity" {
+  type    = string
+  default = ""
+}
+variable "legal_address" {
+  type    = string
+  default = ""
+}
+variable "legal_email" {
+  type    = string
+  default = ""
+}
+
 variable "panel_hosts" {
   type    = map(string)
   default = {}
