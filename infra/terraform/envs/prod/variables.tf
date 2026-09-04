@@ -22,6 +22,11 @@ variable "media_bucket_name" {
   description = "Bucket-i i imazheve publike (lexohet përmes CloudFront-it). Emri është global në S3."
   type        = string
 }
+variable "media_cloudfront_enabled" {
+  description = "CloudFront përpara imazheve. false derisa AWS Support ta verifikojë llogarinë (refuzon krijimin)."
+  type        = bool
+  default     = false
+}
 
 variable "domain_name" {
   description = "Domeni i API-së për këtë mjedis. Bosh = certifikata nuk krijohet nga Terraform."

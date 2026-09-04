@@ -1,9 +1,18 @@
 import type { Metadata, Viewport } from 'next';
+import localFont from 'next/font/local';
 
 import { SessionProvider } from '@/components/session-provider';
 import { Shell } from '@/components/shell';
 
 import './globals.css';
+
+// Inter (SIL OFL), i paketuar: tableti i kuzhinës nuk varet nga rrjeti për fontin e markës.
+const inter = localFont({
+  src: './fonts/InterVariable.woff2',
+  variable: '--font-inter',
+  display: 'swap',
+  weight: '100 900',
+});
 
 export const metadata: Metadata = {
   title: 'KREJT — Partneri',
@@ -16,12 +25,12 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#070b18',
+  themeColor: '#0d0d0d',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="sq">
+    <html lang="sq" className={inter.variable}>
       <body>
         <SessionProvider>
           <Shell>{children}</Shell>

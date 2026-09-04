@@ -47,3 +47,6 @@ centrifugo_desired_count = 1
 # ky cilësim nuk bën më asgjë.
 bootstrap_admin_phone = "+38344123456"
 
+
+# Certifikata e paneleve u lëshua (ISSUED); lidhet me listener-in HTTPS.
+panel_cert_ready = true

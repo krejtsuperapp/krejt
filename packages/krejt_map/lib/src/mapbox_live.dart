@@ -32,11 +32,13 @@ class _MapboxLiveMapState extends State<MapboxLiveMap> {
   mb.CircleAnnotationManager? _circles;
   bool _failed = false;
 
+  // Marka: neoni për pikën e marrjes dhe vendet; dorëzimi blu dhe shoferi qelibar, që tri pikat
+  // të dallohen edhe mbi hartë të errët. Konturi i zi si sfondi i markës (#0D0D0D).
   static const _colors = {
-    MapMarkerKind.pickup: 0xFF6A3DFF,
-    MapMarkerKind.dropoff: 0xFF19C37D,
+    MapMarkerKind.pickup: 0xFF39FF14,
+    MapMarkerKind.dropoff: 0xFF2E90FA,
     MapMarkerKind.driver: 0xFFFFB020,
-    MapMarkerKind.place: 0xFF855EFF,
+    MapMarkerKind.place: 0xFF5CFF3D,
   };
 
   @override
@@ -72,9 +74,9 @@ class _MapboxLiveMapState extends State<MapboxLiveMap> {
         mb.CircleAnnotationOptions(
           geometry: mb.Point(coordinates: mb.Position(m.point.lng, m.point.lat)),
           circleRadius: 7,
-          circleColor: _colors[m.kind] ?? 0xFF6A3DFF,
+          circleColor: _colors[m.kind] ?? 0xFF39FF14,
           circleStrokeWidth: 2,
-          circleStrokeColor: 0xFF070B18,
+          circleStrokeColor: 0xFF0D0D0D,
         ),
     ]);
     await _frame();
