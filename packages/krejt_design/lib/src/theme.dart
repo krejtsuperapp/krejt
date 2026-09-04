@@ -8,12 +8,12 @@ ThemeData krejtTheme() {
   const scheme = ColorScheme.dark(
     primary: K.brand500,
     onPrimary: K.onBrand,
-    secondary: K.violet,
+    secondary: K.accent2,
     onSecondary: K.onBrand,
     surface: K.surface,
     onSurface: K.text,
     error: K.danger,
-    onError: K.onBrand,
+    onError: Color(0xFFFFFFFF),
     outline: K.line,
   );
 
@@ -21,6 +21,8 @@ ThemeData krejtTheme() {
     useMaterial3: true,
     brightness: Brightness.dark,
     colorScheme: scheme,
+    // Inter kudo: emri i familjes me prefiksin e paketës, që të vlejë edhe jashtë krejt_design.
+    fontFamily: K.themeFontFamily,
     scaffoldBackgroundColor: K.bg,
     canvasColor: K.bg,
     splashFactory: InkSparkle.splashFactory,

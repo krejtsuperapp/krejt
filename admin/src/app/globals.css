@@ -1,27 +1,30 @@
 /* Tokenët e markës, të njëjtët si te aplikacionet dhe te mockup-i. Paneli është i errët sepse
    përdoret gjithë ditën në një dhomë operacionesh, shpesh krahas një ekrani harte. */
 
+/* Identiteti zyrtar (04.09.2026): e zezë + jeshile neon + e bardhë + gri të errëta. Neoni është
+   theks (butona, gjendje aktive), kurrë sfond; mbi neon shkruhet me të zezë. Të njëjtat vlera
+   si te packages/krejt_design/lib/src/tokens.dart. */
 :root {
-  --brand-100: #241c4c;
-  --brand-200: #33266e;
-  --brand-400: #855eff;
-  --brand-500: #6a3dff;
-  --brand-600: #562fd6;
-  --violet: #c23dff;
-  --on-brand: #ffffff;
+  --brand-100: #123a0a;
+  --brand-200: #1b5a0f;
+  --brand-400: #5cff3d;
+  --brand-500: #39ff14;
+  --brand-600: #2ed60f;
+  --accent-2: #b8ff9e;
+  --on-brand: #0d0d0d;
 
-  --bg: #070b18;
-  --surface: #0f1526;
-  --surface-2: #141b30;
-  --surface-3: #1b2440;
-  --text: #f2f5ff;
-  --text-dim: #c3cbe4;
-  --muted: #8e9ab9;
-  --line: #212b47;
-  --line-2: #2c385a;
+  --bg: #0d0d0d;
+  --surface: #1a1a1a;
+  --surface-2: #222222;
+  --surface-3: #2e2e2e;
+  --text: #ffffff;
+  --text-dim: #d9d9d9;
+  --muted: #afafaf;
+  --line: #2e2e2e;
+  --line-2: #3d3d3d;
 
-  --ok: #12b76a;
-  --ok-bg: #0c2b1f;
+  --ok: #22c55e;
+  --ok-bg: #0f2a1a;
   --warn: #f79009;
   --warn-bg: #33240c;
   --danger: #f04438;
@@ -52,8 +55,9 @@ body {
 body {
   background: var(--bg);
   color: var(--text);
+  /* Inter (next/font/local te layout.tsx e vendos --font-inter); sistemi mbetet si rënie. */
   font:
-    14px/1.5 system-ui,
+    14px/1.5 var(--font-inter, system-ui),
     -apple-system,
     'Segoe UI',
     Roboto,
