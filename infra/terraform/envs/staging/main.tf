@@ -85,6 +85,8 @@ module "ecs" {
   app_secret_arns          = module.security.secret_arns
   public_base_url          = var.public_base_url
   maps_provider            = var.maps_provider
+  sentry_enabled           = var.sentry_enabled
+  otel_enabled             = var.otel_enabled
   bootstrap_admin_phone    = var.bootstrap_admin_phone
   documents_required       = var.documents_required
   dev_test_phones          = var.dev_test_phones

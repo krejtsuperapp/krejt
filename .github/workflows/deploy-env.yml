@@ -123,7 +123,7 @@ jobs:
             image="${{ steps.ecr.outputs.registry }}/${{ inputs.name }}/${svc}:${{ github.sha }}"
             aws ecs describe-task-definition --task-definition "${{ inputs.name }}-${svc}" --query taskDefinition > td.json
             jq --arg img "$image" --arg ver "${{ github.sha }}" '.containerDefinitions[0].image = $img
-              | (.containerDefinitions[0].environment // []) |= map(if .name == "KREJT_APP_VERSION" then .value = $ver else . end)
+              | (.containerDefinitions[0].environment // []) |= ((map(select(.name != "APP_VERSION"))) + [{name: "APP_VERSION", value: $ver}])
               | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' td.json > td-new.json
             arn=$(aws ecs register-task-definition --cli-input-json file://td-new.json --query 'taskDefinition.taskDefinitionArn' --output text)
             echo "$svc → $arn"

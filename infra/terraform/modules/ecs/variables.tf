@@ -183,6 +183,19 @@ variable "infobip_sender" {
   default     = "KREJT"
 }
 
+# Sentry dhe OTLP kanë sekrete pa ofrues: ndizen vetëm kur vlera është vendosur në Secrets Manager.
+variable "sentry_enabled" {
+  description = "A injektohet SENTRY_DSN te task-et (kërkon vlerë te krejt-<env>/sentry)."
+  type        = bool
+  default     = false
+}
+
+variable "otel_enabled" {
+  description = "A injektohet OTEL_EXPORTER_OTLP_HEADERS te task-et (kërkon vlerë te krejt-<env>/otel)."
+  type        = bool
+  default     = false
+}
+
 variable "otlp_endpoint" {
   description = "Endpoint-i OTLP i Grafana Cloud (bosh = pa eksport gjurmësh/metrikash)."
   type        = string

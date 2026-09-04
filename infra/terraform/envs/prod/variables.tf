@@ -161,3 +161,17 @@ variable "guardduty_enabled" {
   type        = bool
   default     = true
 }
+
+# Observabiliteti i jashtëm ndizet vetëm pasi vlera të jetë vendosur te Secrets Manager;
+# një sekret bosh e ndalon nisjen e task-it në ECS.
+variable "sentry_enabled" {
+  description = "A injektohet SENTRY_DSN te task-et."
+  type        = bool
+  default     = false
+}
+
+variable "otel_enabled" {
+  description = "A injektohet OTEL_EXPORTER_OTLP_HEADERS te task-et."
+  type        = bool
+  default     = false
+}
