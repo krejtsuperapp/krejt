@@ -98,6 +98,29 @@ type CreateInput struct {
 	Subject  string     `json:"subject"`
 	Body     string     `json:"body"`
 	RideID   *uuid.UUID `json:"ride_id"`
+	// Një tiketë flet për një gjë të vetme; jepet së shumti njëra prej këtyre.
+	OrderID   *uuid.UUID `json:"order_id"`
+	ParcelID  *uuid.UUID `json:"parcel_id"`
+	RequestID *uuid.UUID `json:"request_id"`
+}
+
+// subject — referenca e vetme e lejuar, e verifikuar se i takon vërtet këtij përdoruesi.
+// Pa verifikim, kushdo mund të lidhte tiketën e vet me porosinë e dikujt tjetër dhe agjenti do të
+// lexonte të dhëna që nuk i takojnë raportuesit.
+func (in CreateInput) subject() (col string, id *uuid.UUID, owns string, n int) {
+	if in.RideID != nil {
+		col, id, owns, n = "ride_id", in.RideID, "SELECT EXISTS (SELECT 1 FROM rides WHERE id = $1 AND (customer_id = $2 OR driver_id = $2))", n+1
+	}
+	if in.OrderID != nil {
+		col, id, owns, n = "order_id", in.OrderID, "SELECT EXISTS (SELECT 1 FROM orders WHERE id = $1 AND (customer_id = $2 OR courier_id = $2))", n+1
+	}
+	if in.ParcelID != nil {
+		col, id, owns, n = "parcel_id", in.ParcelID, "SELECT EXISTS (SELECT 1 FROM parcels WHERE id = $1 AND (customer_id = $2 OR courier_id = $2))", n+1
+	}
+	if in.RequestID != nil {
+		col, id, owns, n = "service_request_id", in.RequestID, "SELECT EXISTS (SELECT 1 FROM service_requests WHERE id = $1 AND (customer_id = $2 OR provider_id = $2))", n+1
+	}
+	return col, id, owns, n
 }
 
 func normText(s string, max int) string {
@@ -125,13 +148,17 @@ func (s *Service) Create(ctx context.Context, a principal.Actor, in CreateInput)
 	if len(fields) > 0 {
 		return nil, httpx.ErrValidation.WithFields(fields)
 	}
-	if in.RideID != nil {
+	col, subjectID, owns, refs := in.subject()
+	if refs > 1 {
+		return nil, httpx.ErrValidation.WithFields(map[string]string{"subject": "too_many"})
+	}
+	if subjectID != nil {
 		var ok bool
-		if err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM rides WHERE id = $1 AND (customer_id = $2 OR driver_id = $2))`, *in.RideID, a.UserID).Scan(&ok); err != nil {
+		if err := s.pool.QueryRow(ctx, owns, *subjectID, a.UserID).Scan(&ok); err != nil {
 			return nil, err
 		}
 		if !ok {
-			return nil, httpx.ErrValidation.WithFields(map[string]string{"ride_id": "not_yours"})
+			return nil, httpx.ErrValidation.WithFields(map[string]string{col: "not_yours"})
 		}
 	}
 	priority := "normal"
@@ -142,8 +169,13 @@ func (s *Service) Create(ctx context.Context, a principal.Actor, in CreateInput)
 	}
 	var out *Ticket
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		t, err := scanTicket(tx.QueryRow(ctx, `INSERT INTO support_tickets (user_id, category, subject, priority, ride_id)
-			VALUES ($1, $2, $3, $4, $5) RETURNING `+ticketCols, a.UserID, in.Category, in.Subject, priority, in.RideID))
+		// Kolona e referencës zgjidhet nga subjekti; pa referencë, tiketa mbetet e përgjithshme.
+		refCol, refVal := "ride_id", (*uuid.UUID)(nil)
+		if subjectID != nil {
+			refCol, refVal = col, subjectID
+		}
+		t, err := scanTicket(tx.QueryRow(ctx, `INSERT INTO support_tickets (user_id, category, subject, priority, `+refCol+`)
+			VALUES ($1, $2, $3, $4, $5) RETURNING `+ticketCols, a.UserID, in.Category, in.Subject, priority, refVal))
 		if err != nil {
 			return err
 		}

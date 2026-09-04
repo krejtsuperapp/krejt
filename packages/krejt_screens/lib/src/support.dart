@@ -7,9 +7,13 @@ import 'package:krejt_l10n/krejt_l10n.dart';
 /// Serveri e mbante këtë prej fillimi; aplikacioni thjesht nuk kishte se ku ta tregonte, ndaj një
 /// ankesë nuk kishte fare rrugë përveç telefonit.
 class SupportScreen extends StatefulWidget {
-  const SupportScreen({super.key, required this.api});
+  const SupportScreen({super.key, required this.api, this.about});
 
   final KrejtApi api;
+
+  /// Kur hapet nga ekrani i një porosie a pakoje, çështja e re nis e lidhur me të: pa referencë,
+  /// agjenti do të pyeste "për cilën porosi?" dhe biseda do të niste një hap prapa.
+  final TicketSubject? about;
 
   @override
   State<SupportScreen> createState() => _SupportScreenState();
@@ -55,8 +59,11 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   Future<void> _newTicket() async {
-    final created = await Navigator.of(context)
-        .push<String>(MaterialPageRoute<String>(builder: (_) => NewTicketScreen(api: widget.api)));
+    final created = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => NewTicketScreen(api: widget.api, about: widget.about),
+      ),
+    );
     if (!mounted) return;
     await _load();
     if (created != null && mounted) await _openTicket(created);
@@ -154,10 +161,29 @@ class _SupportScreenState extends State<SupportScreen> {
 }
 
 /// Një çështje e re. Kategoria dhe përshkrimi mjaftojnë; gjithçka tjetër e di serveri.
+/// Çfarë e shkaktoi çështjen. Vetëm njëra plotësohet.
+class TicketSubject {
+  const TicketSubject({this.category, this.orderId, this.parcelId, this.requestId});
+
+  /// Kategoria e paracaktuar te ekrani i çështjes së re; përdoruesi mund ta ndryshojë.
+  final String? category;
+  final String? orderId;
+  final String? parcelId;
+  final String? requestId;
+
+  TicketSubject copyWith({String? orderId, String? parcelId, String? requestId}) => TicketSubject(
+    category: category,
+    orderId: orderId ?? this.orderId,
+    parcelId: parcelId ?? this.parcelId,
+    requestId: requestId ?? this.requestId,
+  );
+}
+
 class NewTicketScreen extends StatefulWidget {
-  const NewTicketScreen({super.key, required this.api});
+  const NewTicketScreen({super.key, required this.api, this.about});
 
   final KrejtApi api;
+  final TicketSubject? about;
 
   @override
   State<NewTicketScreen> createState() => _NewTicketScreenState();
@@ -166,7 +192,7 @@ class NewTicketScreen extends StatefulWidget {
 class _NewTicketScreenState extends State<NewTicketScreen> {
   final _subject = TextEditingController();
   final _body = TextEditingController();
-  String _category = supportCategories.first;
+  late String _category = widget.about?.category ?? supportCategories.first;
   String? _failure;
   bool _busy = false;
 
@@ -187,6 +213,9 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
         category: _category,
         subject: _subject.text.trim(),
         body: _body.text.trim(),
+        orderId: widget.about?.orderId,
+        parcelId: widget.about?.parcelId,
+        requestId: widget.about?.requestId,
       );
       if (mounted) Navigator.of(context).pop(t.id);
     } on ApiError catch (e) {

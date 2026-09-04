@@ -774,7 +774,7 @@ paths:
     post:
       tags: [support]
       summary: Hap tiketë
-      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [category, subject, body], properties: { category: { type: string, enum: [ride, order, payment, refund, account, safety, other] }, subject: { type: string }, body: { type: string }, ride_id: { type: string, format: uuid } } } } } }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [category, subject, body], properties: { category: { type: string, enum: [ride, order, payment, refund, account, safety, other] }, subject: { type: string }, body: { type: string }, ride_id: { type: string, format: uuid }, order_id: { type: string, format: uuid }, parcel_id: { type: string, format: uuid }, request_id: { type: string, format: uuid } } } } } }
       responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ticket" } } } }, "422": { $ref: "#/components/responses/Err" } }
     get: { tags: [support], summary: Tiketat e mia, responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Ticket" } }, categories: { type: array, items: { type: string } } } } } } } } }
   /api/v1/support/tickets/{id}:
