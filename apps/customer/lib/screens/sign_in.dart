@@ -104,19 +104,18 @@ class _SignInScreenState extends State<SignInScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: K.bg,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        leading: _codeSent
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => setState(() => _codeSent = false),
-              )
-            : null,
-      ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(K.s5),
-          child: _codeSent ? _codeStep(context) : _phoneStep(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _TopBar(showBack: _codeSent, onBack: () => setState(() => _codeSent = false)),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(K.s5, K.s6, K.s5, K.s5),
+                child: _codeSent ? _codeStep(context) : _phoneStep(context),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -192,4 +191,40 @@ class _SignInScreenState extends State<SignInScreen> {
       ),
     ],
   );
+}
+
+/// Koka e kyçjes: kthimi (vetëm te kodi), logoja dhe ndërruesi i gjuhës — pa AppBar,
+/// që ekrani të ketë të njëjtin ajër si hyrja.
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.showBack, required this.onBack});
+
+  final bool showBack;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(K.s3, K.s2, K.s5, 0),
+      child: Row(
+        children: [
+          SizedBox(
+            width: K.minTap,
+            height: K.minTap,
+            child: showBack
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back, color: K.text),
+                    tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                    onPressed: onBack,
+                  )
+                : null,
+          ),
+          const Spacer(),
+          const KWordmark(size: 24, animate: false),
+          const Spacer(),
+          KLangSwitch(value: state.locale, onChanged: (code) => state.setLocale(code, sync: false)),
+        ],
+      ),
+    );
+  }
 }

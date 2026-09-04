@@ -141,6 +141,13 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Ndërrim i përkohshëm në hyrje: pajisja e ndjek, por asgjë nuk ruhet derisa përdoruesi të fillojë.
+  void previewLocale(String value) {
+    locale = value;
+    api.locale = value;
+    notifyListeners();
+  }
+
   /// Thirret pas zgjedhjes së gjuhës në ekranin e parë.
   Future<void> completeLanguage(String value) async {
     await setLocale(value, sync: false);

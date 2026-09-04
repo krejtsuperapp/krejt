@@ -218,6 +218,15 @@ jobs:
         app: [customer, driver]
     steps:
       - uses: actions/checkout@v4
+      # SDK-ja e Mapbox-it (v11) është ndërtuar me Swift 6.2; Xcode-i i parazgjedhur i imazhit (16.4)
+      # nuk e përpilon dot. Zgjidhet Xcode-i më i ri i serisë 26 që ekziston në runner.
+      - name: Xcode 26 (Swift 6.2+ për SDK-në e Mapbox-it)
+        run: |
+          set -euo pipefail
+          latest="$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$latest"
+          xcodebuild -version
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}

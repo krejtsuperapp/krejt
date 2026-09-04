@@ -12,3 +12,4 @@ export 'src/components/money.dart';
 export 'src/components/sheet.dart';
 export 'src/components/images.dart';
 export 'src/components/home.dart';
+export 'src/components/brand.dart';
