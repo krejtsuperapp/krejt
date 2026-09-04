@@ -11,6 +11,7 @@ import '../../state/app_state.dart';
 import '../home.dart';
 import 'chat.dart';
 import 'map_scaffold.dart';
+import 'safety.dart';
 import 'review.dart';
 
 /// Ndjekja e udhëtimit mbi hartë të plotë. Gjendja vjen nga kanali i gjallë (§42): çdo ngjarje
@@ -331,6 +332,16 @@ class _TrackingScreenState extends State<TrackingScreen> {
         const SizedBox(height: K.s5),
         _Timeline(ride: ride),
         const SizedBox(height: K.s5),
+        // Gjatë udhëtimit anulimi zhduket, ndaj pa këtë buton përdoruesi do të mbetej pa asnjë
+        // rrugë pikërisht kur i duhet më shumë.
+        if (ride.isActive) ...[
+          KOutlineButton(
+            label: context.t('safety.title'),
+            icon: Icons.shield_outlined,
+            onPressed: () => showSafetySheet(context, rideId: ride.id),
+          ),
+          const SizedBox(height: K.s3),
+        ],
         // Anulimi lejohet para nisjes; gjatë udhëtimit rruga e vetme është mbështetja (§18).
         if (ride.isActive && ride.state != RideState.inProgress)
           KOutlineButton(

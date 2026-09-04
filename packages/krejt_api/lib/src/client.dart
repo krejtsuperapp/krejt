@@ -1081,6 +1081,21 @@ class KrejtApi {
 
   Future<void> closeTicket(String id) => _post('/api/v1/support/tickets/$id/close');
 
-  Future<void> reportSafety({required String kind, String? rideId, String? note}) =>
-      _post('/api/v1/safety/reports', body: {'kind': kind, 'ride_id': ?rideId, 'note': ?note});
+  /// Raport sigurie. Serveri hap një tiketë urgjente te operacionet dhe e lidh me udhëtimin.
+  /// Pozicioni jepet kur dihet: te një raport sigurie "ku je" rëndon sa "çfarë ndodhi".
+  Future<void> reportSafety({
+    required String kind,
+    String? rideId,
+    String? description,
+    LatLng? at,
+  }) => _post(
+    '/api/v1/safety/reports',
+    body: {
+      'kind': kind,
+      'ride_id': ?rideId,
+      'description': ?description,
+      if (at != null) 'lat': at.lat,
+      if (at != null) 'lng': at.lng,
+    },
+  );
 }
