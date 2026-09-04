@@ -119,7 +119,8 @@ func (m *Mapbox) Search(ctx context.Context, q string, near *geo.Point, limit in
 	v.Set("country", "xk")
 	v.Set("language", "sq")
 	v.Set("limit", fmt.Sprint(limit))
-	v.Set("types", "address,street,poi,place,locality,neighborhood")
+	// Geocoding v6 nuk njeh "poi" (ai jeton te Search Box API); pa këtë filtër Mapbox-i kthen 422.
+	v.Set("types", "address,street,place,locality,neighborhood")
 	if near != nil {
 		v.Set("proximity", fmt.Sprintf("%.5f,%.5f", near.Lng, near.Lat))
 	}
