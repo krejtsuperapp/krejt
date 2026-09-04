@@ -11,6 +11,7 @@ import 'legal.dart';
 import 'notifications.dart';
 import 'profile.dart';
 import 'sessions.dart';
+import 'support.dart';
 
 /// Llogaria: karta e profilit me foto, hyrjet e grupuara, dalja në fund.
 /// Dalja nga llogaria kërkon konfirmim, sepse humbet sesionin e pajisjes (§53).
@@ -97,6 +98,11 @@ class AccountScreen extends StatelessWidget {
             label: context.t('account.language'),
             value: KL10n.languageName(state.locale),
             onTap: () => _open(context, const LanguageSettingsScreen()),
+          ),
+          _Entry(
+            icon: Icons.support_agent_outlined,
+            label: context.t('account.support'),
+            onTap: () => _open(context, const SupportScreen()),
           ),
           _Entry(
             icon: Icons.description_outlined,

@@ -12,6 +12,7 @@ import 'models/places.dart';
 import 'models/promo.dart';
 import 'models/legal.dart';
 import 'models/service.dart';
+import 'models/support.dart';
 import 'models/ride.dart';
 import 'models/user.dart';
 import 'models/wallet.dart';
@@ -1052,15 +1053,33 @@ class KrejtApi {
 
   // ------------------------------------------------------------------- support
 
-  Future<Map<String, dynamic>> createTicket({
+  Future<List<SupportTicket>> supportTickets() async {
+    final rows = await _getList('/api/v1/support/tickets', 'items');
+    return rows.map(SupportTicket.fromJson).toList();
+  }
+
+  /// Tiketa me gjithë bisedën; lista e jashtme i kthen tiketat pa mesazhe.
+  Future<SupportTicket> supportTicket(String id) async =>
+      SupportTicket.fromJson(await _get('/api/v1/support/tickets/$id'));
+
+  Future<SupportTicket> createTicket({
     required String category,
     required String subject,
     required String body,
     String? rideId,
-  }) => _post(
-    '/api/v1/support/tickets',
-    body: {'category': category, 'subject': subject, 'body': body, 'ride_id': ?rideId},
+  }) async => SupportTicket.fromJson(
+    await _post(
+      '/api/v1/support/tickets',
+      body: {'category': category, 'subject': subject, 'body': body, 'ride_id': ?rideId},
+    ),
   );
+
+  /// Serveri kthen vetëm mesazhin e ri, jo tiketën e plotë.
+  Future<TicketMessage> replyToTicket(String id, String body) async => TicketMessage.fromJson(
+    await _post('/api/v1/support/tickets/$id/messages', body: {'body': body}),
+  );
+
+  Future<void> closeTicket(String id) => _post('/api/v1/support/tickets/$id/close');
 
   Future<void> reportSafety({required String kind, String? rideId, String? note}) =>
       _post('/api/v1/safety/reports', body: {'kind': kind, 'ride_id': ?rideId, 'note': ?note});

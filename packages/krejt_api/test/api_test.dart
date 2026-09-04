@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:krejt_api/krejt_api.dart';
 
 void main() {
+  _supportTests();
   group('paraja', () {
     test('formatohet ndryshe sipas gjuhës', () {
       expect(1240.money(), '12,40 €');
@@ -166,5 +167,59 @@ void main() {
       RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$').hasMatch(a),
       isTrue,
     );
+  });
+}
+
+void _supportTests() {
+  group('tiketat e mbështetjes', () {
+    test('roli i autorit përcakton anën e flluskës', () {
+      final t = SupportTicket.fromJson({
+        'id': 't1',
+        'category': 'payment',
+        'subject': 'Pagesa u zbrit dy herë',
+        'status': 'open',
+        'priority': 'high',
+        'last_message_at': '2026-09-04T10:00:00Z',
+        'created_at': '2026-09-04T09:00:00Z',
+        'messages': [
+          {
+            'id': 'm1',
+            'author_role': 'user',
+            'body': 'Përshëndetje',
+            'created_at': '2026-09-04T09:00:00Z',
+          },
+          {
+            'id': 'm2',
+            'author_role': 'agent',
+            'body': 'Po e shohim',
+            'created_at': '2026-09-04T10:00:00Z',
+          },
+        ],
+      });
+      expect(t.messages.first.mine, isTrue);
+      expect(t.messages.last.mine, isFalse);
+      expect(t.closed, isFalse);
+    });
+
+    test('vetëm "closed" e mbyll bisedën; "resolved" ende pranon përgjigje', () {
+      SupportTicket withStatus(String s) => SupportTicket.fromJson({
+        'id': 't1',
+        'category': 'other',
+        'subject': 'x',
+        'status': s,
+        'priority': 'normal',
+        'last_message_at': '2026-09-04T10:00:00Z',
+        'created_at': '2026-09-04T09:00:00Z',
+      });
+      expect(withStatus('closed').closed, isTrue);
+      expect(withStatus('resolved').closed, isFalse);
+      expect(withStatus('pending_user').closed, isFalse);
+      expect(withStatus('open').messages, isEmpty);
+    });
+
+    test('kategoritë e ekranit janë ato që pranon serveri', () {
+      expect(supportCategories, contains('safety'));
+      expect(supportCategories.toSet().length, supportCategories.length);
+    });
   });
 }
