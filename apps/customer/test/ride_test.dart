@@ -42,6 +42,7 @@ Widget _wrap(Widget child, {AppState? state}) => ChangeNotifierProvider<AppState
 );
 
 void main() {
+  _keyboardTests();
   test('çdo kategori udhëtimi ka çelësin e vet të përkthimit', () {
     for (final c in RideCategory.values) {
       expect(rideCategoryKey(c), 'ride.category.${c.name}');
@@ -146,5 +147,27 @@ void main() {
     await tester.pump();
     expect(find.byType(KSkeleton), findsNothing);
     await tester.pump(const Duration(seconds: 1));
+  });
+}
+
+/// Tastiera nuk duhet ta tkurrë hartën: Scaffold-i e injoron insetin dhe vetëm paneli ngrihet.
+/// Pa këtë, harta rilindte sa herë prekje fushën, dhe paneli ngrihej dy herë për të njëjtën tastierë.
+void _keyboardTests() {
+  testWidgets('harta mbetet e plotë kur hapet tastiera', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2280);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_wrap(const DestinationScreen()));
+    await tester.pump(const Duration(milliseconds: 100));
+    final before = tester.getSize(find.byType(KMap));
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 900);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpWidget(_wrap(const DestinationScreen()));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(tester.getSize(find.byType(KMap)), before);
+    expect(tester.takeException(), isNull);
   });
 }

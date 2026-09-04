@@ -44,9 +44,16 @@ class MapScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final h = MediaQuery.sizeOf(context).height;
     final bottomPad = panel != null ? h * 0.5 : h * sheetInitial + 24;
+    // Pozicioni i pushimit hyn te snapSizes vetëm kur rri vërtet mes min-it dhe max-it; Flutter-i
+    // e kërkon rreptësisht brenda, dhe një vlerë e barabartë me kufirin do të rrëzonte ekranin.
+    final rest = sheetInitial > _sheetMin && sheetInitial < _sheetMax ? [sheetInitial] : null;
     return Scaffold(
       backgroundColor: K.bg,
       extendBodyBehindAppBar: true,
+      // Harta mbetet e plotë kur hapet tastiera. Pa këtë, Scaffold-i tkurret sa tastiera dhe
+      // harta rilind e kërcen — ndërsa paneli ngrihet vetë me viewInsets. Dy kompensime për të
+      // njëjtën tastierë; kështu mbetet një.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -96,9 +103,12 @@ class MapScaffold extends StatelessWidget {
           else
             DraggableScrollableSheet(
               initialChildSize: sheetInitial,
-              minChildSize: 0.22,
-              maxChildSize: 0.92,
+              minChildSize: _sheetMin,
+              maxChildSize: _sheetMax,
               snap: true,
+              // Pa këtë listë, snap-i njeh vetëm min dhe max: fleta hapet te sheetInitial, por
+              // sapo e prek nuk ka të drejtë të kthehet aty dhe fluturon lart ose poshtë.
+              snapSizes: rest,
               builder: (context, controller) => _PanelBox(child: sheet!(controller)),
             ),
         ],
@@ -106,6 +116,10 @@ class MapScaffold extends StatelessWidget {
     );
   }
 }
+
+/// Sa poshtë zbret fleta (aq sa të lexohet gjendja) dhe sa lart ngjitet (pa e mbuluar kokën).
+const double _sheetMin = 0.22;
+const double _sheetMax = 0.92;
 
 class _PanelBox extends StatelessWidget {
   const _PanelBox({required this.child});
