@@ -2,46 +2,59 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:krejt_customer/screens/blocked.dart';
-import 'package:krejt_customer/screens/language.dart';
+import 'package:krejt_customer/screens/onboarding.dart';
 import 'package:krejt_customer/screens/sign_in.dart';
 import 'package:krejt_customer/state/app_state.dart';
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
 import 'package:provider/provider.dart';
 
-Widget _wrap(Widget child, {String locale = 'sq'}) => ChangeNotifierProvider(
+/// Pa `locale` MaterialApp-i e ndjek gjuhën e gjendjes (si aplikacioni i vërtetë); me `locale`
+/// të dhënë, teksti ngulet aty për testet e përkthimit.
+Widget _wrap(Widget child, {String? locale}) => ChangeNotifierProvider(
   create: (_) => AppState(),
-  child: MaterialApp(
-    theme: krejtTheme(),
-    locale: Locale(locale),
-    supportedLocales: kSupportedLocales,
-    localizationsDelegates: const [
-      KL10n.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
-    ],
-    home: child,
+  child: Consumer<AppState>(
+    builder: (_, state, _) => MaterialApp(
+      theme: krejtTheme(),
+      locale: Locale(locale ?? state.locale),
+      supportedLocales: kSupportedLocales,
+      localizationsDelegates: const [
+        KL10n.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: child,
+    ),
   ),
 );
 
 void main() {
-  testWidgets('ekrani i gjuhës nis me shqipen të zgjedhur', (tester) async {
-    await tester.pumpWidget(_wrap(const LanguageScreen()));
-    await tester.pumpAndSettle();
-    expect(find.text('Shqip'), findsOneWidget);
-    expect(find.text('English'), findsOneWidget);
-    expect(find.text('Deutsch'), findsOneWidget);
-    expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
+  testWidgets('hyrja nis në shqip, me ndërruesin SQ/EN/DE dhe butonin Fillo', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2280);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(_wrap(const OnboardingScreen()));
+    await tester.pump();
+    expect(find.byType(KLangSwitch), findsOneWidget);
+    expect(find.text('SQ'), findsOneWidget);
+    expect(find.text('EN'), findsOneWidget);
+    expect(find.text('DE'), findsOneWidget);
+    expect(find.text('Fillo'), findsOneWidget);
+    expect(find.byType(KWordmark), findsOneWidget);
   });
 
-  testWidgets('zgjedhja e gjuhës lëviz shenjën te rreshti i prekur', (tester) async {
-    await tester.pumpWidget(_wrap(const LanguageScreen()));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Deutsch'));
+  testWidgets('prekja e DE e ndërron tekstin në çast', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2280);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(_wrap(const OnboardingScreen()));
     await tester.pump();
-    final checked = tester.widgetList<Icon>(find.byIcon(Icons.radio_button_checked));
-    expect(checked.length, 1);
+    await tester.tap(find.text('DE'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Loslegen'), findsOneWidget);
+    expect(find.text('Fillo'), findsNothing);
   });
 
   testWidgets('hyrja kërkon numrin para kodit', (tester) async {

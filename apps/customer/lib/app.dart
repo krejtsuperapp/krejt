@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import 'screens/blocked.dart';
 import 'screens/boot.dart';
 import 'screens/shell.dart';
-import 'screens/language.dart';
+import 'screens/onboarding.dart';
 import 'screens/sign_in.dart';
 import 'state/app_state.dart';
 
@@ -47,7 +47,7 @@ class _Gate extends StatelessWidget {
       case BootPhase.blocked:
         return const BlockedScreen();
       case BootPhase.needsLanguage:
-        return const LanguageScreen();
+        return const OnboardingScreen();
       case BootPhase.signedOut:
         return const SignInScreen();
       case BootPhase.ready:
