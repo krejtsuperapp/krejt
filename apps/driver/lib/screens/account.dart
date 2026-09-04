@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
 import 'package:provider/provider.dart';
@@ -93,6 +94,37 @@ class DriverAccountScreen extends StatelessWidget {
               if (!ok) return;
               if (work.online) await work.goOffline();
               await state.signOut();
+            },
+          ),
+          const SizedBox(height: K.s3),
+          // Dyqanet e aplikacioneve e kërkojnë fshirjen brenda aplikacionit kur llogaria hapet aty,
+          // dhe politika e privatësisë e premton me emër. Duhet të gjendet lehtë, jo e fshehur.
+          KOutlineButton(
+            label: context.t('account.delete'),
+            icon: Icons.delete_outline,
+            danger: true,
+            onPressed: () async {
+              final work = context.read<WorkState>();
+              final messenger = ScaffoldMessenger.of(context);
+              final l10n = KL10n.of(context);
+              final ok = await confirmKSheet(
+                context: context,
+                title: context.t('account.delete.confirm'),
+                message: context.t('account.delete.body'),
+                confirmLabel: context.t('account.delete'),
+                cancelLabel: context.t('common.no'),
+                destructive: true,
+              );
+              if (!ok) return;
+              try {
+                await state.api.deleteAccount();
+                // Dalja nga puna vjen pas fshirjes: dispeçeri nuk duhet t'i dërgojë kërkesa një
+                // llogarie që nuk ekziston më.
+                if (work.online) await work.goOffline();
+                await state.signOut();
+              } on ApiError catch (e) {
+                messenger.showSnackBar(SnackBar(content: Text(l10n.error(e.messageKey))));
+              }
             },
           ),
         ],
