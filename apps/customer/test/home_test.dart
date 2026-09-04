@@ -64,11 +64,18 @@ void main() {
     expect(addressIcon('work'), Icons.work_outline);
   });
 
-  testWidgets('ballina pa histori tregon gjendjen bosh', (tester) async {
+  // Ballina është pikënisje, jo listë: historia jeton te skeda Aktiviteti. Nëse dikush e kthen
+  // historinë këtu, ky test bie — dhe ashtu duhet.
+  testWidgets('ballina nuk mban historinë e asnjë shërbimi', (tester) async {
     useTallScreen(tester);
-    await tester.pumpWidget(_wrap(const HomeScreen()));
+    final state = AppState()
+      ..recentRides = [_ride(state: 'completed', dropoff: 'Sheshi Skënderbeu')];
+    await tester.pumpWidget(_wrap(const HomeScreen(), state: state));
     await tester.pumpAndSettle();
-    expect(find.text('Ende s\'ke udhëtuar me KREJT'), findsOneWidget);
+    expect(find.text('Sheshi Skënderbeu'), findsNothing);
+    expect(find.text('Së fundi'), findsNothing);
+    // …por hyrjet te shërbimet janë aty.
+    expect(find.text('Udhëtim'), findsWidgets);
   });
 
   testWidgets('udhëtimi aktiv shfaqet në krye me gjendjen e tij', (tester) async {
@@ -83,19 +90,15 @@ void main() {
     expect(find.text('Në rrugë'), findsOneWidget);
   });
 
-  testWidgets('historiku tregon vetëm udhëtimet e mbyllura', (tester) async {
-    final state = AppState()
-      ..recentRides = [
-        _ride(state: 'in_progress', dropoff: 'Aktiv'),
-        _ride(state: 'completed', dropoff: 'Sheshi Skënderbeu'),
-        _ride(state: 'cancelled', dropoff: 'Rruga B'),
-      ];
+  // Katër shërbime njëkohësisht në rrjedhë: secili merr banderolën e vet, dhe asnjëri nuk e fsheh
+  // tjetrin. Kjo është e vetmja përmbajtje që ballina ka të drejtë të mbajë.
+  testWidgets('çdo shërbim në rrjedhë merr banderolën e vet', (tester) async {
     useTallScreen(tester);
+    final state = AppState()..activeRide = _ride(state: 'assigned');
     await tester.pumpWidget(_wrap(const HomeScreen(), state: state));
     await tester.pumpAndSettle();
-    expect(find.text('Sheshi Skënderbeu'), findsOneWidget);
-    expect(find.text('Rruga B'), findsOneWidget);
-    expect(find.text('Aktiv'), findsNothing);
+    expect(find.byType(KNeonBanner), findsOneWidget);
+    expect(find.text('Udhëtimi yt është në vazhdim'), findsOneWidget);
   });
 
   testWidgets('shërbimi i fikur nga konfigurimi shfaqet si i ardhshëm', (tester) async {
