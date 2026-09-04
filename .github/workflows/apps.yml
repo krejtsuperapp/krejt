@@ -102,6 +102,14 @@ jobs:
 
       # APK-ja e testimit ndërtohet në debug: nuk kërkon çelës nënshkrimi dhe asnjë sekret
       # nuk hyn në repo. Ndërtimi i nënshkruar për dyqan bëhet veçmas, jashtë kësaj rrjedhe.
+      - name: a ekziston çelësi publik i hartës?
+        env:
+          MAPBOX_PUBLIC_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
+        run: |
+          if [ -z "${MAPBOX_PUBLIC_TOKEN:-}" ]; then
+            echo "::warning::MAPBOX_PUBLIC_TOKEN mungon — kjo APK do të vizatojë skemën në vend të hartës."
+          fi
+
       - name: build apk
         working-directory: apps/${{ matrix.app }}
         run: |
@@ -177,6 +185,22 @@ jobs:
           for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push apps/${{ matrix.app }}; do
             (cd "$d" && flutter pub get)
           done
+
+      # Çelësi publik i hartës hyn brenda APK-së. Pa të, ekranet e udhëtimit, pakos dhe porosisë
+      # bien te skema dhe testuesi sheh një rrjetë në vend të hartës — defekt i heshtur, ndaj ndalemi.
+      - name: çelësi publik i hartës
+        env:
+          MAPBOX_PUBLIC_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MAPBOX_PUBLIC_TOKEN:-}" ]; then
+            echo "::error::MAPBOX_PUBLIC_TOKEN mungon te sekretet — APK-ja do të dilte pa hartë. Vendose te Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          case "$MAPBOX_PUBLIC_TOKEN" in
+            pk.*) ;;
+            *) echo "::error::MAPBOX_PUBLIC_TOKEN nuk nis me 'pk.' — duhet çelësi publik, jo ai i shkarkimit (sk.)."; exit 1 ;;
+          esac
 
       - name: build apk (release, arm64)
         working-directory: apps/${{ matrix.app }}
