@@ -4,7 +4,7 @@
 
 Shërbimin KREJT e ofron {{entity}}, {{address}}. Për çdo pyetje mbi këtë politikë ose mbi të dhënat e tua, shkruaj te {{email}}.
 
-Kjo redaktim është i datës {{updated}}.
+Ky version është i datës {{updated}}.
 
 ## Çfarë mbledhim
 
