@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
+import 'package:krejt_screens/krejt_screens.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
 import '../state/work_state.dart';
 import 'documents.dart';
 import 'language_settings.dart';
-import 'legal.dart';
 
 /// Llogaria e shoferit. Dalja nga llogaria e nxjerr edhe nga puna, që dispeçeri të mos
 /// vazhdojë t'i dërgojë kërkesa një pajisjeje që nuk përgjigjet më (§27).
@@ -70,11 +70,20 @@ class DriverAccountScreen extends StatelessWidget {
                     .push(MaterialPageRoute<void>(builder: (_) => const DriverLanguageScreen())),
           ),
           _Entry(
-            icon: Icons.gavel_outlined,
-            label: context.t('account.legal'),
+            icon: Icons.support_agent_outlined,
+            label: context.t('account.support'),
             onTap: () =>
                 Navigator.of(context)
-                    .push(MaterialPageRoute<void>(builder: (_) => const LegalScreen())),
+                    .push(MaterialPageRoute<void>(builder: (_) => SupportScreen(api: state.api))),
+          ),
+          _Entry(
+            icon: Icons.gavel_outlined,
+            label: context.t('account.legal'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => LegalScreen(api: state.api, locale: state.locale),
+              ),
+            ),
           ),
           const SizedBox(height: K.s6),
           KOutlineButton(

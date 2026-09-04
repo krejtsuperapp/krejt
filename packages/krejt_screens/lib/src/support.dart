@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
-import 'package:provider/provider.dart';
-
-import '../../state/app_state.dart';
 
 /// Mbështetja: lista e çështjeve të hapura dhe të mbyllura, dhe një bisedë për secilën.
 /// Serveri e mbante këtë prej fillimi; aplikacioni thjesht nuk kishte se ku ta tregonte, ndaj një
 /// ankesë nuk kishte fare rrugë përveç telefonit.
 class SupportScreen extends StatefulWidget {
-  const SupportScreen({super.key});
+  const SupportScreen({super.key, required this.api});
+
+  final KrejtApi api;
 
   @override
   State<SupportScreen> createState() => _SupportScreenState();
@@ -30,7 +29,7 @@ class _SupportScreenState extends State<SupportScreen> {
   Future<void> _load() async {
     if (mounted) setState(() => _loading = true);
     try {
-      final items = await context.read<AppState>().api.supportTickets();
+      final items = await widget.api.supportTickets();
       if (!mounted) return;
       setState(() {
         _items = items;
@@ -47,14 +46,17 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   Future<void> _openTicket(String id) async {
-    await Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => TicketScreen(ticketId: id)));
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TicketScreen(api: widget.api, ticketId: id),
+      ),
+    );
     if (mounted) await _load();
   }
 
   Future<void> _newTicket() async {
     final created = await Navigator.of(context)
-        .push<String>(MaterialPageRoute<String>(builder: (_) => const NewTicketScreen()));
+        .push<String>(MaterialPageRoute<String>(builder: (_) => NewTicketScreen(api: widget.api)));
     if (!mounted) return;
     await _load();
     if (created != null && mounted) await _openTicket(created);
@@ -153,7 +155,9 @@ class _SupportScreenState extends State<SupportScreen> {
 
 /// Një çështje e re. Kategoria dhe përshkrimi mjaftojnë; gjithçka tjetër e di serveri.
 class NewTicketScreen extends StatefulWidget {
-  const NewTicketScreen({super.key});
+  const NewTicketScreen({super.key, required this.api});
+
+  final KrejtApi api;
 
   @override
   State<NewTicketScreen> createState() => _NewTicketScreenState();
@@ -179,7 +183,7 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
       _failure = null;
     });
     try {
-      final t = await context.read<AppState>().api.createTicket(
+      final t = await widget.api.createTicket(
         category: _category,
         subject: _subject.text.trim(),
         body: _body.text.trim(),
@@ -296,8 +300,9 @@ class _Choice extends StatelessWidget {
 /// Biseda e një çështjeje. E mbyllura lexohet, por nuk pranon më mesazhe: më mirë ta thotë hapur
 /// se sa ta lërë përdoruesin të shkruajë diçka që nuk e lexon askush.
 class TicketScreen extends StatefulWidget {
-  const TicketScreen({super.key, required this.ticketId});
+  const TicketScreen({super.key, required this.api, required this.ticketId});
 
+  final KrejtApi api;
   final String ticketId;
 
   @override
@@ -325,7 +330,7 @@ class _TicketScreenState extends State<TicketScreen> {
 
   Future<void> _load() async {
     try {
-      final t = await context.read<AppState>().api.supportTicket(widget.ticketId);
+      final t = await widget.api.supportTicket(widget.ticketId);
       if (!mounted) return;
       setState(() {
         _ticket = t;
@@ -346,7 +351,7 @@ class _TicketScreenState extends State<TicketScreen> {
     if (text.isEmpty) return;
     setState(() => _sending = true);
     try {
-      await context.read<AppState>().api.replyToTicket(widget.ticketId, text);
+      await widget.api.replyToTicket(widget.ticketId, text);
       _reply.clear();
       await _load();
     } on ApiError catch (e) {
@@ -369,7 +374,7 @@ class _TicketScreenState extends State<TicketScreen> {
     );
     if (!ok || !mounted) return;
     try {
-      await context.read<AppState>().api.closeTicket(widget.ticketId);
+      await widget.api.closeTicket(widget.ticketId);
       await _load();
     } on ApiError catch (e) {
       if (mounted) {

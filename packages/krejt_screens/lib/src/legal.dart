@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
-import 'package:provider/provider.dart';
-
-import '../../state/app_state.dart';
 
 /// Kushtet dhe privatësia. Teksti vjen nga serveri, në gjuhën e zgjedhur: një ndreqje e tij nuk
 /// duhet të presë një version të ri të aplikacionit, dhe i njëjti dokument shërbehet edhe si faqe
 /// publike për dyqanet e aplikacioneve.
 class LegalScreen extends StatelessWidget {
-  const LegalScreen({super.key});
+  const LegalScreen({super.key, required this.api, required this.locale});
+
+  final KrejtApi api;
+  final String locale;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -36,8 +36,11 @@ class LegalScreen extends StatelessWidget {
     ),
   );
 
-  static void _open(BuildContext context, String doc) =>
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => LegalDocScreen(doc: doc)));
+  void _open(BuildContext context, String doc) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => LegalDocScreen(api: api, locale: locale, doc: doc),
+    ),
+  );
 }
 
 class _Entry extends StatelessWidget {
@@ -70,8 +73,10 @@ class _Entry extends StatelessWidget {
 /// Një dokument i vetëm. Kërkon rrjet: teksti ligjor duhet të jetë ai i çastit, jo një kopje e
 /// vjetruar e paketuar me aplikacionin.
 class LegalDocScreen extends StatefulWidget {
-  const LegalDocScreen({super.key, required this.doc});
+  const LegalDocScreen({super.key, required this.api, required this.locale, required this.doc});
 
+  final KrejtApi api;
+  final String locale;
   final String doc;
 
   @override
@@ -91,9 +96,8 @@ class _LegalDocScreenState extends State<LegalDocScreen> {
 
   Future<void> _load() async {
     if (mounted) setState(() => _loading = true);
-    final state = context.read<AppState>();
     try {
-      final d = await state.api.legalDocument(widget.doc, lang: state.locale);
+      final d = await widget.api.legalDocument(widget.doc, lang: widget.locale);
       if (!mounted) return;
       setState(() {
         _doc = d;

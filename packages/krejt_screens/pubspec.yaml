@@ -1,0 +1,22 @@
+name: krejt_screens
+description: Ekranet e përbashkëta të KREJT — ato që janë të njëjta te klienti dhe te shoferi.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  krejt_api:
+    path: ../krejt_api
+  krejt_design:
+    path: ../krejt_design
+  krejt_l10n:
+    path: ../krejt_l10n
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

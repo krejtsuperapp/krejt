@@ -2,17 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
+import 'package:krejt_screens/krejt_screens.dart';
 import 'package:provider/provider.dart';
 
 import '../../state/app_state.dart';
 import '../activity.dart';
 import 'addresses.dart';
 import 'language_settings.dart';
-import 'legal.dart';
 import 'notifications.dart';
 import 'profile.dart';
 import 'sessions.dart';
-import 'support.dart';
 
 /// Llogaria: karta e profilit me foto, hyrjet e grupuara, dalja në fund.
 /// Dalja nga llogaria kërkon konfirmim, sepse humbet sesionin e pajisjes (§53).
@@ -103,12 +102,12 @@ class AccountScreen extends StatelessWidget {
           _Entry(
             icon: Icons.support_agent_outlined,
             label: context.t('account.support'),
-            onTap: () => _open(context, const SupportScreen()),
+            onTap: () => _open(context, SupportScreen(api: state.api)),
           ),
           _Entry(
             icon: Icons.description_outlined,
             label: context.t('account.legal'),
-            onTap: () => _open(context, const LegalScreen()),
+            onTap: () => _open(context, LegalScreen(api: state.api, locale: state.locale)),
           ),
           const SizedBox(height: K.s6),
           KOutlineButton(
