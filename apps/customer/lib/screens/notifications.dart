@@ -8,6 +8,7 @@ import '../state/app_state.dart';
 import 'food/order_tracking.dart';
 import 'parcels/parcel_tracking.dart';
 import 'ride/tracking.dart';
+import 'services/request_tracking.dart';
 
 /// Ikona e njoftimeve me numëratorin e palexuarave. Numëratori vjen nga serveri me çdo rifreskim
 /// të ballinës; pa njoftime të palexuara nuk shfaqet asnjë pikë, që zilja të mos bërtasë kot.
@@ -155,6 +156,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return OrderTrackingScreen(orderId: id);
       case 'parcels':
         return ParcelTrackingScreen(parcelId: id);
+      case 'services':
+        return ServiceTrackingScreen(requestId: id);
     }
     return null;
   }
