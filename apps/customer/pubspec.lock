@@ -552,6 +552,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  krejt_screens:
+    dependency: "direct main"
+    description:
+      path: "../../packages/krejt_screens"
+      relative: true
+    source: path
+    version: "0.1.0"
   leak_tracker:
     dependency: transitive
     description:

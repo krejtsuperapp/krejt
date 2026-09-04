@@ -21,6 +21,8 @@ dependencies:
     path: ../../packages/krejt_map
   krejt_push:
     path: ../../packages/krejt_push
+  krejt_screens:
+    path: ../../packages/krejt_screens
   go_router: ^14.6.2
   provider: ^6.1.2
   shared_preferences: ^2.3.3

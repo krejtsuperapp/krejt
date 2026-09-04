@@ -5,9 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
+import 'package:krejt_screens/krejt_screens.dart';
 import 'package:provider/provider.dart';
-
-import 'legal.dart';
 
 import '../state/app_state.dart';
 
@@ -165,9 +164,14 @@ class _SignInScreenState extends State<SignInScreen> {
         button: true,
         child: InkWell(
           borderRadius: BorderRadius.circular(K.rSm),
-          onTap: () =>
-              Navigator.of(context)
-                  .push(MaterialPageRoute<void>(builder: (_) => const LegalScreen())),
+          onTap: () {
+            final state = context.read<AppState>();
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => LegalScreen(api: state.api, locale: state.locale),
+              ),
+            );
+          },
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: K.s2),
             child: Text(

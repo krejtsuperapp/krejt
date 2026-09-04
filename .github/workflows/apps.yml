@@ -41,7 +41,7 @@ jobs:
       - name: pub get
         run: |
           set -euo pipefail
-          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push apps/customer apps/driver; do
+          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push packages/krejt_screens apps/customer apps/driver; do
             (cd "$d" && flutter pub get)
           done
 
@@ -51,7 +51,7 @@ jobs:
       - name: analyze
         run: |
           set -euo pipefail
-          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push apps/customer apps/driver; do
+          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push packages/krejt_screens apps/customer apps/driver; do
             echo "== $d"
             (cd "$d" && flutter analyze)
           done
@@ -59,7 +59,7 @@ jobs:
       - name: test
         run: |
           set -euo pipefail
-          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push apps/customer apps/driver; do
+          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push packages/krejt_screens apps/customer apps/driver; do
             echo "== $d"
             (cd "$d" && flutter test)
           done
@@ -101,7 +101,7 @@ jobs:
       - name: pub get
         run: |
           set -euo pipefail
-          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push apps/${{ matrix.app }}; do
+          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push packages/krejt_screens apps/${{ matrix.app }}; do
             (cd "$d" && flutter pub get)
           done
 
@@ -187,7 +187,7 @@ jobs:
       - name: pub get
         run: |
           set -euo pipefail
-          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push apps/${{ matrix.app }}; do
+          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push packages/krejt_screens apps/${{ matrix.app }}; do
             (cd "$d" && flutter pub get)
           done
 
@@ -275,7 +275,7 @@ jobs:
       - name: pub get
         run: |
           set -euo pipefail
-          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push apps/${{ matrix.app }}; do
+          for d in packages/krejt_design packages/krejt_api packages/krejt_l10n packages/krejt_map packages/krejt_push packages/krejt_screens apps/${{ matrix.app }}; do
             (cd "$d" && flutter pub get)
           done
 
