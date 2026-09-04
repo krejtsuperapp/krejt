@@ -166,6 +166,35 @@ jobs:
           echo "$v"
           echo "$v" | grep -q '"version":"${{ github.sha }}"' || { echo "::error::staging s'po shërben SHA-në e këtij deploy-i"; exit 1; }
 
+  # Prodhimi: e njëjta SHA që kaloi dev-in (prova e plotë) dhe staging-un (shëndeti). Ndizet vetëm kur
+  # variabla e repo-s PROD_DEPLOY është "true" (pas ngritjes së prod-it me Terraform) dhe kalon nga
+  # mjedisi "prod" i GitHub-it, ku miratimi manual vendoset si rregull mbrojtjeje (required reviewers).
+  deploy-prod:
+    needs: [health-staging]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PROD_DEPLOY == 'true'
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/deploy-env.yml
+    with:
+      environment: prod
+      name: krejt-prod
+    secrets: inherit
+
+  health-prod:
+    runs-on: ubuntu-latest
+    needs: [deploy-prod]
+    if: needs.deploy-prod.outputs.deployed == 'true'
+    steps:
+      - name: shëndeti dhe versioni në prodhim
+        run: |
+          set -euo pipefail
+          base="${{ vars.KREJT_PROD_BASE_URL || 'https://api.krejt.app' }}"
+          curl -fsS --max-time 20 "$base/healthz" && echo
+          v=$(curl -fsS --max-time 20 "$base/api/v1/version")
+          echo "$v"
+          echo "$v" | grep -q '"version":"${{ github.sha }}"' || { echo "::error::prod-i s'po shërben SHA-në e këtij deploy-i"; exit 1; }
+
   # Me dorë (workflow_dispatch): një minutë ngarkese e lehtë kundrejt dev-it me k6, që pragjet e
   # vonesës të maten rregullisht dhe jo vetëm para nisjes. Nuk ekzekutohet vetë: dev-i ka një detyrë.
   load-smoke:
