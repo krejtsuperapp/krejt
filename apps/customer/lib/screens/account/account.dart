@@ -10,7 +10,7 @@ import 'notifications.dart';
 import 'profile.dart';
 import 'sessions.dart';
 
-/// Llogaria: një listë e vetme hyrjesh, secila hap një ekran të vetin.
+/// Llogaria: karta e profilit me foto, hyrjet e grupuara, dalja në fund.
 /// Dalja nga llogaria kërkon konfirmim, sepse humbet sesionin e pajisjes (§53).
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -30,25 +30,10 @@ class AccountScreen extends StatelessWidget {
           ),
           const SizedBox(height: K.s4),
           KCard(
+            onTap: () => _open(context, const ProfileScreen()),
             child: Row(
               children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    gradient: K.gradient,
-                    borderRadius: BorderRadius.circular(K.rFull),
-                  ),
-                  child: Text(
-                    me?.initials ?? 'K',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: K.onBrand,
-                    ),
-                  ),
-                ),
+                KAvatar(url: me?.photoUrl, initials: me?.initials ?? 'K', size: 56),
                 const SizedBox(width: K.s4),
                 Expanded(
                   child: Column(
@@ -56,6 +41,8 @@ class AccountScreen extends StatelessWidget {
                     children: [
                       Text(
                         me?.displayName ?? '—',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
@@ -73,6 +60,7 @@ class AccountScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                const Icon(Icons.chevron_right, size: 20, color: K.line2),
               ],
             ),
           ),
@@ -120,6 +108,10 @@ class AccountScreen extends StatelessWidget {
               if (ok) await state.signOut();
             },
           ),
+          const SizedBox(height: K.s6),
+          const Center(
+            child: KWordmark(size: 18, animate: false, color: K.muted, barColor: K.line2),
+          ),
         ],
       ),
     );
@@ -148,7 +140,16 @@ class _Entry extends StatelessWidget {
         height: K.minTap - K.s4,
         child: Row(
           children: [
-            Icon(icon, size: 20, color: K.muted),
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: K.surface2,
+                borderRadius: BorderRadius.circular(K.rSm),
+              ),
+              child: Icon(icon, size: 18, color: K.textDim),
+            ),
             const SizedBox(width: K.s3),
             Expanded(
               child: Text(

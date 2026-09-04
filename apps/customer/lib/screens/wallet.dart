@@ -139,32 +139,17 @@ class _WalletScreenState extends State<WalletScreen> {
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: K.text),
             ),
             const SizedBox(height: K.s4),
-            KCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.t('wallet.balance'),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: K.muted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: K.s2),
-                  KMoney(o.balanceMinor, currency: o.currency, locale: locale, size: 36),
-                  const SizedBox(height: K.s4),
-                  if (topUpEnabled)
-                    KButton(label: context.t('wallet.topup'), icon: Icons.add, onPressed: _topUp)
-                  else
-                    KBadge(context.t('common.soon'), tone: KTone.neutral),
-                  const SizedBox(height: K.s3),
-                  Text(
-                    context.t('wallet.closed_loop'),
-                    style: const TextStyle(fontSize: 12, color: K.muted, height: 1.4),
-                  ),
-                ],
-              ),
+            _BalanceCard(
+              overview: o,
+              locale: locale,
+              topUpEnabled: topUpEnabled,
+              onTopUp: _topUp,
+              soonLabel: context.t('common.soon'),
+            ),
+            const SizedBox(height: K.s3),
+            Text(
+              context.t('wallet.closed_loop'),
+              style: const TextStyle(fontSize: 12, color: K.muted, height: 1.4),
             ),
             const SizedBox(height: K.s6),
             KSectionHeader(context.t('wallet.transactions')),
@@ -186,6 +171,66 @@ class _WalletScreenState extends State<WalletScreen> {
       ),
     );
   }
+}
+
+/// Karta e bilancit: e zezë me kufi neon dhe dritë të lehtë — si karta e markës, jo si tabelë.
+class _BalanceCard extends StatelessWidget {
+  const _BalanceCard({
+    required this.overview,
+    required this.locale,
+    required this.topUpEnabled,
+    required this.onTopUp,
+    required this.soonLabel,
+  });
+
+  final WalletOverview overview;
+  final String locale;
+  final bool topUpEnabled;
+  final VoidCallback onTopUp;
+  final String soonLabel;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(K.s5),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(K.rLg),
+      border: Border.all(color: K.brand500.withValues(alpha: 0.45)),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF162A10), Color(0xFF1A1A1A), Color(0xFF0D0D0D)],
+      ),
+      boxShadow: [BoxShadow(color: K.brand500.withValues(alpha: 0.12), blurRadius: 28)],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                context.t('wallet.balance').toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 12,
+                  letterSpacing: 1.2,
+                  color: K.muted,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const KWordmark(size: 16, animate: false, color: K.textDim),
+          ],
+        ),
+        const SizedBox(height: K.s3),
+        KMoney(overview.balanceMinor, currency: overview.currency, locale: locale, size: 40),
+        const SizedBox(height: K.s5),
+        if (topUpEnabled)
+          KButton(label: context.t('wallet.topup'), icon: Icons.add, onPressed: onTopUp)
+        else
+          KBadge(soonLabel, tone: KTone.neutral),
+      ],
+    ),
+  );
 }
 
 /// Shumat e gatshme mbulojnë shumicën e rasteve; shuma e lirë mbetet për të tjerat.
@@ -424,6 +469,14 @@ class _TransactionRow extends StatelessWidget {
     'fee': 'wallet.tx.fee',
   };
 
+  static const _icons = {
+    'topup': Icons.add_card_outlined,
+    'ride': Icons.directions_car_outlined,
+    'order': Icons.lunch_dining_outlined,
+    'refund': Icons.undo,
+    'fee': Icons.receipt_outlined,
+  };
+
   @override
   Widget build(BuildContext context) {
     final label = context.t(_kinds[tx.kind] ?? 'wallet.tx.other');
@@ -432,6 +485,21 @@ class _TransactionRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: K.s4, vertical: K.s3),
       child: Row(
         children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: tx.isCredit ? K.okBg : K.surface2,
+              borderRadius: BorderRadius.circular(K.rSm),
+            ),
+            child: Icon(
+              _icons[tx.kind] ?? Icons.swap_horiz,
+              size: 18,
+              color: tx.isCredit ? K.ok : K.textDim,
+            ),
+          ),
+          const SizedBox(width: K.s3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
