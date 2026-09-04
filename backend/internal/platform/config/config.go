@@ -98,18 +98,27 @@ type Config struct {
 	AnalyticsProvider string // posthog | devlog (vetëm development)
 	PostHogKey        string
 	PostHogHost       string
+
+	// dokumentet ligjore (Kushtet, Privatesia): identiteti i operatorit vjen nga konfigurimi.
+	// Nje politike privatesie me emer te shpikur eshte me keq se asnje, ndaj prodhimi nuk niset pa to.
+	LegalEntity  string // LEGAL_ENTITY
+	LegalAddress string // LEGAL_ADDRESS
+	LegalEmail   string // LEGAL_EMAIL
 }
 
 func Load() (*Config, error) {
 	c := &Config{
-		Env:         getenv("APP_ENV", "development"),
-		Version:     getenv("APP_VERSION", "dev"),
-		Region:      getenv("AWS_REGION", "eu-central-1"),
-		HTTPPort:    getenv("HTTP_PORT", "8080"),
-		databaseURL: os.Getenv("DATABASE_URL"),
-		dbWriter:    os.Getenv("DB_WRITER_HOST"),
-		dbName:      getenv("DB_NAME", "krejt"),
-		dbCreds:     os.Getenv("DB_CREDENTIALS_JSON"),
+		Env:          getenv("APP_ENV", "development"),
+		Version:      getenv("APP_VERSION", "dev"),
+		Region:       getenv("AWS_REGION", "eu-central-1"),
+		HTTPPort:     getenv("HTTP_PORT", "8080"),
+		databaseURL:  os.Getenv("DATABASE_URL"),
+		dbWriter:     os.Getenv("DB_WRITER_HOST"),
+		dbName:       getenv("DB_NAME", "krejt"),
+		LegalEntity:  os.Getenv("LEGAL_ENTITY"),
+		LegalAddress: os.Getenv("LEGAL_ADDRESS"),
+		LegalEmail:   os.Getenv("LEGAL_EMAIL"),
+		dbCreds:      os.Getenv("DB_CREDENTIALS_JSON"),
 		Redis: Redis{
 			Host:     getenv("REDIS_HOST", "localhost:6379"),
 			Password: os.Getenv("REDIS_AUTH"),
@@ -181,6 +190,12 @@ func Load() (*Config, error) {
 	}
 	if c.Env != "development" && (c.MediaBucket == "" || c.MediaBaseURL == "") {
 		return nil, errors.New("config: S3_MEDIA_BUCKET dhe MEDIA_BASE_URL duhen jashtë development")
+	}
+	// Dyqanet e aplikacioneve kerkojne nje politike privatesie te arritshme, dhe teksti i hyrjes
+	// premton Kushte qe duhet te ekzistojne vertet. Pa identitetin e operatorit dokumentet do te
+	// dilnin me vende bosh, ndaj prodhimi ndalet ketu e jo ne faqen e publikuar.
+	if c.Env == "production" && (c.LegalEntity == "" || c.LegalAddress == "" || c.LegalEmail == "") {
+		return nil, errors.New("config: LEGAL_ENTITY, LEGAL_ADDRESS dhe LEGAL_EMAIL duhen ne prodhim")
 	}
 	if (len(c.DevTestPhones) > 0 || len(c.DevTestAdminPhones) > 0 || c.DevTestOTP != "") && c.Env != "development" {
 		return nil, errors.New("config: DEV_TEST_PHONES / DEV_TEST_OTP lejohen vetëm në development")

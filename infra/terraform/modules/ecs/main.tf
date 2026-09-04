@@ -235,7 +235,9 @@ resource "aws_lb_listener_rule" "api" {
     target_group_arn = aws_lb_target_group.api[0].arn
   }
   condition {
-    path_pattern { values = ["/api/*", "/healthz"] }
+    # /legal/* janë Kushtet dhe Politika e privatësisë si faqe publike: dyqanet e aplikacioneve
+    # i hapin pa llogari, ndaj duhen të kalojnë te API-ja si /api/*.
+    path_pattern { values = ["/api/*", "/healthz", "/legal/*"] }
   }
 }
 
@@ -383,6 +385,9 @@ locals {
     # Numri që merr SUPER_ADMIN në nisje, dhe vetëm nëse sistemi ende nuk ka asnjë. Pa këtë,
     # administratori i parë nuk lind kurrë dhe paneli mbetet i pahapshëm.
     { name = "BOOTSTRAP_ADMIN_PHONE", value = var.bootstrap_admin_phone },
+    { name = "LEGAL_ENTITY", value = var.legal_entity },
+    { name = "LEGAL_ADDRESS", value = var.legal_address },
+    { name = "LEGAL_EMAIL", value = var.legal_email },
     # Vetëm dev: aprovimi i shoferit pa dokumente. Serveri e refuzon vlerën jashtë development.
     { name = "DOCUMENTS_REQUIRED", value = var.documents_required ? "true" : "false" },
     # Vetëm dev: numra prove me kod fiks, pa SMS. Serveri refuzon të niset me to jashtë development.

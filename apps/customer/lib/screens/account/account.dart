@@ -7,6 +7,7 @@ import '../../state/app_state.dart';
 import '../activity.dart';
 import 'addresses.dart';
 import 'language_settings.dart';
+import 'legal.dart';
 import 'notifications.dart';
 import 'profile.dart';
 import 'sessions.dart';
@@ -96,6 +97,11 @@ class AccountScreen extends StatelessWidget {
             label: context.t('account.language'),
             value: KL10n.languageName(state.locale),
             onTap: () => _open(context, const LanguageSettingsScreen()),
+          ),
+          _Entry(
+            icon: Icons.description_outlined,
+            label: context.t('account.legal'),
+            onTap: () => _open(context, const LegalScreen()),
           ),
           const SizedBox(height: K.s6),
           KOutlineButton(

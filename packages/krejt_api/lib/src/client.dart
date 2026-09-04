@@ -10,6 +10,7 @@ import 'models/order.dart';
 import 'models/parcel.dart';
 import 'models/places.dart';
 import 'models/promo.dart';
+import 'models/legal.dart';
 import 'models/service.dart';
 import 'models/ride.dart';
 import 'models/user.dart';
@@ -226,6 +227,11 @@ class KrejtApi {
 
   Future<PublicConfig> fetchConfig() async =>
       PublicConfig.fromJson(await _get('/api/v1/config', anon: true));
+
+  /// Kushtet (`terms`) ose Politika e privatësisë (`privacy`). Pa kyçje me qëllim: ekrani i hyrjes
+  /// i lidh para se përdoruesi të ketë sesion.
+  Future<LegalDocument> legalDocument(String doc, {required String lang}) async =>
+      LegalDocument.fromJson(await _get('/api/v1/legal/$doc', query: {'lang': lang}, anon: true));
 
   // --------------------------------------------------------------------- auth
 

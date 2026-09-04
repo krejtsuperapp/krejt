@@ -7,6 +7,7 @@ import '../state/app_state.dart';
 import '../state/work_state.dart';
 import 'documents.dart';
 import 'language_settings.dart';
+import 'legal.dart';
 
 /// Llogaria e shoferit. Dalja nga llogaria e nxjerr edhe nga puna, që dispeçeri të mos
 /// vazhdojë t'i dërgojë kërkesa një pajisjeje që nuk përgjigjet më (§27).
@@ -66,6 +67,13 @@ class DriverAccountScreen extends StatelessWidget {
             onTap: () =>
                 Navigator.of(context)
                     .push(MaterialPageRoute<void>(builder: (_) => const DriverLanguageScreen())),
+          ),
+          _Entry(
+            icon: Icons.gavel_outlined,
+            label: context.t('account.legal'),
+            onTap: () =>
+                Navigator.of(context)
+                    .push(MaterialPageRoute<void>(builder: (_) => const LegalScreen())),
           ),
           const SizedBox(height: K.s6),
           KOutlineButton(

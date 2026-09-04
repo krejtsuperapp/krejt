@@ -196,3 +196,18 @@ variable "panel_desired_count" {
   type    = number
   default = 1
 }
+
+# Identiteti i operatorit te dokumentet ligjore. Në prodhim është i detyrueshëm:
+# një politikë privatësie me emër të shpikur është më keq se asnjë.
+variable "legal_entity" {
+  type    = string
+  default = ""
+}
+variable "legal_address" {
+  type    = string
+  default = ""
+}
+variable "legal_email" {
+  type    = string
+  default = ""
+}
