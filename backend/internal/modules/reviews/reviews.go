@@ -201,6 +201,49 @@ func (s *Service) Routes(mux *http.ServeMux, requireAuth httpx.Middleware) {
 	mux.Handle("POST /api/v1/rides/{id}/review", requireAuth(principal.Handler(s.handleCreate)))
 	mux.Handle("GET /api/v1/rides/{id}/reviews", requireAuth(principal.Handler(s.handleForRide)))
 	mux.Handle("POST /api/v1/reviews/{id}/report", requireAuth(principal.Handler(s.handleReport)))
+
+	// Porositë: klienti vlerëson lokalin pas dorëzimit.
+	mux.Handle("POST /api/v1/orders/{id}/review", requireAuth(principal.Handler(s.handleCreateForOrder)))
+	mux.Handle("GET /api/v1/orders/{id}/review", requireAuth(principal.Handler(s.handleMyOrderReview)))
+}
+
+func (s *Service) handleCreateForOrder(w http.ResponseWriter, r *http.Request, a principal.Actor) {
+	id, err := pathID(r)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	var in Input
+	if err := httpx.DecodeJSON(r, &in); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	rev, err := s.CreateForOrder(r.Context(), a, id, in)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, rev)
+}
+
+// handleMyOrderReview — 204 kur nuk ka vlerësim: ekrani e pyet para se ta ofrojë, dhe "nuk ka"
+// nuk është gabim.
+func (s *Service) handleMyOrderReview(w http.ResponseWriter, r *http.Request, a principal.Actor) {
+	id, err := pathID(r)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	rev, err := s.MyOrderReview(r.Context(), a, id)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if rev == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, rev)
 }
 
 func pathID(r *http.Request) (uuid.UUID, error) {

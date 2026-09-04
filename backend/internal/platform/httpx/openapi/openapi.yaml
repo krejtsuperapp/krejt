@@ -436,6 +436,24 @@ paths:
   /api/v1/rides/{id}/reviews:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get: { tags: [reviews], summary: Vlerësimet e udhëtimit + etiketat e lejuara, responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Review" } }, customer_tags: { type: array, items: { type: string } }, driver_tags: { type: array, items: { type: string } } } } } } } } }
+  /api/v1/orders/{id}/review:
+    post:
+      tags: [reviews]
+      summary: Vlerëso lokalin pas dorëzimit (një herë për porosi)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [rating], properties: { rating: { type: integer, minimum: 1, maximum: 5 }, tags: { type: array, items: { type: string } }, comment: { type: string } } } } } }
+      responses:
+        "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/OrderReview" } } } }
+        "409": { $ref: "#/components/responses/Err" }
+        "422": { $ref: "#/components/responses/Err" }
+    get:
+      tags: [reviews]
+      summary: Vlerësimi im për këtë porosi (204 kur nuk ka)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/OrderReview" } } } }
+        "204": { description: Ende pa vlerësim }
+        "404": { $ref: "#/components/responses/Err" }
   /api/v1/reviews/{id}/report:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     post:
@@ -1185,6 +1203,15 @@ components:
             properties:
               heading: { type: string }
               paragraphs: { type: array, items: { type: string } }
+    OrderReview:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        order_id: { type: string, format: uuid }
+        rating: { type: integer }
+        tags: { type: array, items: { type: string } }
+        comment: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
     PublicConfig:
       type: object
       properties:
