@@ -89,14 +89,15 @@ func (d *DevLog) SendOTP(_ context.Context, phoneE164, code, locale string) erro
 	return nil
 }
 
-// NewFromEnv zgjedh ofruesin: SMS_PROVIDER=infobip (parazgjedhje) ose devlog (vetëm development).
+// NewFromEnv zgjedh ofruesin: SMS_PROVIDER=infobip (parazgjedhje) ose devlog. Devlog lejohet në
+// development dhe staging (derisa dërguesi i Infobip-it të aprovohet); në production refuzohet.
 func NewFromEnv(env, provider, infobipBaseURL, infobipKey, infobipSender string, log *slog.Logger) (Provider, error) {
 	switch provider {
 	case "", "infobip":
 		return NewInfobip(infobipBaseURL, infobipKey, infobipSender)
 	case "devlog":
-		if env != "development" {
-			return nil, errors.New("sms: devlog provider is allowed only in development")
+		if env == "production" {
+			return nil, errors.New("sms: devlog provider is not allowed in production")
 		}
 		return NewDevLog(log), nil
 	default:

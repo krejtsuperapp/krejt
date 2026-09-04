@@ -197,7 +197,7 @@ func (d *DevLog) Send(_ context.Context, m Message) (Result, error) {
 	return Result{ProviderMessageID: "devlog"}, nil
 }
 
-// NewFromEnv — PUSH_PROVIDER: fcm (parazgjedhje) | devlog (vetëm development).
+// NewFromEnv — PUSH_PROVIDER: fcm (parazgjedhje) | devlog (development dhe staging; kurrë production).
 func NewFromEnv(env, provider, serviceAccountJSON string, log *slog.Logger) (Provider, error) {
 	switch provider {
 	case "fcm", "":
@@ -206,8 +206,8 @@ func NewFromEnv(env, provider, serviceAccountJSON string, log *slog.Logger) (Pro
 		}
 		return NewFCM(serviceAccountJSON)
 	case "devlog":
-		if env != "development" {
-			return nil, fmt.Errorf("push: devlog lejohet vetëm në development (APP_ENV=%s)", env)
+		if env == "production" {
+			return nil, fmt.Errorf("push: devlog nuk lejohet në production (APP_ENV=%s)", env)
 		}
 		log.Warn("DEV ONLY — PUSH_PROVIDER=devlog: push-et vetëm logohen")
 		return &DevLog{log: log}, nil
