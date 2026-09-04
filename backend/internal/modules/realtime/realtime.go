@@ -62,6 +62,10 @@ func (s *Service) Authorize(ctx context.Context, a principal.Actor, channel stri
 		var allowed bool
 		err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM rides WHERE id = $1 AND (customer_id = $2 OR driver_id = $2))`, id, a.UserID).Scan(&allowed)
 		return allowed, err
+	case "parcel":
+		var allowed bool
+		err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM parcels WHERE id = $1 AND (customer_id = $2 OR courier_id = $2))`, id, a.UserID).Scan(&allowed)
+		return allowed, err
 	case "order":
 		// klienti i porosisë, korrieri i saj ose stafi i partnerit
 		var allowed bool

@@ -26,6 +26,7 @@ import (
 	"krejt.app/backend/internal/modules/merchants"
 	"krejt.app/backend/internal/modules/notifications"
 	"krejt.app/backend/internal/modules/orders"
+	"krejt.app/backend/internal/modules/parcels"
 	"krejt.app/backend/internal/modules/pricing"
 	"krejt.app/backend/internal/modules/realtime"
 	"krejt.app/backend/internal/modules/rides"
@@ -46,6 +47,7 @@ import (
 	"krejt.app/backend/internal/workers/maintenance"
 	ordersworker "krejt.app/backend/internal/workers/orders"
 	"krejt.app/backend/internal/workers/outbox"
+	parcelsworker "krejt.app/backend/internal/workers/parcels"
 	"krejt.app/backend/internal/workers/queue"
 
 	"github.com/redis/go-redis/extra/redisotel/v9"
@@ -113,6 +115,8 @@ func main() {
 	merchantsSvc := merchants.New(pool, pricing.New(pool, mapsProvider, locSvc))
 	ordersSvc := orders.New(pool, ledgerSvc, catalog.New(pool, merchantsSvc), merchantsSvc).WithLocation(locSvc)
 	ordersDispatcher := orders.NewDispatcher(ordersSvc, orders.LocationNearby{Loc: locSvc}, log)
+	parcelsSvc := parcels.New(pool, ledgerSvc, mapsProvider).WithLocation(locSvc)
+	parcelsDispatcher := parcels.NewDispatcher(parcelsSvc, parcels.LocationNearby{Loc: locSvc}, log)
 	notifSvc := notifications.New(pool, pushProvider)
 	rtSvc := realtime.New(pool, rtPub, nil) // worker-i vetëm publikon; token-at i lëshon API-ja
 	analyticsSvc := analytics.New(analyticsProvider)
@@ -154,6 +158,7 @@ func main() {
 	run("outbox", outbox.New(pool, publisher, log).Run)
 	run("dispatch", dispatchworker.New(dispatcher, ridesSvc, log).Run)
 	run("orders-dispatch", ordersworker.New(ordersDispatcher, ordersSvc, log).Run)
+	run("parcels-dispatch", parcelsworker.New(parcelsDispatcher, parcelsSvc, log).Run)
 	run("maintenance", maintenance.New(log,
 		maintenance.Job{Name: "documents.expire", Every: time.Hour, Run: func(ctx context.Context) (string, error) {
 			e, s, err := documents.New(pool, store).ExpireSweep(ctx)

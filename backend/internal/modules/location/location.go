@@ -178,6 +178,11 @@ func (s *Service) Ingest(ctx context.Context, driverID uuid.UUID, samples []Samp
 		_ = s.realtime.Publish(ctx, "order:"+orderID, pos)
 	}
 
+	if parcelID := h["parcel_id"]; parcelID != "" && s.realtime != nil {
+		pos := map[string]any{"type": "courier_location", "parcel_id": parcelID, "lat": latest.Lat, "lng": latest.Lng, "ts": latest.RecordedAtMs}
+		_ = s.realtime.Publish(ctx, "parcel:"+parcelID, pos)
+	}
+
 	// persistencë selektive: vetëm gjatë udhëtimit, ~çdo 30 s
 	if rideID := h["ride_id"]; rideID != "" {
 		persistedMs, _ := strconv.ParseInt(h["persisted_ts"], 10, 64)
@@ -273,6 +278,16 @@ func (s *Service) SetBusyOrder(ctx context.Context, driverID uuid.UUID, orderID 
 	return err
 }
 
+// SetBusyParcel — korrieri mori një pako: pozicioni shkon te kanali `parcel:{id}`.
+func (s *Service) SetBusyParcel(ctx context.Context, driverID uuid.UUID, parcelID uuid.UUID) error {
+	pipe := s.rdb.Pipeline()
+	pipe.HSet(ctx, drvKey(driverID), "status", "busy", "parcel_id", parcelID.String())
+	pipe.HDel(ctx, drvKey(driverID), "ride_id", "order_id")
+	pipe.Expire(ctx, drvKey(driverID), hashTTL)
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
 func (s *Service) SetAvailable(ctx context.Context, driverID uuid.UUID) error {
 	exists, err := s.rdb.Exists(ctx, drvKey(driverID)).Result()
 	if err != nil || exists == 0 {
@@ -280,7 +295,7 @@ func (s *Service) SetAvailable(ctx context.Context, driverID uuid.UUID) error {
 	}
 	pipe := s.rdb.Pipeline()
 	pipe.HSet(ctx, drvKey(driverID), "status", "available")
-	pipe.HDel(ctx, drvKey(driverID), "ride_id", "order_id", "persisted_ts")
+	pipe.HDel(ctx, drvKey(driverID), "ride_id", "order_id", "parcel_id", "persisted_ts")
 	pipe.Expire(ctx, drvKey(driverID), hashTTL)
 	_, err = pipe.Exec(ctx)
 	return err

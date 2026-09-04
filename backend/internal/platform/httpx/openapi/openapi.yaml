@@ -28,6 +28,7 @@ tags:
   - name: documents
   - name: media
   - name: places
+  - name: parcels
   - name: wallet
   - name: payments
   - name: support
@@ -166,6 +167,67 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [channel], properties: { channel: { type: string, example: "ride:6f1c…" } } } } } }
       responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RealtimeToken" } } } }, "403": { $ref: "#/components/responses/Err" } }
 
+  /api/v1/parcels/quote:
+    post:
+      tags: [parcels]
+      summary: Çmimi i një pakoje (server-side, afat 2 min)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [size, pickup, dropoff], properties: { size: { type: string, enum: [s, m, l] }, pickup: { $ref: "#/components/schemas/Point" }, pickup_address: { type: string }, dropoff: { $ref: "#/components/schemas/Point" }, dropoff_address: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ParcelQuote" } } } }, "422": { $ref: "#/components/responses/Err" }, "503": { $ref: "#/components/responses/Err" } }
+  /api/v1/parcels:
+    post:
+      tags: [parcels]
+      summary: Krijo dërgesë pakoje nga një quote (Idempotency-Key i detyrueshëm)
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [quote_id, payment_method, recipient_name, recipient_phone], properties: { quote_id: { type: string, format: uuid }, payment_method: { type: string, enum: [cash, wallet] }, pickup_contact_name: { type: string }, pickup_contact_phone: { type: string }, recipient_name: { type: string }, recipient_phone: { type: string }, note: { type: string, maxLength: 300 } } } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Parcel" } } } }, "402": { $ref: "#/components/responses/Err" }, "409": { $ref: "#/components/responses/Err" }, "422": { $ref: "#/components/responses/Err" } }
+    get:
+      tags: [parcels]
+      summary: Historiku i pakove
+      parameters: [{ $ref: "#/components/parameters/Before" }, { $ref: "#/components/parameters/Limit" }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Parcel" } } } } } } } }
+  /api/v1/parcels/active:
+    get: { tags: [parcels], summary: "Pakoja aktive e klientit (null kur nuk ka)", responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { parcel: { $ref: "#/components/schemas/Parcel", nullable: true } } } } } } } }
+  /api/v1/parcels/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get: { tags: [parcels], summary: "Gjendja e pakos (klienti me kode, korrieri pa to)", responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Parcel" } } } }, "404": { $ref: "#/components/responses/Err" } } }
+  /api/v1/parcels/{id}/cancel:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [parcels]
+      summary: Anulo pakon (vetëm para marrjes)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { reason: { type: string, maxLength: 200 } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Parcel" } } } }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/courier/parcel-offers:
+    get: { tags: [parcels], summary: Ofertat e pakove (korrieri), responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/ParcelOffer" } } } } } } } } }
+  /api/v1/courier/parcel-offers/{id}/accept:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post: { tags: [parcels], summary: Prano pakon, responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Parcel" } } } }, "409": { $ref: "#/components/responses/Err" } } }
+  /api/v1/courier/parcel-offers/{id}/decline:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post: { tags: [parcels], summary: Refuzo ofertën e pakos, responses: { "204": { description: OK } } }
+  /api/v1/courier/parcels/active:
+    get: { tags: [parcels], summary: "Pakoja aktive e korrierit (null kur nuk ka)", responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { parcel: { $ref: "#/components/schemas/Parcel", nullable: true } } } } } } } }
+  /api/v1/courier/parcels/{id}/pickup:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [parcels]
+      summary: Marrja nga dërguesi (kodi 4-shifror i marrjes)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [code], properties: { code: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Parcel" } } } }, "409": { $ref: "#/components/responses/Err" }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/courier/parcels/{id}/deliver:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [parcels]
+      summary: Dorëzimi te marrësi (kodi 4-shifror i dorëzimit)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [code], properties: { code: { type: string } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Parcel" } } } }, "409": { $ref: "#/components/responses/Err" }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/courier/parcels/{id}/release:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [parcels]
+      summary: Korrieri heq dorë para marrjes (ricaktim)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { reason: { type: string, maxLength: 200 } } } } } }
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Parcel" } } } }, "409": { $ref: "#/components/responses/Err" } }
   /api/v1/places/search:
     get:
       tags: [places]
@@ -737,6 +799,18 @@ components:
             retryable: { type: boolean }
             fields: { type: object, additionalProperties: { type: string }, description: "Gabime për fushë (§57): {\"email\": \"invalid\"}" }
     Locale: { type: string, enum: [sq, en, de] }
+    ParcelQuote:
+      type: object
+      properties: { id: { type: string, format: uuid }, size: { type: string, enum: [s, m, l] }, distance_m: { type: integer }, duration_s: { type: integer }, price_minor: { type: integer }, currency: { type: string }, expires_at: { type: string, format: date-time } }
+    ParcelCourier:
+      type: object
+      properties: { id: { type: string, format: uuid }, name: { type: string }, vehicle_make: { type: string }, vehicle_model: { type: string }, vehicle_plate: { type: string }, vehicle_color: { type: string } }
+    Parcel:
+      type: object
+      properties: { id: { type: string, format: uuid }, code: { type: string }, pickup_code: { type: string, description: "vetëm klienti" }, delivery_code: { type: string, description: "vetëm klienti" }, customer_id: { type: string, format: uuid }, courier_id: { type: [string, "null"], format: uuid }, state: { type: string, enum: [requested, courier_assigned, picked_up, delivered, cancelled, no_courier] }, size: { type: string, enum: [s, m, l] }, payment_method: { type: string, enum: [cash, wallet] }, payment_status: { type: string }, pickup: { $ref: "#/components/schemas/Point" }, pickup_address: { type: [string, "null"] }, pickup_contact_name: { type: [string, "null"] }, pickup_contact_phone: { type: [string, "null"] }, dropoff: { $ref: "#/components/schemas/Point" }, dropoff_address: { type: [string, "null"] }, recipient_name: { type: string }, recipient_phone: { type: string }, note: { type: [string, "null"] }, distance_m: { type: integer }, duration_s: { type: integer }, price_minor: { type: integer }, currency: { type: string }, cancelled_by: { type: [string, "null"] }, cancellation_reason: { type: [string, "null"] }, created_at: { type: string, format: date-time }, assigned_at: { type: [string, "null"], format: date-time }, picked_up_at: { type: [string, "null"], format: date-time }, delivered_at: { type: [string, "null"], format: date-time }, cancelled_at: { type: [string, "null"], format: date-time }, courier: { $ref: "#/components/schemas/ParcelCourier" } }
+    ParcelOffer:
+      type: object
+      properties: { id: { type: string, format: uuid }, parcel_id: { type: string, format: uuid }, code: { type: string }, round: { type: integer }, expires_at: { type: string, format: date-time }, distance_m: { type: integer }, eta_s: { type: integer }, size: { type: string }, pickup_address: { type: [string, "null"] }, pickup: { $ref: "#/components/schemas/Point" }, dropoff_address: { type: [string, "null"] }, dropoff: { $ref: "#/components/schemas/Point" }, route_m: { type: integer }, earnings_minor: { type: integer }, currency: { type: string }, payment_method: { type: string }, total_minor: { type: integer } }
     Place:
       type: object
       properties:
