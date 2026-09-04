@@ -585,6 +585,51 @@ paths:
       summary: "Zbulimi i merchant-ëve aktivë (<= 15 km nga lat/lng, distancë, open_now, kërkim pa theksa)"
       parameters: [{ name: lat, in: query, schema: { type: number } }, { name: lng, in: query, schema: { type: number } }, { name: type, in: query, schema: { type: string, enum: [restaurant, store, grocery, pharmacy] } }, { name: q, in: query, schema: { type: string } }, { name: cuisine, in: query, schema: { type: string } }, { $ref: "#/components/parameters/Limit" }]
       responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Merchant" } }, types: { type: array, items: { type: string } } } } } } } }
+  /api/v1/businesses:
+    post:
+      tags: [business]
+      summary: Hap një ndërmarrje (kush e hap bëhet pronar)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [name], properties: { name: { type: string }, tax_id: { type: string }, address_line1: { type: string }, city: { type: string }, billing_email: { type: string } } } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Business" } } } }, "422": { $ref: "#/components/responses/Err" } }
+    get:
+      tags: [business]
+      summary: Ndërmarrjet ku jam anëtar aktiv
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/Business" } } } } } } } }
+  /api/v1/businesses/{id}:
+    get:
+      tags: [business]
+      summary: Profili i ndërmarrjes me rolin tim
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Business" } } } }, "403": { $ref: "#/components/responses/Err" }, "404": { $ref: "#/components/responses/Err" } }
+  /api/v1/businesses/{id}/members:
+    get:
+      tags: [business]
+      summary: Punonjësit me kufirin dhe shpenzimin e këtij muaji
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/BusinessMember" } } } } } } }, "403": { $ref: "#/components/responses/Err" } }
+    post:
+      tags: [business]
+      summary: Shto një punonjës me numrin e tij (vetëm pronar ose admin)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [phone, role], properties: { phone: { type: string }, role: { type: string, enum: [admin, member] }, monthly_limit_minor: { type: integer, nullable: true } } } } } }
+      responses: { "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/BusinessMember" } } } }, "403": { $ref: "#/components/responses/Err" }, "422": { $ref: "#/components/responses/Err" } }
+  /api/v1/businesses/{id}/members/{user_id}:
+    delete:
+      tags: [business]
+      summary: Hiq një punonjës (pronari i fundit nuk hiqet)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: user_id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses: { "204": { description: OK }, "403": { $ref: "#/components/responses/Err" }, "409": { $ref: "#/components/responses/Err" } }
+  /api/v1/businesses/{id}/charges:
+    get:
+      tags: [business]
+      summary: Shpenzimet e ndërmarrjes, me totalin e muajit
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Before" }
+      responses: { "200": { description: OK, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: "#/components/schemas/BusinessCharge" } }, total_minor: { type: integer } } } } } }, "403": { $ref: "#/components/responses/Err" } }
   /api/v1/favourites/merchants:
     get:
       tags: [merchants]
@@ -1211,6 +1256,39 @@ components:
         rating: { type: integer }
         tags: { type: array, items: { type: string } }
         comment: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+    Business:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        tax_id: { type: string, nullable: true }
+        address_line1: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        billing_email: { type: string, nullable: true }
+        status: { type: string, enum: [active, suspended] }
+        role: { type: string, enum: [owner, admin, member] }
+        created_at: { type: string, format: date-time }
+    BusinessMember:
+      type: object
+      properties:
+        user_id: { type: string, format: uuid }
+        name: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        role: { type: string, enum: [owner, admin, member] }
+        monthly_limit_minor: { type: integer, nullable: true }
+        active: { type: boolean }
+        spent_this_month_minor: { type: integer }
+    BusinessCharge:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        user_name: { type: string, nullable: true }
+        kind: { type: string, enum: [ride, order, parcel, service] }
+        subject_id: { type: string, format: uuid }
+        amount_minor: { type: integer }
+        currency: { type: string }
         created_at: { type: string, format: date-time }
     PublicConfig:
       type: object

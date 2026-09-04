@@ -712,6 +712,11 @@ const Map<String, String> _sq = {
 
   // gabimet nga serveri
   'errors.internal': 'Diçka shkoi keq. Provo përsëri.',
+  'errors.business.not_member': 'Nuk je anëtar i kësaj ndërmarrjeje.',
+  'errors.business.forbidden': 'Vetëm pronari ose administratori mund ta bëjë këtë.',
+  'errors.business.last_owner': 'Ndërmarrja duhet të ketë të paktën një pronar.',
+  'errors.business.limit_reached': 'Kufiri yt mujor u arrit.',
+  'errors.business.insufficient': 'Kuleta e ndërmarrjes nuk ka mjaftueshëm.',
   'errors.reviews.order_not_reviewable': 'Kjo porosi nuk mund të vlerësohet më.',
   'errors.legal.unavailable': 'Dokumenti nuk mund të hapet tani. Provo më vonë.',
   'errors.offline': 'Nuk ka lidhje me internetin.',
@@ -1513,6 +1518,11 @@ const Map<String, String> _en = {
   'courier.release.body': 'The order goes to another courier.',
 
   'errors.internal': 'Something went wrong. Please try again.',
+  'errors.business.not_member': 'You are not a member of this company.',
+  'errors.business.forbidden': 'Only an owner or admin can do this.',
+  'errors.business.last_owner': 'A company must keep at least one owner.',
+  'errors.business.limit_reached': 'Your monthly limit is reached.',
+  'errors.business.insufficient': 'The company wallet does not have enough.',
   'errors.reviews.order_not_reviewable': 'This order can no longer be rated.',
   'errors.legal.unavailable': 'This document cannot be opened right now. Try again later.',
   'errors.offline': 'No internet connection.',
@@ -2322,6 +2332,11 @@ const Map<String, String> _de = {
   'courier.release.body': 'Die Bestellung geht an einen anderen Kurier.',
 
   'errors.internal': 'Etwas ist schiefgelaufen. Bitte versuche es erneut.',
+  'errors.business.not_member': 'Du gehörst nicht zu diesem Unternehmen.',
+  'errors.business.forbidden': 'Das kann nur Inhaber oder Admin.',
+  'errors.business.last_owner': 'Ein Unternehmen braucht mindestens einen Inhaber.',
+  'errors.business.limit_reached': 'Dein Monatslimit ist erreicht.',
+  'errors.business.insufficient': 'Das Firmen-Wallet hat nicht genug Guthaben.',
   'errors.reviews.order_not_reviewable': 'Diese Bestellung lässt sich nicht mehr bewerten.',
   'errors.legal.unavailable': 'Dieses Dokument lässt sich gerade nicht öffnen. Versuch es später.',
   'errors.offline': 'Keine Internetverbindung.',
