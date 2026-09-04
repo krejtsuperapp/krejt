@@ -28,3 +28,15 @@
 quote < 500 ms, request < 800 ms, gabime < 1 %. Ekzekutohet kundër **staging-ut** me token-a të llogarive të testit:
 `k6 run -e BASE=https://api-staging.krejt.app -e CUSTOMER_TOKEN=… -e DRIVER_TOKEN=… tests/load/rides.js`.
 Kriteri i nisjes (Faza 1): 30 ditë pa incident P1 në staging nën 2–3× e pikut.
+
+## Prodhimi (api.krejt.app)
+
+1. Certifikata: `terraform apply -target=aws_acm_certificate.api` te `infra/terraform/envs/prod` (profil `krejt-prod`),
+   pastaj `terraform output acm_validation_record` → CNAME te Cloudflare **me proxy të fikur**. Prit `ISSUED`.
+2. Ngritja me faza (mësim nga staging-u): `-target=module.network` → `-target=module.ecs` → apply i plotë.
+   Sekretet e prod-it (JWT, OTP, Centrifugo, Mapbox, FCM, Infobip, Stripe, PostHog) vendosen te Secrets Manager
+   **nga makina e operatorit**; në prod serveri refuzon `devlog` për SMS/pagesa/analitikë.
+3. DNS: CNAME `api` → ALB-ja e prod-it (proxy i ndezur). Panelet me emra një-nivelësh (`admin.krejt.app`, `partner.krejt.app`).
+4. GitHub: mjedisi `prod` me **required reviewers** (miratimi manual), sekreti `AWS_DEPLOY_ROLE_ARN` = output-i
+   `deploy_role_arn`, variabla e repo-s `PROD_DEPLOY=true`. Vetëm atëherë `deploy-prod` ekzekutohet — pas
+   `smoke-dev` dhe `health-staging`, me të njëjtën SHA. `health-prod` verifikon `/healthz` dhe versionin e shërbyer.
