@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:krejt_design/krejt_design.dart';
+import 'package:krejt_l10n/krejt_l10n.dart';
 import 'package:krejt_map/krejt_map.dart';
 
 /// Ekran me hartë të plotë poshtë dhe një panel mbi të. Dy variante:
@@ -69,7 +70,8 @@ class MapScaffold extends StatelessWidget {
             markers: markers,
             path: path,
             padding: EdgeInsets.fromLTRB(48, 120, 48, bottomPad),
-            schematicCaption: null,
+            // Kur harta e vërtetë nuk ngarkohet, teksti e thotë hapur se kjo është skemë dhe jo hartë.
+            schematicCaption: context.t('map.schematic'),
           ),
           // Hija nën kokën transparente, që titulli të lexohet mbi hartë të çelët.
           const Positioned(
