@@ -136,6 +136,8 @@ jobs:
         run: BASE=https://dev.krejt.app node tests/e2e/ride.mjs
       - name: porosi ushqimi kundrejt dev-it
         run: BASE=https://dev.krejt.app node tests/e2e/food.mjs
+      - name: pako me korrier kundrejt dev-it
+        run: BASE=https://dev.krejt.app node tests/e2e/parcels.mjs
 
   # Staging: vetëm SHA-ja që kaloi provën e plotë në dev. Numrat e provës nuk ekzistojnë atje
   # (jashtë development serveri i refuzon), ndaj prova është shëndeti dhe versioni i shërbyer.
