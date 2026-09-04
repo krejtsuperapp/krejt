@@ -7,6 +7,7 @@ import 'package:krejt_l10n/krejt_l10n.dart';
 import 'package:provider/provider.dart';
 
 import '../../state/app_state.dart';
+import '../active_banner.dart';
 import '../ride/place_search.dart';
 import 'request_tracking.dart';
 
@@ -160,6 +161,7 @@ class _NewServiceRequestScreenState extends State<NewServiceRequestScreen> {
             : ListView(
                 padding: const EdgeInsets.fromLTRB(K.s5, K.s4, K.s5, K.s8),
                 children: [
+                  const ActiveBanner(kind: ActiveKind.service),
                   KSectionHeader(context.t('service.category')),
                   const SizedBox(height: K.s3),
                   Wrap(

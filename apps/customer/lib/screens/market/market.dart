@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/location.dart';
 import '../../state/app_state.dart';
+import '../active_banner.dart';
 import '../food/cart_bar.dart';
 import '../food/menu.dart';
 
@@ -209,6 +210,7 @@ class _MarketScreenState extends State<MarketScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(K.s5, 0, K.s5, K.s8),
         children: [
+          const ActiveBanner(kind: ActiveKind.order),
           for (final m in open) _StoreRow(merchant: m),
           if (closed.isNotEmpty) ...[
             const SizedBox(height: K.s4),

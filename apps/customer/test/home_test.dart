@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_customer/screens/account/account.dart';
 import 'package:krejt_customer/screens/account/addresses.dart';
+import 'package:krejt_customer/screens/active_banner.dart';
 import 'package:krejt_customer/screens/home.dart';
 import 'package:krejt_customer/state/app_state.dart';
 import 'package:krejt_design/krejt_design.dart';
@@ -124,5 +125,19 @@ void main() {
     expect(find.text('AK'), findsOneWidget);
     expect(find.text('Arta Krasniqi'), findsOneWidget);
     expect(find.text('Shqip'), findsOneWidget);
+  });
+
+  // Banderola brenda degës: pa të, kush hyn te Korrieri nga një njoftim e gjen formularin bosh
+  // sikur pakoja e tij të mos ekzistonte.
+  testWidgets('banderola e degës shfaqet vetëm kur ka diçka në rrjedhë', (tester) async {
+    await tester.pumpWidget(_wrap(const ActiveBanner(kind: ActiveKind.ride)));
+    await tester.pumpAndSettle();
+    expect(find.byType(KNeonBanner), findsNothing);
+
+    final state = AppState()..activeRide = _ride(state: 'in_progress');
+    await tester.pumpWidget(_wrap(const ActiveBanner(kind: ActiveKind.ride), state: state));
+    await tester.pumpAndSettle();
+    expect(find.byType(KNeonBanner), findsOneWidget);
+    expect(find.text('Në rrugë'), findsOneWidget);
   });
 }

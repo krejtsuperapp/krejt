@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 
 import '../../state/app_state.dart';
 import '../coupon_field.dart';
+import '../active_banner.dart';
 import '../ride/map_scaffold.dart';
 import '../ride/place_search.dart';
 import 'parcel_tracking.dart';
@@ -193,6 +194,7 @@ class _NewParcelScreenState extends State<NewParcelScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      const ActiveBanner(kind: ActiveKind.parcel),
                       _PlaceField(
                         color: K.brand500,
                         square: false,

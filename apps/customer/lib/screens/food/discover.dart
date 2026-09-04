@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/location.dart';
 import '../../state/app_state.dart';
+import '../active_banner.dart';
 import 'cart_bar.dart';
 import 'menu.dart';
 
@@ -202,6 +203,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(K.s5, K.s3, K.s5, K.s8),
         children: [
+          const ActiveBanner(kind: ActiveKind.order),
           for (final m in open) _MerchantRow(merchant: m),
           if (closed.isNotEmpty) ...[
             const SizedBox(height: K.s4),
