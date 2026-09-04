@@ -130,10 +130,11 @@ func (g *Google) route(ctx context.Context, from, to geo.Point, geometry bool) (
 // --- Mapbox Directions API -----------------------------------------------------
 
 type Mapbox struct {
-	token    string
-	endpoint string
-	geocode  string // override në teste; bosh = mapboxGeocode
-	http     *http.Client
+	token     string
+	endpoint  string
+	geocode   string // override në teste; bosh = mapboxGeocode
+	searchBox string // override në teste; bosh = mapboxSearchBox
+	http      *http.Client
 }
 
 // NewMapbox — profili `driving-traffic` përdor trafikun e çastit, njësoj si TRAFFIC_AWARE te Google.

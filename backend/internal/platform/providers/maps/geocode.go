@@ -80,7 +80,10 @@ func (m *Mapbox) route(ctx context.Context, from, to geo.Point, geometry bool) (
 	return r, nil
 }
 
-const mapboxGeocode = "https://api.mapbox.com/search/geocode/v6"
+const (
+	mapboxGeocode   = "https://api.mapbox.com/search/geocode/v6"
+	mapboxSearchBox = "https://api.mapbox.com/search/searchbox/v1"
+)
 
 // geocodeBase — endpoint-i i gjeokodimit; ndryshohet vetëm në teste.
 func (m *Mapbox) geocodeBase() string {
@@ -112,7 +115,37 @@ func (f mapboxFeature) place() Place {
 	return Place{Name: p.Name, Address: addr, Kind: p.FeatureType, Point: geo.Point{Lat: p.Coordinates.Latitude, Lng: p.Coordinates.Longitude}}
 }
 
+// searchBoxBase — endpoint-i i Search Box; ndryshohet vetëm në teste.
+func (m *Mapbox) searchBoxBase() string {
+	if m.searchBox != "" {
+		return m.searchBox
+	}
+	return mapboxSearchBox
+}
+
+// Search — Search Box i Mapbox-it gjen edhe pika si restorante, spitale a monumente, të cilat
+// Geocoding v6 nuk i kthen. Gjeokodimi mbetet rrugë rezervë: nëse Search Box bie ose s'gjen asgjë,
+// kërkimi i adresave vazhdon të punojë.
 func (m *Mapbox) Search(ctx context.Context, q string, near *geo.Point, limit int) ([]Place, error) {
+	v := url.Values{}
+	v.Set("access_token", m.token)
+	v.Set("q", q)
+	v.Set("country", "xk")
+	v.Set("language", "sq")
+	v.Set("limit", fmt.Sprint(limit))
+	v.Set("types", "poi,address,street,place,locality,neighborhood")
+	if near != nil {
+		v.Set("proximity", fmt.Sprintf("%.5f,%.5f", near.Lng, near.Lat))
+	}
+	out, err := m.searchBoxCall(ctx, m.searchBoxBase()+"/forward?"+v.Encode())
+	if err == nil && len(out) > 0 {
+		return out, nil
+	}
+	return m.searchGeocode(ctx, q, near, limit)
+}
+
+// searchGeocode — Geocoding v6: pa pika, por i saktë për adresa, rrugë dhe vendbanime.
+func (m *Mapbox) searchGeocode(ctx context.Context, q string, near *geo.Point, limit int) ([]Place, error) {
 	v := url.Values{}
 	v.Set("access_token", m.token)
 	v.Set("q", q)
@@ -136,6 +169,62 @@ func (m *Mapbox) Search(ctx context.Context, q string, near *geo.Point, limit in
 		}
 	}
 	return out, nil
+}
+
+// searchBoxFeature — përgjigjja e Search Box i mban koordinatat te gjeometria GeoJSON (lng, lat),
+// ndryshe nga Geocoding v6 që i mban te properties.
+type searchBoxFeature struct {
+	Geometry struct {
+		Coordinates []float64 `json:"coordinates"`
+	} `json:"geometry"`
+	Properties struct {
+		Name           string `json:"name"`
+		FullAddress    string `json:"full_address"`
+		PlaceFormatted string `json:"place_formatted"`
+		FeatureType    string `json:"feature_type"`
+	} `json:"properties"`
+}
+
+func (m *Mapbox) searchBoxCall(ctx context.Context, u string) ([]Place, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := m.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("maps: mapbox search box: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		// URL-ja mban token-in: nuk logohet as ajo, as trupi.
+		return nil, fmt.Errorf("maps: mapbox search box: HTTP %d", resp.StatusCode)
+	}
+	var out struct {
+		Features []searchBoxFeature `json:"features"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("maps: mapbox search box: decode: %w", err)
+	}
+	places := make([]Place, 0, len(out.Features))
+	for _, f := range out.Features {
+		if len(f.Geometry.Coordinates) < 2 || f.Properties.Name == "" {
+			continue
+		}
+		addr := f.Properties.FullAddress
+		if addr == "" {
+			addr = f.Properties.PlaceFormatted
+		}
+		p := Place{
+			Name:    f.Properties.Name,
+			Address: addr,
+			Kind:    f.Properties.FeatureType,
+			Point:   geo.Point{Lat: f.Geometry.Coordinates[1], Lng: f.Geometry.Coordinates[0]},
+		}
+		if p.Point.Valid() && geo.InKosovo(p.Point) {
+			places = append(places, p)
+		}
+	}
+	return places, nil
 }
 
 func (m *Mapbox) Reverse(ctx context.Context, p geo.Point) (*Place, error) {
