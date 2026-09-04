@@ -20,6 +20,7 @@ const ENTRIES: Entry[] = [
   { href: "/support", label: "Mbështetja", caps: [CAP.support] },
   { href: "/users", label: "Përdoruesit", caps: [CAP.operations, CAP.support] },
   { href: "/risk", label: "Risku", caps: [CAP.operations] },
+  { href: "/providers", label: "Mjeshtrit", caps: [CAP.operations] },
   { href: "/coupons", label: "Kupona", caps: [CAP.operations] },
   { href: "/flags", label: "Flag-et", caps: [CAP.operations] },
 ];
