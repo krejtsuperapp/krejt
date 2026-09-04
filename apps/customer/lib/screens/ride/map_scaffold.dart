@@ -79,6 +79,10 @@ class MapScaffold extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(48, 120, 48, bottomPad),
             // Kur harta e vërtetë nuk ngarkohet, teksti e thotë hapur se kjo është skemë dhe jo hartë.
             schematicCaption: context.t('map.schematic'),
+            // Ekranet me hartë të plotë e kanë vendndodhjen tashmë të lejuar nga vetë rrjedha
+            // (marrja, dërgesa, ndjekja), ndaj pika e përdoruesit nuk sjell kërkesë të re lejeje.
+            showUserLocation: true,
+            recenterTooltip: context.t('map.recenter'),
           ),
           // Hija nën kokën transparente, që titulli të lexohet mbi hartë të çelët.
           const Positioned(
