@@ -235,7 +235,9 @@ resource "aws_lb_listener_rule" "api" {
     target_group_arn = aws_lb_target_group.api[0].arn
   }
   condition {
-    path_pattern { values = ["/api/*", "/healthz"] }
+    # /legal/* janë Kushtet dhe Politika e privatësisë si faqe publike: dyqanet e aplikacioneve
+    # i hapin pa llogari, ndaj duhen të kalojnë te API-ja si /api/*.
+    path_pattern { values = ["/api/*", "/healthz", "/legal/*"] }
   }
 }
 
