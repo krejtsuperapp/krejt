@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/location.dart';
 import '../../state/app_state.dart';
+import 'cart_bar.dart';
 import 'menu.dart';
 
 const merchantTypes = ['restaurant', 'store', 'grocery', 'pharmacy'];
@@ -152,6 +153,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               ),
             ),
             Expanded(child: _body(context, open, closed)),
+            const CartBar(),
           ],
         ),
       ),

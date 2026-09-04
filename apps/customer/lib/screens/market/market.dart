@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/location.dart';
 import '../../state/app_state.dart';
+import '../food/cart_bar.dart';
 import '../food/menu.dart';
 
 /// Marketi si shërbim më vete, jo si Ushqimi me një flamur.
@@ -159,6 +160,7 @@ class _MarketScreenState extends State<MarketScreen> {
               ),
             ),
             Expanded(child: _body(context, open, closed)),
+            const CartBar(),
           ],
         ),
       ),
