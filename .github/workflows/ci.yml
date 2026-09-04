@@ -8,6 +8,14 @@ on:
   push:
     branches: [main]
 
+# Një radhë e vetme për degë. Pa këtë, disa bashkime të njëpasnjëshme në main nisin deploy-e
+# paralele te të njëjtat shërbime ECS: waiter-i sheh lëvizje që s'janë të tijat, dhe një run i
+# vjetër që mbaron i fundit mund ta mbivendosë imazhin e ri. Në main radhiten (rendi i commit-eve
+# ruhet dhe i fundit mbetet ai i saktë); te degët e tjera run-i i tejkaluar anulohet.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 permissions:
   contents: read
   security-events: write
