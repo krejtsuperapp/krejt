@@ -580,7 +580,9 @@ func (s *Service) settle(ctx context.Context, r *Request) error {
 	}
 	price := money.Minor(*r.PriceMinor)
 	commission := money.Minor(r.CommissionMinor)
-	wallet := "provider:" + r.ProviderID.String() + ":wallet"
+	// I njëjti kod llogarie si te shoferët dhe korrierët: pagesat e mjeshtrave kalojnë nga e njëjta
+	// makineri payout-esh, ndryshe fitimi do të mbetej në një llogari që askush nuk e paguan.
+	wallet := "driver:" + r.ProviderID.String() + ":wallet"
 	pid := *r.ProviderID
 	if err := s.ledger.EnsureAccount(ctx, wallet, "driver", &pid, "liability", r.Currency); err != nil {
 		return err

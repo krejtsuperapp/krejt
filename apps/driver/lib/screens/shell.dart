@@ -6,10 +6,11 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import 'account.dart';
 import 'earnings.dart';
+import 'services.dart';
 import 'work.dart';
 
-/// Tri destinacione për shoferin: puna, fitimet, llogaria. Puna rri e para dhe mbetet e para,
-/// sepse aty ndodh gjithçka gjatë turnit.
+/// Katër destinacione: puna, shërbimet, fitimet, llogaria. Puna rri e para dhe mbetet e para,
+/// sepse aty ndodh gjithçka gjatë turnit; shërbimet janë punë e llojit tjetër, me ritëm tjetër.
 class DriverShell extends StatefulWidget {
   const DriverShell({super.key});
 
@@ -34,7 +35,7 @@ class _DriverShellState extends State<DriverShell> {
       backgroundColor: K.bg,
       body: IndexedStack(
         index: _index,
-        children: const [WorkScreen(), EarningsScreen(), DriverAccountScreen()],
+        children: const [WorkScreen(), ServicesScreen(), EarningsScreen(), DriverAccountScreen()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -44,6 +45,11 @@ class _DriverShellState extends State<DriverShell> {
             icon: const Icon(Icons.local_taxi_outlined),
             selectedIcon: const Icon(Icons.local_taxi),
             label: context.t('driver.nav.work'),
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.handyman_outlined),
+            selectedIcon: const Icon(Icons.handyman),
+            label: context.t('provider.nav'),
           ),
           NavigationDestination(
             icon: const Icon(Icons.payments_outlined),

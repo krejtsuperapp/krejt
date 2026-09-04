@@ -207,3 +207,90 @@ class ServiceRequest {
     ],
   );
 }
+
+/// Profili i mjeshtrit siç e sheh ai vetë (me gjendjen e miratimit dhe kategoritë).
+class ServiceProviderProfile {
+  const ServiceProviderProfile({
+    required this.userId,
+    required this.status,
+    required this.categories,
+    this.businessName,
+    this.bio,
+    required this.city,
+    this.phonePublic,
+    this.rating,
+    required this.ratingCount,
+    required this.jobsDone,
+    this.suspendedReason,
+  });
+
+  final String userId;
+  final String status;
+  final List<String> categories;
+  final String? businessName;
+  final String? bio;
+  final String city;
+  final String? phonePublic;
+  final double? rating;
+  final int ratingCount;
+  final int jobsDone;
+  final String? suspendedReason;
+
+  bool get approved => status == 'approved';
+
+  factory ServiceProviderProfile.fromJson(Map<String, dynamic> j) => ServiceProviderProfile(
+    userId: (j['user_id'] ?? '').toString(),
+    status: (j['status'] ?? 'pending').toString(),
+    categories: [for (final c in (j['categories'] as List?) ?? const []) c.toString()],
+    businessName: j['business_name']?.toString(),
+    bio: j['bio']?.toString(),
+    city: (j['city'] ?? '').toString(),
+    phonePublic: j['phone_public']?.toString(),
+    rating: (j['rating'] as num?)?.toDouble(),
+    ratingCount: (j['rating_count'] as num?)?.toInt() ?? 0,
+    jobsDone: (j['jobs_done'] as num?)?.toInt() ?? 0,
+    suspendedReason: j['suspended_reason']?.toString(),
+  );
+}
+
+/// Një punë e hapur siç e sheh mjeshtri: pa adresën e saktë derisa oferta të pranohet.
+class ServiceOpenRequest {
+  const ServiceOpenRequest({
+    required this.id,
+    required this.code,
+    required this.categoryId,
+    required this.title,
+    required this.description,
+    required this.city,
+    this.preferredAt,
+    required this.photoKeys,
+    required this.createdAt,
+    this.myOffer,
+  });
+
+  final String id;
+  final String code;
+  final String categoryId;
+  final String title;
+  final String description;
+  final String city;
+  final DateTime? preferredAt;
+  final List<String> photoKeys;
+  final DateTime createdAt;
+  final ServiceOffer? myOffer;
+
+  factory ServiceOpenRequest.fromJson(Map<String, dynamic> j) => ServiceOpenRequest(
+    id: j['id'].toString(),
+    code: (j['code'] ?? '').toString(),
+    categoryId: (j['category_id'] ?? '').toString(),
+    title: (j['title'] ?? '').toString(),
+    description: (j['description'] ?? '').toString(),
+    city: (j['city'] ?? '').toString(),
+    preferredAt: DateTime.tryParse(j['preferred_at']?.toString() ?? ''),
+    photoKeys: [for (final k in (j['photo_keys'] as List?) ?? const []) k.toString()],
+    createdAt: DateTime.tryParse(j['created_at']?.toString() ?? '') ?? DateTime.now(),
+    myOffer: j['my_offer'] is Map
+        ? ServiceOffer.fromJson(Map<String, dynamic>.from(j['my_offer'] as Map))
+        : null,
+  );
+}
