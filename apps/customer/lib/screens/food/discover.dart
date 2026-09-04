@@ -41,6 +41,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   List<Merchant> _items = const [];
 
+  /// Të preferuarat rrinë sipër listës, jo të përziera në të: ato janë përgjigjja e "ku hëngra
+  /// herën e fundit", ndërsa lista poshtë është "çka ka hapur tani".
+  List<Merchant> _favourites = const [];
+
   /// Kuzhinat e para nga ngarkimi pa filtër; pa këtë, zgjedhja e njërës do t'i zhdukte të tjerat.
   List<String> _cuisines = const [];
   LatLng? _at;
@@ -88,6 +92,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         query: _search.text.trim(),
       );
       if (!mounted) return;
+      // Të preferuarat nuk e ndalin listën: nëse ato bien, ekrani mbetet i plotë pa to.
+      unawaited(_loadFavourites(at));
       setState(() {
         _items = items;
         if (_cuisine == null && _search.text.trim().isEmpty) {
@@ -103,6 +109,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         _error = e;
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadFavourites(LatLng at) async {
+    try {
+      final items = await context.read<AppState>().api.favouriteMerchants(lat: at.lat, lng: at.lng);
+      if (!mounted) return;
+      setState(() => _favourites = items.where((m) => m.type == 'restaurant').toList());
+    } on ApiError {
+      // Lista kryesore mjafton; të preferuarat thjesht nuk shfaqen.
     }
   }
 
@@ -205,6 +221,25 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         padding: const EdgeInsets.fromLTRB(K.s5, K.s3, K.s5, K.s8),
         children: [
           const ActiveBanner(kind: ActiveKind.order),
+          // Gjatë kërkimit ose me filtër kuzhine, shiriti fshihet: aty përdoruesi po kërkon diçka
+          // të caktuar, dhe të preferuarat do të ishin zhurmë mbi rezultatin.
+          if (_favourites.isNotEmpty && _cuisine == null && _search.text.trim().isEmpty) ...[
+            KSectionHeader(context.t('food.favourites')),
+            const SizedBox(height: K.s3),
+            SizedBox(
+              height: 208,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                itemCount: _favourites.length,
+                separatorBuilder: (_, _) => const SizedBox(width: K.s3),
+                itemBuilder: (_, i) => _FavouriteCard(merchant: _favourites[i]),
+              ),
+            ),
+            const SizedBox(height: K.s5),
+            KSectionHeader(context.t('home.nearby')),
+            const SizedBox(height: K.s3),
+          ],
           for (final m in open) _MerchantRow(merchant: m),
           if (closed.isNotEmpty) ...[
             const SizedBox(height: K.s4),
@@ -303,6 +338,40 @@ class _MerchantRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Kartë e ngushtë për shiritin horizontal: emri, vlerësimi dhe koha — aq sa duhet për ta njohur
+/// një vend te i cili ke qenë tashmë.
+class _FavouriteCard extends StatelessWidget {
+  const _FavouriteCard({required this.merchant});
+
+  final Merchant merchant;
+
+  @override
+  Widget build(BuildContext context) {
+    final locale = context.watch<AppState>().locale;
+    return KMerchantCard(
+      name: merchant.name,
+      subtitle: [
+        if (merchant.cuisines.isNotEmpty) merchant.cuisines.first,
+        formatDistance(merchant.distanceM, locale: locale),
+      ].join(' · '),
+      imageUrl: merchant.coverUrl ?? merchant.logoUrl,
+      rating: merchant.rating?.toStringAsFixed(1),
+      dimmed: !merchant.canOrder,
+      chips: [
+        if (!merchant.canOrder)
+          KChip(context.t('food.closed'))
+        else
+          KChip(context.t('food.prep', {'min': '${merchant.prepTimeMin}'})),
+      ],
+      onTap: merchant.canOrder
+          ? () =>
+                Navigator.of(context)
+                    .push(MaterialPageRoute<void>(builder: (_) => MenuScreen(merchant: merchant)))
+          : null,
     );
   }
 }
