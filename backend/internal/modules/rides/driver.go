@@ -14,6 +14,7 @@ import (
 
 	"krejt.app/backend/internal/domain/geo"
 	"krejt.app/backend/internal/domain/money"
+	"krejt.app/backend/internal/modules/business"
 	"krejt.app/backend/internal/modules/ledger"
 	"krejt.app/backend/internal/modules/pricing"
 	"krejt.app/backend/internal/platform/events"
@@ -335,17 +336,24 @@ func (s *Service) settle(ctx context.Context, r *Ride) error {
 					Postings: []ledger.Posting{{AccountCode: driverWallet, Debit: commission}, {AccountCode: "krejt:commission", Credit: commission}}}
 			}
 		} else {
-			bal, err := s.ledger.Balance(ctx, ledger.UserWalletCode(r.CustomerID))
+			// Ndryshimi i vetëm mes kuletës personale dhe asaj të ndërmarrjes është llogaria që
+			// ngarkohet. Ndarja mbetet e njëjta: pjesa e shoferit te detyrimi ndaj tij, jona te
+			// komisioni — përndryshe libri do të tregonte fitim që nuk ekziston.
+			payer := ledger.UserWalletCode(r.CustomerID)
+			if r.PaymentMethod == "business" && r.BusinessID != nil {
+				payer = business.WalletCode(*r.BusinessID)
+			}
+			bal, err := s.ledger.Balance(ctx, payer)
 			if err != nil {
 				return err
 			}
 			if bal.Minor < price {
-				return s.setPaymentStatus(ctx, r, "failed")
+				return s.setPaymentStatus(ctx, r, "failed", uuid.Nil)
 			}
 			status = "paid"
 			tx = ledger.Transaction{Kind: "ride_fare", Reference: "ride:" + r.ID.String(), IdempotencyKey: "ride:" + r.ID.String() + ":fare", Currency: r.Currency,
 				Postings: []ledger.Posting{
-					{AccountCode: ledger.UserWalletCode(r.CustomerID), Debit: price},
+					{AccountCode: payer, Debit: price},
 					{AccountCode: driverWallet, Credit: price - commission},
 					{AccountCode: "krejt:commission", Credit: commission}}}
 			if commission == 0 {
@@ -355,18 +363,34 @@ func (s *Service) settle(ctx context.Context, r *Ride) error {
 	default:
 		return fmt.Errorf("rides: settle: gjendje e papritur %s/%s", r.State, r.PaymentStatus)
 	}
+	var ledgerTx uuid.UUID
 	if len(tx.Postings) > 0 {
-		if _, err := s.ledger.Post(ctx, tx); err != nil {
+		id, err := s.ledger.Post(ctx, tx)
+		if err != nil {
 			return err
 		}
+		ledgerTx = id
 	}
-	return s.setPaymentStatus(ctx, r, status)
+	return s.setPaymentStatus(ctx, r, status, ledgerTx)
 }
 
-func (s *Service) setPaymentStatus(ctx context.Context, r *Ride, status string) error {
+// setPaymentStatus — statusi dhe, kur udhëtimin e paguan një ndërmarrje, edhe rreshti i shpenzimit,
+// në të njëjtin transaksion. Nëse ky transaksion dështon pas regjistrimit te libri, udhëtimi mbetet
+// `pending` dhe zgjidhja provohet sërish; regjistrimi është idempotent, ndaj rihyrja nuk dyfishon
+// as paranë as shpenzimin.
+func (s *Service) setPaymentStatus(ctx context.Context, r *Ride, status string, ledgerTx uuid.UUID) error {
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `UPDATE rides SET payment_status = $2, updated_at = now() WHERE id = $1 AND payment_status = 'pending'`, r.ID, status); err != nil {
 			return err
+		}
+		if status == "paid" && r.PaymentMethod == "business" && r.BusinessID != nil && s.business != nil {
+			amount := r.PriceQuotedMinor
+			if r.PriceFinalMinor != nil {
+				amount = *r.PriceFinalMinor
+			}
+			if err := s.business.RecordCharge(ctx, tx, *r.BusinessID, r.CustomerID, "ride", r.ID, ledgerTx, amount); err != nil {
+				return err
+			}
 		}
 		ev := "RidePaymentSettled"
 		if status == "failed" {

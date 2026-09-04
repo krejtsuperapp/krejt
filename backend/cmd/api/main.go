@@ -211,7 +211,8 @@ func main() {
 	}
 	appCfg := appconfig.New(pool)
 	fraudSvc := fraud.New(pool, rdb)
-	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricingSvc).WithFlags(appCfg).WithVelocity(fraudSvc).WithQR(rtTokens)
+	businessSvc := business.New(pool, ledgerSvc)
+	ridesSvc := rides.New(pool, locSvc, ledgerSvc, driversSvc, pricingSvc).WithFlags(appCfg).WithVelocity(fraudSvc).WithQR(rtTokens).WithBusiness(businessSvc)
 	limiter := ratelimit.New(rdb, log)
 	perUser := limiter.PerUser(600, time.Minute) // §51: kufi për përdorues të kyçur
 	requireAuth := func(next http.Handler) http.Handler { return authSvc.RequireAuth("")(perUser(next)) }
@@ -272,7 +273,7 @@ func main() {
 	legal.New(legal.Operator{Entity: cfg.LegalEntity, Address: cfg.LegalAddress, Email: cfg.LegalEmail}).Routes(mux)
 	parcels.New(pool, ledgerSvc, mapsProvider).WithLocation(locSvc).WithPromos(promosSvc).Routes(mux, requireAuth, requireDriver)
 	servicesmod.New(pool, ledgerSvc).Routes(mux, requireAuth, requireOps)
-	business.New(pool, ledgerSvc).Routes(mux, requireAuth)
+	businessSvc.Routes(mux, requireAuth)
 	admin.New(pool, rdb, ledgerSvc).Routes(mux, requireStaff, requireAdmin)
 	if fs, ok := store.(*storage.DevFS); ok {
 		documents.DevRoutes(mux, fs) // vetëm development (devfs)
