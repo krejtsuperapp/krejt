@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import '../../services/location.dart';
 import '../../state/app_state.dart';
 import '../account/addresses.dart';
+import '../active_banner.dart';
 import 'map_scaffold.dart';
 import 'quote.dart';
 
@@ -281,6 +282,7 @@ class _DestinationScreenState extends State<DestinationScreen> {
   List<Widget> _suggestionRows(BuildContext context) {
     final recent = _recent;
     final rows = <Widget>[];
+    rows.add(const ActiveBanner(kind: ActiveKind.ride));
     if (_addresses.isNotEmpty) {
       rows.add(KSectionHeader(context.t('ride.search.saved')));
       rows.add(const SizedBox(height: K.s2));
