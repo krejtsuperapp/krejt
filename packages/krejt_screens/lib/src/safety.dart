@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:krejt_api/krejt_api.dart';
 import 'package:krejt_design/krejt_design.dart';
 import 'package:krejt_l10n/krejt_l10n.dart';
-import 'package:provider/provider.dart';
-
-import '../../services/location.dart';
-import '../../state/app_state.dart';
 
 /// Llojet e raportimit, në të njëjtën radhë si te serveri. `sos` rri i pari sepse është ai që
 /// kërkohet me nxitim; të tjerat vijnë sipas sa shpesh ndodhin.
@@ -24,7 +20,14 @@ const _kinds = <String>[
 ///
 /// Me qëllim nuk premtohet ndihmë emergjente: raporti shkon te operacionet e KREJT-it, jo te
 /// policia. Teksti e thotë hapur, që askush të mos presë ambulancën nga një buton në telefon.
-Future<void> showSafetySheet(BuildContext context, {required String rideId}) async {
+/// [at] jepet nga aplikacioni thirrës, sepse vendndodhja merret ndryshe te klienti dhe te shoferi.
+/// Null nuk e ndal raportin: askush nuk duhet të mbetet pa mundësi raportimi për shkak të një lejeje.
+Future<void> showSafetySheet(
+  BuildContext context, {
+  required KrejtApi api,
+  required String rideId,
+  LatLng? at,
+}) async {
   final kind = await showKSheet<String>(
     context: context,
     title: context.t('safety.title'),
@@ -66,13 +69,15 @@ Future<void> showSafetySheet(BuildContext context, {required String rideId}) asy
     ),
   );
   if (kind == null || !context.mounted) return;
-  await _confirmAndSend(context, rideId: rideId, kind: kind);
+  await _confirmAndSend(context, api: api, rideId: rideId, kind: kind, at: at);
 }
 
 Future<void> _confirmAndSend(
   BuildContext context, {
+  required KrejtApi api,
   required String rideId,
   required String kind,
+  LatLng? at,
 }) async {
   final note = TextEditingController();
   final send = await showKSheet<bool>(
@@ -97,19 +102,10 @@ Future<void> _confirmAndSend(
   note.dispose();
 
   final messenger = ScaffoldMessenger.of(context);
-  final state = context.read<AppState>();
-  final sent = context.t('safety.sent');
-  // Pozicioni ndihmon operacionet, por nuk e ndal raportin: leja e mohuar ose GPS-i i fikur nuk
-  // duhet ta lërë një njeri pa mundësi për të raportuar.
-  LatLng? at;
+  final l10n = KL10n.of(context);
+  final sent = l10n.t('safety.sent');
   try {
-    final loc = await const LocationService().current();
-    at = loc.point;
-  } on Exception {
-    at = null;
-  }
-  try {
-    await state.api.reportSafety(
+    await api.reportSafety(
       kind: kind,
       rideId: rideId,
       description: text.isEmpty ? null : text,
@@ -117,7 +113,6 @@ Future<void> _confirmAndSend(
     );
     messenger.showSnackBar(SnackBar(content: Text(sent)));
   } on ApiError catch (e) {
-    if (!context.mounted) return;
-    messenger.showSnackBar(SnackBar(content: Text(context.tError(e.messageKey))));
+    messenger.showSnackBar(SnackBar(content: Text(l10n.error(e.messageKey))));
   }
 }

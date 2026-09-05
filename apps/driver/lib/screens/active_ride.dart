@@ -5,6 +5,9 @@ import 'package:krejt_l10n/krejt_l10n.dart';
 import 'package:krejt_map/krejt_map.dart';
 import 'package:provider/provider.dart';
 
+import 'package:krejt_screens/krejt_screens.dart';
+
+import '../services/location.dart';
 import '../state/app_state.dart';
 import '../state/work_state.dart';
 import 'work.dart';
@@ -33,7 +36,18 @@ class ActiveRideScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: K.bg,
-      appBar: AppBar(title: Text(context.t(driverRideStateKey(ride.state)))),
+      appBar: AppBar(
+        title: Text(context.t(driverRideStateKey(ride.state))),
+        // Poshtë rri veprimi kryesor, që ndryshon me gjendjen; një buton sigurie pranë tij do
+        // të lëvizte bashkë me të dhe do të ftonte prekje të gabuar — dhe shoferi po ngas.
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.shield_outlined),
+            tooltip: context.t('safety.title'),
+            onPressed: () => _safety(context, ride.id),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(K.s5, K.s4, K.s5, K.s8),
@@ -138,6 +152,15 @@ class ActiveRideScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Vendndodhja merret këtu: paketa e përbashkët nuk i njeh shërbimet e secilit aplikacion, dhe
+/// një leje e mohuar nuk duhet ta ndalë raportin.
+Future<void> _safety(BuildContext context, String rideId) async {
+  final api = context.read<AppState>().api;
+  final position = await const LocationService().current();
+  if (!context.mounted) return;
+  await showSafetySheet(context, api: api, rideId: rideId, at: position.point);
 }
 
 class _PrimaryAction extends StatelessWidget {
