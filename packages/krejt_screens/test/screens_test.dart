@@ -67,4 +67,30 @@ void main() {
     expect(s.requestId, isNull);
     expect(s.copyWith(parcelId: 'p1').orderId, 'o1');
   });
+
+  // Rendi i llojeve nuk është rastësor: 'jam në rrezik' rri i pari sepse është ai që kërkohet me
+  // nxitim, dhe një listë e renditur ndryshe do të kushtonte sekonda pikërisht kur ato numërojnë.
+  testWidgets('fleta e sigurisë e nis me rrezikun dhe e thotë kufirin e saj', (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showSafetySheet(context, api: _api(), rideId: 'r1'),
+            child: const Text('hap'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('hap'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Jam në rrezik'), findsOneWidget);
+    // Teksti nuk premton ndihmë emergjente; kjo është zgjedhje, jo mungesë.
+    expect(
+      find.textContaining('telefono edhe policinë'),
+      findsOneWidget,
+      reason: 'fleta duhet ta thotë hapur se raporti shkon te operacionet, jo te policia',
+    );
+  });
 }

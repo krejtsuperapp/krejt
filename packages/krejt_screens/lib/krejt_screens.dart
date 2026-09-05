@@ -7,4 +7,5 @@
 library;
 
 export 'src/legal.dart';
+export 'src/safety.dart';
 export 'src/support.dart';

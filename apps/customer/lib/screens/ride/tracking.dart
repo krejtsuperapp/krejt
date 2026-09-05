@@ -7,11 +7,14 @@ import 'package:krejt_l10n/krejt_l10n.dart';
 import 'package:krejt_map/krejt_map.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/location.dart';
 import '../../state/app_state.dart';
 import '../home.dart';
 import 'chat.dart';
 import 'map_scaffold.dart';
-import 'safety.dart';
+
+import 'package:krejt_screens/krejt_screens.dart';
+
 import 'review.dart';
 
 /// Ndjekja e udhëtimit mbi hartë të plotë. Gjendja vjen nga kanali i gjallë (§42): çdo ngjarje
@@ -167,12 +170,32 @@ class _TrackingScreenState extends State<TrackingScreen> {
     ];
   }
 
+  /// Vendndodhja merret këtu e jo brenda fletës: secili aplikacion e ka shërbimin e vet, dhe
+  /// paketa e përbashkët nuk ka pse t'i njohë të dyja.
+  Future<void> _safety(String rideId) async {
+    final api = context.read<AppState>().api;
+    final position = await const LocationService().current();
+    if (!mounted) return;
+    await showSafetySheet(context, api: api, rideId: rideId, at: position.point);
+  }
+
   @override
   Widget build(BuildContext context) {
     final ride = _ride;
     final locale = context.watch<AppState>().locale;
     return MapScaffold.sheet(
       title: context.t('ride.tracking.title'),
+      // Siguria rri te koka e jo brenda fletës: fleta mund të jetë e ulur te 22 %, dhe një
+      // buton që kërkon rrëshqitje para se të gjendet nuk është buton sigurie.
+      actions: ride != null && ride.isActive
+          ? [
+              IconButton(
+                icon: const Icon(Icons.shield_outlined, color: K.text),
+                tooltip: context.t('safety.title'),
+                onPressed: () => _safety(ride.id),
+              ),
+            ]
+          : null,
       markers: _markers(ride),
       path: _path,
       sheet: (controller) => ride == null
@@ -332,16 +355,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
         const SizedBox(height: K.s5),
         _Timeline(ride: ride),
         const SizedBox(height: K.s5),
-        // Gjatë udhëtimit anulimi zhduket, ndaj pa këtë buton përdoruesi do të mbetej pa asnjë
-        // rrugë pikërisht kur i duhet më shumë.
-        if (ride.isActive) ...[
-          KOutlineButton(
-            label: context.t('safety.title'),
-            icon: Icons.shield_outlined,
-            onPressed: () => showSafetySheet(context, rideId: ride.id),
-          ),
-          const SizedBox(height: K.s3),
-        ],
         // Anulimi lejohet para nisjes; gjatë udhëtimit rruga e vetme është mbështetja (§18).
         if (ride.isActive && ride.state != RideState.inProgress)
           KOutlineButton(
